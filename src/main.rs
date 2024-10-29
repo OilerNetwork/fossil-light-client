@@ -14,16 +14,16 @@ sol!(
 );
 
 fn raw_var(name: &str) -> String {
-    return env::var(name).expect(&format!("Missing environment variable: {name}. Try exporting variables: export $(grep -v '^#' ../fossil/ethereum/anvil.env | xargs)"));
+    env::var(name).unwrap_or_else(|_| panic!("Missing environment variable: {name}. Try exporting variables: export $(grep -v '^#' ../fossil/ethereum/anvil.env | xargs)"))
 }
 
 fn get_var<T: FromStr>(name: &str) -> T
 where
     <T as FromStr>::Err: std::fmt::Debug,
 {
-    return raw_var(name)
+    raw_var(name)
         .parse()
-        .expect(&format!("Unable to parse {} environment variable.", name));
+        .unwrap_or_else(|_| panic!("Unable to parse {} environment variable.", name))
 }
 
 #[tokio::main]
