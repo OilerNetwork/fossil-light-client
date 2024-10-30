@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let address = get_var("L1_MESSAGE_SENDER_ADDRESS");
     let contract = L1MessagesSender::new(address, &provider);
 
-    let call_builder = contract.sendLatestParentHashToL2().value(Uint::from(1));
+    let call_builder = contract.sendFinalizedBlockHashToL2().value(Uint::from(1));
 
     let _pending_tx = call_builder.send().await?;
 
