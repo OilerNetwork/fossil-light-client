@@ -1,3 +1,4 @@
 /relayer/target
 /ethereum/out
-/starknet/target
+/starknet/store/target
+/starknet/l1_message_proxy/target
