@@ -1,1 +1,3 @@
-/target
+/relayer/target
+/ethereum/out
+/starknet/target
