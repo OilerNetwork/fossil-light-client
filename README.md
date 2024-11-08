@@ -52,7 +52,7 @@ In this terminal, you'll initialize Katana, a local Starknet development environ
 
 1. Navigate to the Starknet directory:
    ```bash
-   cd contracts/starknet
+   cd scripts/katana
    ```
 
 2. Start Katana with messaging integration for Anvil:
@@ -68,12 +68,12 @@ In this terminal, you will deploy all necessary Starknet contracts to the Katana
 
 1. Navigate to the Starknet directory:
    ```bash
-   cd contracts/starknet
+   cd scripts/katana
    ```
 
 2. Run the deployment script:
    ```bash
-   sh katana/deploy.sh
+   sh deploy.sh
    ```
 
 > **Note:** Ensure the `deploy.sh` script is configured correctly to deploy the required contracts for testing on Katana.
