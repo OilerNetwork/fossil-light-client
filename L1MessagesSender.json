@@ -11,9 +11,27 @@
                 "name": "l2RecipientAddr_",
                 "type": "uint256",
                 "internalType": "uint256"
+            },
+            {
+                "name": "finalizedBlockOffset_",
+                "type": "uint16",
+                "internalType": "uint16"
             }
         ],
         "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
+        "name": "finalizedBlockOffset",
+        "inputs": [],
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint16",
+                "internalType": "uint16"
+            }
+        ],
+        "stateMutability": "view"
     },
     {
         "type": "function",
@@ -43,7 +61,7 @@
     },
     {
         "type": "function",
-        "name": "sendLatestParentHashToL2",
+        "name": "sendFinalizedBlockHashToL2",
         "inputs": [],
         "outputs": [],
         "stateMutability": "payable"
