@@ -55,7 +55,12 @@ In this terminal, you'll initialize Katana, a local Starknet development environ
    cd scripts/katana
    ```
 
-2. Start Katana with messaging integration for Anvil:
+2. Source the environment variables:
+   ```bash
+   source config/katana.env
+   ```
+
+3. Start Katana with messaging integration for Anvil:
    ```bash
    katana --messaging anvil.messaging.json --disable-fee
    ```
