@@ -1,1 +1,0 @@
-{"version":1,"contracts":[{"id":"0970ot6mmhpv4","package_name":"l1_message_proxy","contract_name":"L1MessageProxy","module_path":"l1_message_proxy::L1MessageProxy","artifacts":{"sierra":"l1_message_proxy_L1MessageProxy.contract_class.json","casm":null}}]}

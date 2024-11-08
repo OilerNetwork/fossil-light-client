@@ -1,10 +1,10 @@
 /relayer/target
-/ethereum/out
-/starknet/store/target
-/starknet/l1_message_proxy/target
-/ethereum/broadcast
-ethereum/cache/
-
-ethereum/.env
+/contracts/ethereum/out
+/contracts/starknet/target
+contracts/ethereum/broadcast
+contracts/ethereum/cache/
+contracts/ethereum/.env
+contracts/ethereum/logs
+contracts/ethereum/remappings.txt
 
 ethereum/anvil.env

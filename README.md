@@ -10,7 +10,7 @@ In this terminal, you'll set up an Ethereum development environment using Anvil,
 
 1. Navigate to the Ethereum directory:
    ```bash
-   cd ethereum
+   cd contracts/ethereum
    ```
 
 2. Load the environment variables:
@@ -31,7 +31,7 @@ In this terminal, you will deploy the `L1MessageSender.sol` contract to the Anvi
 
 1. Navigate to the Ethereum directory:
    ```bash
-   cd ethereum
+   cd contracts/ethereum
    ```
 
 2. Load the environment variables:
@@ -52,7 +52,7 @@ In this terminal, you'll initialize Katana, a local Starknet development environ
 
 1. Navigate to the Starknet directory:
    ```bash
-   cd starknet
+   cd contracts/starknet
    ```
 
 2. Start Katana with messaging integration for Anvil:
@@ -68,7 +68,7 @@ In this terminal, you will deploy all necessary Starknet contracts to the Katana
 
 1. Navigate to the Starknet directory:
    ```bash
-   cd starknet
+   cd contracts/starknet
    ```
 
 2. Run the deployment script:
