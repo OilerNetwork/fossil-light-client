@@ -1,6 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["host", "methods", "starknet-handler", "guest-types", "client", "relayer"]
+members = [
+    "crates/host",
+    "crates/methods",
+    "crates/starknet-handler",
+    "crates/guest-types",
+    "crates/client",
+    "crates/relayer",
+]
 
 # Always optimize; building and running the guest takes much longer without optimization.
 [profile.dev]

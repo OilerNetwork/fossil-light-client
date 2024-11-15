@@ -1,14 +1,17 @@
 [package]
-name = "risc0_bn254_verifier"
+name = "verifier"
 version = "0.1.0"
 edition = "2023_11"
 
+# See more keys and their definitions at https://docs.swmansion.com/scarb/docs/reference/manifest.html
+
 [dependencies]
 garaga = { git = "https://github.com/keep-starknet-strange/garaga.git", rev = "65a2fad" }
-starknet = "2.8.4"
+starknet = { workspace = true }
 
 [dev-dependencies]
-snforge_std = "0.32.0"
+snforge_std = { workspace = true }
+assert_macros = {workspace = true }
 
 [[target.starknet-contract]]
 casm = true

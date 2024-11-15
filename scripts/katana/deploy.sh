@@ -32,12 +32,12 @@ echo "Contract address: $L1MESSAGEPROXY_ADDRESS"
 
 # Declare and deploy Universal ECIP contract
 echo "Declaring Universal ECIP contract..."
-ECIP_HASH=$(starkli declare ./target/dev/risc0_bn254_verifier_UniversalECIP.contract_class.json --compiler-version 2.8.2 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+ECIP_HASH=$(starkli declare ./target/dev/verifier_UniversalECIP.contract_class.json --compiler-version 2.8.2 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo "Class hash declared: $ECIP_HASH"
 
 # Declare and deploy Groth16 Verifier contract
 echo "Declaring Groth16 Verifier contract..."
-VERIFIER_HASH=$(starkli declare ./target/dev/risc0_bn254_verifier_Risc0Groth16VerifierBN254.contract_class.json --compiler-version 2.8.2 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+VERIFIER_HASH=$(starkli declare ./target/dev/verifier_Risc0Groth16VerifierBN254.contract_class.json --compiler-version 2.8.2 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo "Class hash declared: $VERIFIER_HASH"
 
 echo "Deploying Groth16 Verifier contract..."

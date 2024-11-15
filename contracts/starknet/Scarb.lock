@@ -2,6 +2,11 @@
 version = 1
 
 [[package]]
+name = "garaga"
+version = "0.1.0"
+source = "git+https://github.com/keep-starknet-strange/garaga.git?rev=65a2fad#65a2fad47069c67d15e6745845b542bba8d61b92"
+
+[[package]]
 name = "l1_message_proxy"
 version = "0.1.0"
 dependencies = [
@@ -28,5 +33,13 @@ dependencies = [
 name = "store"
 version = "0.1.0"
 dependencies = [
+ "snforge_std",
+]
+
+[[package]]
+name = "verifier"
+version = "0.1.0"
+dependencies = [
+ "garaga",
  "snforge_std",
 ]

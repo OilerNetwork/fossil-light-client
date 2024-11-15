@@ -15,7 +15,7 @@ In this terminal, you'll set up an Ethereum development environment using Anvil,
 
 2. Start the Anvil Ethereum development network:
    ```bash
-   anvil --fork-url $ETH_RPC_URL --auto-impersonate
+   anvil --fork-url $ETH_RPC_URL
    ```
 
 > **Note:** `${ETH_RPC_URL}` should be configured in `anvil.env` to point to the desired RPC provider (e.g., Infura or Alchemy) for forking mainnet data.
@@ -47,7 +47,7 @@ In this terminal, you'll initialize Katana, a local Starknet development environ
 
 1. Source the environment variables:
    ```bash
-   source ../../config/katana.env
+   source config/katana.env
    ```
 2. Update the `anvil.messaging.json` file with the correct values for `from_block` taken from the Anvil logs.
    ```
@@ -89,7 +89,7 @@ In this terminal, you will send the finalized block hash from the Ethereum netwo
 
 1. Navigate to the Ethereum directory:
    ```bash
-   cd relayer
+   cd crates/relayer
    ```
 
 2. Start the Relayer and send the finalized block hash to the Starknet network:
@@ -98,6 +98,18 @@ In this terminal, you will send the finalized block hash from the Ethereum netwo
    ```
 
 ## Next Steps
+
+## Run The Light Client
+
+1. Navigate to the Light Client directory:
+   ```bash
+   cd crates/client
+   ```
+
+2. Start the Light Client:
+   ```bash
+   cargo run
+   ```
 
 Once all terminals are set up, your local testing environment should be fully operational. You can now proceed with testing cross-chain messaging or other interactions between the simulated Ethereum and Starknet environments. 
 
