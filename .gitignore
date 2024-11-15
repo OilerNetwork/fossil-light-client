@@ -10,3 +10,15 @@ target/
 venv/
 requirements.txt
 db-instances/
+
+client/.cargo/
+
+client/db-store/
+
+config/anvil.env
+
+contracts/ethereum/remappings.txt
+
+scripts/katana/deploy.log
+
+scripts/katana/katana.log
