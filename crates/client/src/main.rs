@@ -61,12 +61,14 @@ async fn main() -> Result<()> {
                 .expect("Block number not found");
 
             // Fetch the latest stored blockhash from L1
-            let latest_relayed_block =
-                starknet_provider.get_latest_relayed_block(&l2_store_addr).await?;
+            let latest_relayed_block = starknet_provider
+                .get_latest_relayed_block(&l2_store_addr)
+                .await?;
 
             // Fetch latest MMR state from L2
-            let (latest_mmr_block, latest_mmr_root) =
-                starknet_provider.get_latest_mmr_state(&l2_store_addr).await?;
+            let (latest_mmr_block, latest_mmr_root) = starknet_provider
+                .get_latest_mmr_state(&l2_store_addr)
+                .await?;
 
             info!(
                 "Latest MMR state on Starknet: block number: {:?}, root: {:?}",
@@ -83,12 +85,16 @@ async fn main() -> Result<()> {
 
             info!(
                 "Calling Risc0, proving blockheaders from {:?} to {:?}",
-                latest_mmr_block + 1, latest_relayed_block
+                latest_mmr_block + 1,
+                latest_relayed_block
             );
 
             let (proof_verified, new_mmr_root) = update_mmr_and_verify_onchain(
                 &db_file,
-                latest_mmr_block, latest_relayed_block, &starknet_rpc_url, &verifier_addr
+                latest_mmr_block,
+                latest_relayed_block,
+                &starknet_rpc_url,
+                &verifier_addr,
             )
             .await?;
 

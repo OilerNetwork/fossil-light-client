@@ -56,17 +56,13 @@ impl StarknetProvider {
         Ok(result)
     }
 
-    pub async fn get_latest_mmr_state(
-        &self,
-        l2_store_address: &Felt,
-    ) -> Result<(u64, Felt)> {
+    pub async fn get_latest_mmr_state(&self, l2_store_address: &Felt) -> Result<(u64, Felt)> {
         let data = self
             .provider
             .call(
                 FunctionCall {
                     contract_address: l2_store_address.clone(),
-                    entry_point_selector: get_selector_from_name("get_mmr_state")
-                        .unwrap(),
+                    entry_point_selector: get_selector_from_name("get_mmr_state").unwrap(),
                     calldata: vec![],
                 },
                 BlockId::Tag(BlockTag::Latest),
@@ -80,10 +76,7 @@ impl StarknetProvider {
         Ok((from_block, data[1]))
     }
 
-    pub async fn get_latest_relayed_block(
-        &self,
-        l2_store_address: &Felt,
-    ) -> Result<u64> {
+    pub async fn get_latest_relayed_block(&self, l2_store_address: &Felt) -> Result<u64> {
         let data = self
             .provider
             .call(
@@ -98,8 +91,9 @@ impl StarknetProvider {
             .await
             .expect("Failed to call contract");
 
-        let block_number = u64::from_str_radix(data[0].to_hex_string().trim_start_matches("0x"), 16)
-            .expect("Failed to convert hex string to u64");
+        let block_number =
+            u64::from_str_radix(data[0].to_hex_string().trim_start_matches("0x"), 16)
+                .expect("Failed to convert hex string to u64");
 
         Ok(block_number)
     }
@@ -140,7 +134,8 @@ impl StarknetAccount {
         let tx = self
             .account
             .execute_v1(vec![starknet::core::types::Call {
-                selector: starknet::core::utils::get_selector_from_name("update_mmr_state").unwrap(),
+                selector: starknet::core::utils::get_selector_from_name("update_mmr_state")
+                    .unwrap(),
                 calldata: vec![Felt::from(latest_block_number), new_mmr_root],
                 to: store_address,
             }])
