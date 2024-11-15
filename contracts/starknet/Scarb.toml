@@ -1,0 +1,12 @@
+[workspace]
+members = ["l1_message_proxy", "store"]
+
+[workspace.dependencies]
+risc0_bn254_verifier = { path = "/home/ametel/source/mmr-builder/contracts" }
+assert_macros = "2.8.4"
+starknet = "2.8.4"
+snforge_std = "0.32.0"
+
+[dev-dependencies]
+snforge_std.workspace = true
+assert_macros.workspace = true

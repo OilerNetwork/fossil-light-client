@@ -1,0 +1,8 @@
+[workspace]
+members = ["contracts"]
+
+[lib]
+casm = true
+
+[cairo]
+sierra-replace-ids = false

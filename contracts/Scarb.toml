@@ -1,0 +1,17 @@
+[package]
+name = "risc0_bn254_verifier"
+version = "0.1.0"
+edition = "2023_11"
+
+[dependencies]
+garaga = { git = "https://github.com/keep-starknet-strange/garaga.git", rev = "65a2fad" }
+starknet = "2.8.4"
+
+[dev-dependencies]
+snforge_std = "0.32.0"
+
+[[target.starknet-contract]]
+casm = true
+casm-add-pythonic-hints = true
+
+[lib]

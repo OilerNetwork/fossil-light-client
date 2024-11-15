@@ -1,13 +1,11 @@
-[package]
-name = "send-hash-to-l2"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
+members = ["host", "methods", "starknet-handler", "guest-types", "client", "relayer"]
 
-[dependencies]
-alloy-contract = "0.5.4"
-alloy-network = "0.5.4"
-alloy-primitives = "0.8.9"
-alloy-provider = "0.5.4"
-alloy-signer-local = "0.5.4"
-alloy-sol-types = { version = "0.8.9", features = ["json"] }
-tokio = { version = "1.41.0", features = ["full"] }
+# Always optimize; building and running the guest takes much longer without optimization.
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+debug = 1
+lto = true
