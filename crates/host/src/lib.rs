@@ -6,11 +6,9 @@ pub use accumulator::AccumulatorBuilder;
 use eyre::Result;
 use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
 use mmr_accumulator::processor_utils::{create_database_file, ensure_directory_exists};
-// use mmr_accumulator::BlockHeader;
 pub use proof_generator::{ProofGenerator, ProofType};
 use starknet_crypto::Felt;
-use starknet_handler::verify_groth16_proof_onchain;
-use tracing::info;
+use starknet_handler::StarknetProvider;
 
 pub async fn update_mmr_and_verify_onchain(
     db_file: &str,          // Path to the existing SQLite database file
@@ -19,9 +17,6 @@ pub async fn update_mmr_and_verify_onchain(
     rpc_url: &str,          // RPC URL for Starknet
     verifier_address: &str, // Verifier contract address
 ) -> Result<(bool, String)> {
-    info!("RPC URL: {}", rpc_url);
-    info!("Verifier address: {}", verifier_address);
-    info!("Sending headers to Risc0-zkVM...");
     // Initialize proof generator
     let proof_generator = ProofGenerator::new(MMR_GUEST_ELF, MMR_GUEST_ID);
 
@@ -32,11 +27,10 @@ pub async fn update_mmr_and_verify_onchain(
     let (proof_calldata, new_mmr_root_hash) = builder
         .update_mmr_with_new_headers(start_block, end_block)
         .await?;
-    info!("MMR successfully updated with new block headers");
 
-    info!("Verifying proof onchain...");
-    // Call the verification function with the provided RPC URL and verifier address
-    let result = verify_groth16_proof_onchain(rpc_url, verifier_address, &proof_calldata);
+    let provider = StarknetProvider::new(rpc_url);
+
+    let result = provider.verify_groth16_proof_onchain(verifier_address, &proof_calldata);
 
     let verification_result = result.await.expect("Failed to verify final Groth16 proof");
 

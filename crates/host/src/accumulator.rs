@@ -10,7 +10,6 @@ use mmr_accumulator::{
 };
 use starknet_crypto::Felt;
 use store::{SqlitePool, SubKey};
-use tracing::{debug, info};
 
 pub struct AccumulatorBuilder {
     batch_size: u64,
@@ -49,17 +48,11 @@ impl AccumulatorBuilder {
     async fn process_batch(&mut self, start_block: u64, end_block: u64) -> Result<BatchResult> {
         // Fetch headers
         let headers = get_block_headers_in_range(start_block, end_block).await?;
-        debug!("Fetched {} headers", headers.len());
 
         // Get and verify current MMR state
         let current_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
         let current_elements_count = self.mmr.elements_count.get().await?;
         let current_leaves_count = self.mmr.leaves_count.get().await?;
-
-        debug!("Current MMR state:");
-        debug!("  Elements count: {}", current_elements_count);
-        debug!("  Leaves count: {}", current_leaves_count);
-        debug!("  Peaks: {:?}", current_peaks);
 
         // Prepare guest input
         let mmr_input = GuestInput {
@@ -123,7 +116,6 @@ impl AccumulatorBuilder {
     }
 
     async fn update_mmr_state(&mut self, guest_output: &GuestOutput) -> Result<String> {
-        info!("Guest output: {:?}", guest_output);
         // Verify state transition
         let current_elements_count = self.mmr.elements_count.get().await?;
         if guest_output.elements_count < current_elements_count {
@@ -131,11 +123,6 @@ impl AccumulatorBuilder {
                 "Invalid state transition: elements count decreased"
             ));
         }
-
-        info!("Updating MMR state:");
-        info!("  Current elements count: {}", current_elements_count);
-        info!("  New elements count: {}", guest_output.elements_count);
-        info!("  New peaks: {:?}", guest_output.final_peaks);
 
         // First update the MMR counters
         self.mmr
@@ -146,11 +133,6 @@ impl AccumulatorBuilder {
 
         // Update all hashes in the store
         for result in &guest_output.append_results {
-            info!(
-                "  Storing hash at index {}: {}",
-                result.element_index, result.root_hash
-            );
-
             // Store the hash in MMR
             self.mmr
                 .hashes
@@ -166,7 +148,6 @@ impl AccumulatorBuilder {
         // Update peaks
         let peaks_indices = find_peaks(guest_output.elements_count);
         for (peak_hash, &peak_idx) in guest_output.final_peaks.iter().zip(peaks_indices.iter()) {
-            info!("  Storing peak at index {}: {}", peak_idx, peak_hash);
             self.mmr
                 .hashes
                 .set(peak_hash, SubKey::Usize(peak_idx))
@@ -175,7 +156,6 @@ impl AccumulatorBuilder {
 
         // Verify the state was properly updated
         let stored_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
-        info!("Verified stored peaks: {:?}", stored_peaks);
 
         if stored_peaks != guest_output.final_peaks {
             return Err(eyre::eyre!("Failed to verify stored peaks after update"));
@@ -193,11 +173,13 @@ impl AccumulatorBuilder {
     /// Build the MMR using a specified number of batches
     pub async fn build_with_num_batches(&mut self, num_batches: u64) -> Result<Vec<BatchResult>> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
+
         self.total_batches = num_batches;
         self.current_batch = 0;
         self.previous_proofs.clear();
 
         let mut batch_results = Vec::new();
+
         let mut current_end = finalized_block_number;
 
         for _ in 0..num_batches {
@@ -206,16 +188,11 @@ impl AccumulatorBuilder {
             }
 
             let start_block = current_end.saturating_sub(self.batch_size as u64 - 1);
-            info!(
-                "Processing batch {}/{}: {} to {}",
-                self.current_batch + 1,
-                self.total_batches,
-                start_block,
-                current_end
-            );
 
             let result = self.process_batch(start_block, current_end).await?;
+
             batch_results.push(result);
+
             current_end = start_block.saturating_sub(1);
         }
 
@@ -230,20 +207,16 @@ impl AccumulatorBuilder {
         self.previous_proofs.clear(); // Clear any existing proofs
 
         let mut batch_results = Vec::new();
+
         let mut current_end = finalized_block_number;
 
         while current_end > 0 {
             let start_block = current_end.saturating_sub(self.batch_size as u64 - 1);
-            info!(
-                "Processing batch {}/{}: {} to {}",
-                self.current_batch + 1,
-                self.total_batches,
-                start_block,
-                current_end
-            );
 
             let result = self.process_batch(start_block, current_end).await?;
+
             batch_results.push(result);
+
             current_end = start_block.saturating_sub(1);
         }
 

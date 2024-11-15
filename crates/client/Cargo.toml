@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 host = { path = "../host" }
-
+starknet-handler = { path = "../starknet-handler" }
 db-access = { git = "https://github.com/OilerNetwork/fossil-offchain-processor.git", branch = "block-validity-deps-segregation" }
 mmr-accumulator = { git = "https://github.com/OilerNetwork/fossil-offchain-processor.git", branch = "block-validity-deps-segregation" }
 

@@ -9,18 +9,14 @@ pub trait IRisc0Groth16VerifierBN254<TContractState> {
 
 #[starknet::contract]
 mod Risc0Groth16VerifierBN254 {
-    use starknet::SyscallResultTrait;
     use garaga::definitions::{G1Point, G1G2Pair};
-    use garaga::groth16::{multi_pairing_check_bn254_3P_2F_with_extra_miller_loop_result};
     use garaga::ec_ops::{G1PointTrait, ec_safe_add};
     use garaga::ec_ops_g2::{G2PointTrait};
-    use garaga::utils::risc0::{compute_receipt_claim, journal_sha256};
+    use garaga::groth16::{multi_pairing_check_bn254_3P_2F_with_extra_miller_loop_result};
     use garaga::utils::calldata::deserialize_full_proof_with_hints_risc0;
+    use garaga::utils::risc0::{compute_receipt_claim, journal_sha256};
+    use starknet::SyscallResultTrait;
     use super::{N_FREE_PUBLIC_INPUTS, vk, ic, precomputed_lines, T};
-    // use serde::{Serialize, Deserialize};
-
-    // const ECIP_OPS_CLASS_HASH: felt252 =
-    //     0x70c1d1c709c75e3cf51d79d19cf7c84a0d4521f3a2b8bf7bff5cb45ee0dd289;
 
     #[storage]
     struct Storage {
@@ -87,7 +83,7 @@ mod Risc0Groth16VerifierBN254 {
             );
 
             // Perform the pairing check.
-            multi_pairing_check_bn254_3P_2F_with_extra_miller_loop_result(
+            let result = multi_pairing_check_bn254_3P_2F_with_extra_miller_loop_result(
                 G1G2Pair { p: vk_x, q: vk.gamma_g2 },
                 G1G2Pair { p: groth16_proof.c, q: vk.delta_g2 },
                 G1G2Pair { p: groth16_proof.a.negate(0), q: groth16_proof.b },
@@ -95,7 +91,9 @@ mod Risc0Groth16VerifierBN254 {
                 precomputed_lines.span(),
                 mpcheck_hint,
                 small_Q
-            )
+            );
+
+            result
         }
     }
 }

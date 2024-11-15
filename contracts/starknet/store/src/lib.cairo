@@ -1,7 +1,7 @@
 #[starknet::interface]
 pub trait IStore<TContractState> {
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
-    fn store_mmr_root(ref self: TContractState, mmr_root: felt252);
+    fn store_mmr_root(ref self: TContractState, latest_block_number: u64, mmr_root: felt252);
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
     fn get_mmr_root(self: @TContractState) -> felt252;
 }
@@ -17,8 +17,8 @@ mod Store {
     #[event]
     #[derive(Drop, starknet::Event)]
     enum Event {
-        LatestBlockhashFromL1Stored:LatestBlockhashFromL1Stored,
-        MmrRootStored:MmrRootStored,
+        LatestBlockhashFromL1Stored: LatestBlockhashFromL1Stored,
+        MmrRootStored: MmrRootStored,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -29,6 +29,7 @@ mod Store {
 
     #[derive(Drop, starknet::Event)]
     struct MmrRootStored {
+        latest_block_number: u64,
         mmr_root: felt252,
     }
 
@@ -45,8 +46,9 @@ mod Store {
             self.latest_blockhash_from_l1.read()
         }
 
-        fn store_mmr_root(ref self: ContractState, mmr_root: felt252) {
+        fn store_mmr_root(ref self: ContractState, latest_block_number: u64, mmr_root: felt252) {
             self.mmr_root.write(mmr_root);
+            self.emit(MmrRootStored { latest_block_number, mmr_root });
         }
 
         fn get_mmr_root(self: @ContractState) -> felt252 {

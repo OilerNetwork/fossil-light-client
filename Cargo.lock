@@ -2475,6 +2475,7 @@ dependencies = [
  "host",
  "mmr-accumulator",
  "starknet",
+ "starknet-handler",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -6715,8 +6716,8 @@ dependencies = [
 name = "starknet-handler"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "dotenv",
+ "eyre",
  "starknet",
  "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio",

@@ -3,7 +3,7 @@ use dotenv::dotenv;
 use eyre::Result;
 use host::{get_store_path, AccumulatorBuilder, ProofGenerator, ProofType};
 use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
-use starknet_handler::verify_groth16_proof_onchain;
+use starknet_handler::StarknetProvider;
 use std::env;
 use tracing::info;
 
@@ -71,7 +71,8 @@ async fn main() -> Result<()> {
             Some(ProofType::Stark { .. }) => info!("Generated STARK proof"),
             Some(ProofType::Groth16 { calldata, .. }) => {
                 info!("Generated Groth16 proof");
-                let result = verify_groth16_proof_onchain(&rpc_url, &verifier_address, &calldata);
+                let provider = StarknetProvider::new(&rpc_url);
+                let result = provider.verify_groth16_proof_onchain(&verifier_address, &calldata);
                 info!(
                     "Proof verification result: {:?}",
                     result.await.expect("Failed to verify final Groth16 proof")

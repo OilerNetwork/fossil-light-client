@@ -86,25 +86,18 @@ impl ProofGenerator {
                 )
                 .map_err(|e| eyre::eyre!("Proof generation failed: {}", e))?
                 .receipt;
-            info!("Generated Groth16 proof");
-
-            // receipt
-            //     .verify(method_id)
-            //     .map_err(|e| eyre::eyre!("Verification failed: {}", e))?;
 
             // Convert to Groth16
             let encoded_seal =
                 encode_seal(&receipt).map_err(|e| eyre::eyre!("Failed to encode seal: {}", e))?;
-            info!("Encoded seal");
+
             let image_id = compute_image_id(method_elf)
                 .map_err(|e| eyre::eyre!("Failed to compute image id: {}", e))?;
-            info!("Computed image id");
+
             let journal = receipt.journal.bytes.clone();
-            info!("Extracted journal");
 
             let groth16_proof =
                 Groth16Proof::from_risc0(encoded_seal, image_id.as_bytes().to_vec(), journal);
-            info!("Created Groth16 proof");
 
             info!("Generating StarkNet calldata...");
             let calldata = get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254)

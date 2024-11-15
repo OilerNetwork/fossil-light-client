@@ -15,6 +15,7 @@ use starknet::{
         Provider as StarknetProvider, Url,
     },
 };
+use starknet_handler::StarknetAccount;
 use tracing::info;
 
 #[tokio::main]
@@ -27,7 +28,7 @@ async fn main() -> Result<()> {
 
     info!("Starting Fossil Light Client...");
 
-    let starknet_rpc_url = dotenv::var("KATANA_RPC_URL").expect("KATANA_RPC_URL not set");
+    let starknet_rpc_url = dotenv::var("STARKNET_RPC_URL").expect("STARKNET_RPC_URL not set");
 
     let l2_store_addr =
         Felt::from_hex(&dotenv::var("FOSSIL_STORE").expect("FOSSIL_STORE not set")).unwrap();
@@ -50,7 +51,7 @@ async fn main() -> Result<()> {
     info!("Fetched {} events", events.events.len());
 
     // Fetch the latest stored blockhash from L1
-    let latest_updated_block = starknet_provider
+    let latest_update_data = starknet_provider
         .call(
             FunctionCall {
                 contract_address: l2_store_addr,
@@ -61,11 +62,6 @@ async fn main() -> Result<()> {
         )
         .await
         .expect("failed to call contract");
-
-    info!(
-        "Latest updated block on Starknet: {:?}",
-        latest_updated_block
-    );
 
     let ethereum_provider_url = dotenv::var("ANVIL_URL")
         .expect("ANVIL_RPC_URL not set")
@@ -83,19 +79,20 @@ async fn main() -> Result<()> {
         .header
         .inner
         .number;
-    info!(
-        "Latest Ethereum finalized block: {:?}",
-        latest_finalized_block_number
-    );
 
     // Convert the block number from the call response
     let from_block = u64::from_str_radix(
-        latest_updated_block[0]
+        latest_update_data[0]
             .to_hex_string()
             .trim_start_matches("0x"),
         16, // Base 16 for hexadecimal
     )
     .expect("Failed to convert hex string to u64");
+    info!(
+        "Latest Ethereum finalized block: {:?}",
+        latest_finalized_block_number
+    );
+    info!("Latest updated block number on Starknet: {}", from_block);
 
     // call risc0 prover to verify the blockheaders, append to MMR and verify SNARK proof.
     // Set up the database file path
@@ -116,7 +113,28 @@ async fn main() -> Result<()> {
     .await?;
     info!("Proof verified: {:?}", proof_verified);
     info!("New MMR root: {:?}", new_mmr_root);
+
     // if SNARK proof is valid, update the latest stored blockhash and MMR root on L2
+    if proof_verified {
+        info!("Updating MMR state on Starknet...");
+        let starknet_account = StarknetAccount::new(
+            starknet_provider,
+            &dotenv::var("STARKNET_PRIVATE_KEY").expect("STARKNET_PRIVATE_KEY not set"),
+            &dotenv::var("STARKNET_ACCOUNT_ADDRESS").expect("STARKNET_ACCOUNT_ADDRESS not set"),
+        );
+
+        starknet_account
+            .update_mmr_state(
+                l2_store_addr,
+                latest_finalized_block_number,
+                Felt::from_hex(&new_mmr_root).unwrap(),
+            )
+            .await?;
+        info!(
+            "MMR state updated on Starknet with latest finalized block number: {:?}, new MMR root: {:?}",
+            latest_finalized_block_number, new_mmr_root
+        );
+    }
 
     // repeat having a way to check if new events are found
 

@@ -10,6 +10,12 @@ snforge_std = "0.32.0"
 casm = true
 casm-add-pythonic-hints = true
 
+[workspace.tool.fmt]
+sort-module-level-items = true
+
+[tool]
+fmt.workspace = true
+
 [lib]
 casm = true
 

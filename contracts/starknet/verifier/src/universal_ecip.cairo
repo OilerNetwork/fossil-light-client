@@ -1,4 +1,3 @@
-
 use garaga::definitions::{G1Point};
 use garaga::ec_ops::{MSMHint, MSMHintSmallScalar, DerivePointFromXHint};
 

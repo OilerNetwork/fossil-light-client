@@ -10,7 +10,7 @@ In this terminal, you'll set up an Ethereum development environment using Anvil,
 
 1. Load the environment variables:
    ```bash
-   source config/anvil.env
+   source .env
    ```
 
 2. Start the Anvil Ethereum development network:
@@ -24,14 +24,14 @@ In this terminal, you'll set up an Ethereum development environment using Anvil,
 
 In this terminal, you will deploy the `L1MessageSender.sol` contract to the Anvil development network, which is essential for message relaying between Ethereum and Starknet in this testing setup.
 
-1. Navigate to the Ethereum directory:
+1. Load the environment variables:
    ```bash
-   cd contracts/ethereum
+   source .env
    ```
 
-2. Load the environment variables:
+2. Navigate to the Ethereum directory:
    ```bash
-   source ../../config/anvil.env
+   cd contracts/ethereum
    ```
 
 3. Deploy the contract:
@@ -61,7 +61,7 @@ In this terminal, you'll initialize Katana, a local Starknet development environ
 
 3. Start Katana with messaging integration for Anvil:
    ```bash
-   katana --messaging config/anvil.messaging.json --disable-fee
+   katana --messaging config/anvil.messaging.json --disable-fee --disable-validate
    ```
 
 > **Note:** `--messaging` enables communication between Anvil and Katana, and `--disable-fee` allows for testing without transaction fees.

@@ -13,6 +13,9 @@ starknet = { workspace = true }
 snforge_std = { workspace = true }
 assert_macros = {workspace = true }
 
+[tool]
+fmt.workspace = true
+
 [[target.starknet-contract]]
 casm = true
 casm-add-pythonic-hints = true
