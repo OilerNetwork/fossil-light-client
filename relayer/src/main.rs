@@ -1,12 +1,9 @@
-use std::{env, str::FromStr};
 use alloy::{
-    network::EthereumWallet,
-    primitives::U256,
-    providers::ProviderBuilder,
-    signers::local::PrivateKeySigner,
-    sol_types::sol,
+    network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
+    signers::local::PrivateKeySigner, sol_types::sol,
 };
 use dotenv::dotenv;
+use std::{env, str::FromStr};
 use tracing::info;
 
 sol!(
@@ -31,7 +28,7 @@ where
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenv().ok();
-    tracing_subscriber::fmt::init(); 
+    tracing_subscriber::fmt::init();
 
     info!("Starting the relayer...");
 
@@ -52,7 +49,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load the contract address and initialize the contract
     let address = get_var("L1_MESSAGE_SENDER");
     let contract = L1MessagesSender::new(address, &provider);
-    info!("Initialized L1MessagesSender contract at address {}", address);
+    info!(
+        "Initialized L1MessagesSender contract at address {}",
+        address
+    );
 
     // Get the L2 recipient address
     let l2_recipient_addr: U256 = get_var("L2_MSG_PROXY");
@@ -65,7 +65,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("Prepared transaction to send block hash with value: 30000 Wei");
 
     let pending_tx = call_builder.send().await?;
-    info!("Transaction sent successfully. Tx hash: {:?}", pending_tx.tx_hash());
+    info!(
+        "Transaction sent successfully. Tx hash: {:?}",
+        pending_tx.tx_hash()
+    );
 
     Ok(())
 }

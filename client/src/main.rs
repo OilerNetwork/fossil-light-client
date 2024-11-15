@@ -5,8 +5,8 @@ use alloy::{
 };
 use dotenv::dotenv;
 use eyre::Result;
-use mmr_accumulator::processor_utils::{create_database_file, ensure_directory_exists};
 use host::update_mmr_and_verify_onchain;
+use mmr_accumulator::processor_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
     core::types::{BlockId, BlockTag, EventFilter, Felt, FunctionCall},
     macros::selector,
