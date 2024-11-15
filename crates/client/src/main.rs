@@ -1,21 +1,17 @@
-use alloy::{
-    eips::BlockNumberOrTag,
-    network::primitives::BlockTransactionsKind,
-    providers::{Provider as EthereumProvider, ProviderBuilder},
-};
+use std::sync::Arc;
+
 use dotenv::dotenv;
 use eyre::Result;
 use host::update_mmr_and_verify_onchain;
 use mmr_accumulator::processor_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
-    core::types::{BlockId, BlockTag, EventFilter, Felt, FunctionCall},
+    core::types::{BlockId, BlockTag, EventFilter, Felt},
     macros::selector,
-    providers::{
-        jsonrpc::{HttpTransport, JsonRpcClient},
-        Provider as StarknetProvider, Url,
-    },
+    providers::Provider as EventProvider,
 };
-use starknet_handler::StarknetAccount;
+use starknet_handler::{StarknetAccount, StarknetProvider};
+use std::time::Duration;
+use tokio::time::sleep;
 use tracing::info;
 
 #[tokio::main]
@@ -29,114 +25,103 @@ async fn main() -> Result<()> {
     info!("Starting Fossil Light Client...");
 
     let starknet_rpc_url = dotenv::var("STARKNET_RPC_URL").expect("STARKNET_RPC_URL not set");
-
     let l2_store_addr =
         Felt::from_hex(&dotenv::var("FOSSIL_STORE").expect("FOSSIL_STORE not set")).unwrap();
-
     let verifier_addr = dotenv::var("STARKNET_VERIFIER").expect("STARKNET_VERIFIER not set");
 
-    let starknet_provider =
-        JsonRpcClient::new(HttpTransport::new(Url::parse(&starknet_rpc_url).unwrap()));
+    let starknet_provider = StarknetProvider::new(&starknet_rpc_url);
 
-    // Poll for events from the latest stored blockhash to the latest block
-    let event_filter = EventFilter {
-        from_block: Some(BlockId::Number(0)),
-        to_block: Some(BlockId::Tag(BlockTag::Latest)),
-        address: Some(l2_store_addr),
-        keys: Some(vec![vec![selector!("LatestBlockhashFromL1Stored")]]),
-    };
+    // Variable to track the latest processed block number
+    let mut latest_processed_block: u64 = 0;
 
-    let events = starknet_provider.get_events(event_filter, None, 1).await?;
+    loop {
+        info!("Listening for new events...");
+        // Poll for new events, starting from the block after the last processed block
+        let event_filter = EventFilter {
+            from_block: Some(BlockId::Number(latest_processed_block + 1)),
+            to_block: Some(BlockId::Tag(BlockTag::Latest)),
+            address: Some(l2_store_addr),
+            keys: Some(vec![vec![selector!("LatestBlockhashFromL1Stored")]]),
+        };
 
-    info!("Fetched {} events", events.events.len());
+        let events = starknet_provider
+            .provider
+            .get_events(event_filter, None, 1)
+            .await?;
 
-    // Fetch the latest stored blockhash from L1
-    let latest_update_data = starknet_provider
-        .call(
-            FunctionCall {
-                contract_address: l2_store_addr,
-                entry_point_selector: selector!("get_latest_blockhash_from_l1"),
-                calldata: vec![],
-            },
-            BlockId::Tag(BlockTag::Latest),
-        )
-        .await
-        .expect("failed to call contract");
+        if !events.events.is_empty() {
+            info!("Fetched {} new events", events.events.len());
 
-    let ethereum_provider_url = dotenv::var("ANVIL_URL")
-        .expect("ANVIL_RPC_URL not set")
-        .parse()?;
-    let ethereum_provider = ProviderBuilder::new().on_http(ethereum_provider_url);
+            // Update the latest processed block to the latest block from the new events
+            latest_processed_block = events
+                .events
+                .last()
+                .unwrap()
+                .block_number
+                .expect("Block number not found");
 
-    // if new events are found:
-    // 1. fetch the Ethereum latest finalized block number
-    let latest_finalized_block = ethereum_provider
-        .get_block_by_number(BlockNumberOrTag::Finalized, BlockTransactionsKind::Hashes)
-        .await
-        .expect("failed to get latest finalized block");
-    let latest_finalized_block_number: u64 = latest_finalized_block
-        .expect("failed to get latest finalized block")
-        .header
-        .inner
-        .number;
+            // Fetch the latest stored blockhash from L1
+            let latest_relayed_block =
+                starknet_provider.get_latest_relayed_block(&l2_store_addr).await?;
 
-    // Convert the block number from the call response
-    let from_block = u64::from_str_radix(
-        latest_update_data[0]
-            .to_hex_string()
-            .trim_start_matches("0x"),
-        16, // Base 16 for hexadecimal
-    )
-    .expect("Failed to convert hex string to u64");
-    info!(
-        "Latest Ethereum finalized block: {:?}",
-        latest_finalized_block_number
-    );
-    info!("Latest updated block number on Starknet: {}", from_block);
+            // Fetch latest MMR state from L2
+            let (latest_mmr_block, latest_mmr_root) =
+                starknet_provider.get_latest_mmr_state(&l2_store_addr).await?;
 
-    // call risc0 prover to verify the blockheaders, append to MMR and verify SNARK proof.
-    // Set up the database file path
-    let current_dir = ensure_directory_exists("db-store")?;
-    let db_file = create_database_file(&current_dir, 0)?;
+            info!(
+                "Latest MMR state on Starknet: block number: {:?}, root: {:?}",
+                latest_mmr_block, latest_mmr_root
+            );
+            info!(
+                "Latest relayed block number on Starknet: {}",
+                latest_relayed_block
+            );
 
-    info!(
-        "Calling Risc0, proving blockheaders from {:?} to {:?}",
-        from_block, latest_finalized_block_number
-    );
-    let (proof_verified, new_mmr_root) = update_mmr_and_verify_onchain(
-        &db_file,
-        from_block,
-        latest_finalized_block_number,
-        &starknet_rpc_url,
-        &verifier_addr,
-    )
-    .await?;
-    info!("Proof verified: {:?}", proof_verified);
-    info!("New MMR root: {:?}", new_mmr_root);
+            // Call Risc0 prover to verify the blockheaders, append to MMR, and verify SNARK proof
+            let current_dir = ensure_directory_exists("db-store")?;
+            let db_file = create_database_file(&current_dir, 0)?;
 
-    // if SNARK proof is valid, update the latest stored blockhash and MMR root on L2
-    if proof_verified {
-        info!("Updating MMR state on Starknet...");
-        let starknet_account = StarknetAccount::new(
-            starknet_provider,
-            &dotenv::var("STARKNET_PRIVATE_KEY").expect("STARKNET_PRIVATE_KEY not set"),
-            &dotenv::var("STARKNET_ACCOUNT_ADDRESS").expect("STARKNET_ACCOUNT_ADDRESS not set"),
-        );
+            info!(
+                "Calling Risc0, proving blockheaders from {:?} to {:?}",
+                latest_mmr_block + 1, latest_relayed_block
+            );
 
-        starknet_account
-            .update_mmr_state(
-                l2_store_addr,
-                latest_finalized_block_number,
-                Felt::from_hex(&new_mmr_root).unwrap(),
+            let (proof_verified, new_mmr_root) = update_mmr_and_verify_onchain(
+                &db_file,
+                latest_mmr_block, latest_relayed_block, &starknet_rpc_url, &verifier_addr
             )
             .await?;
-        info!(
-            "MMR state updated on Starknet with latest finalized block number: {:?}, new MMR root: {:?}",
-            latest_finalized_block_number, new_mmr_root
-        );
+
+            info!("Proof verified: {:?}", proof_verified);
+            info!("New MMR root: {:?}", new_mmr_root);
+
+            // If SNARK proof is valid, update the latest stored blockhash and MMR root on L2
+            if proof_verified {
+                info!("Updating MMR state on Starknet...");
+                let starknet_account = StarknetAccount::new(
+                    Arc::clone(&starknet_provider.provider), // Clone the `Arc` to pass it
+                    &dotenv::var("STARKNET_PRIVATE_KEY").expect("STARKNET_PRIVATE_KEY not set"),
+                    &dotenv::var("STARKNET_ACCOUNT_ADDRESS")
+                        .expect("STARKNET_ACCOUNT_ADDRESS not set"),
+                );
+
+                starknet_account
+                    .update_mmr_state(
+                        l2_store_addr,
+                        latest_relayed_block,
+                        Felt::from_hex(&new_mmr_root).unwrap(),
+                    )
+                    .await?;
+                info!(
+                    "MMR state updated on Starknet with latest relayed block number: {:?}, new MMR root: {:?}",
+                    latest_relayed_block, new_mmr_root
+                );
+            }
+        } else {
+            info!("No new events found.");
+        }
+
+        // Wait for a specified interval before checking for new events again
+        sleep(Duration::from_secs(60)).await; // Check every 60 seconds
     }
-
-    // repeat having a way to check if new events are found
-
-    Ok(())
 }

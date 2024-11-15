@@ -8,6 +8,7 @@ L1_MESSAGES_SENDER="0xb60971942E4528A811D24826768Bc91ad1383D21"
 
 # Load environment variables
 source ../../config/katana.env
+
 cd $WORKING_DIR
 
 scarb build
@@ -46,6 +47,23 @@ echo "Contract deployed at: $VERIFIER_ADDRESS"
 
 echo "All contracts deployed!"
 
+# Fetch the current Ethereum block number using `cast`
+ETH_BLOCK=$(cast block-number)
+echo "Current Ethereum block number: $ETH_BLOCK"
+
+# Ensure `ETH_BLOCK` is a valid number before performing arithmetic
+if [[ $ETH_BLOCK =~ ^[0-9]+$ ]]; then
+    # Subtract 256 from the current block number
+    ETH_BLOCK=$((ETH_BLOCK - 256))
+    echo "Updated Ethereum block number: $ETH_BLOCK"
+    
+    # Run the Starkli command with the updated block number
+    starkli invoke $FOSSILSTORE_ADDRESS update_mmr_state $ETH_BLOCK 0x0
+    echo "Updated MMR state on Starknet for testing with block number: $ETH_BLOCK"
+else
+    echo "Failed to retrieve a valid block number from 'cast'."
+fi
+
 # Path to the .env file
 ENV_FILE="../../.env"
 
@@ -58,7 +76,7 @@ update_env_var() {
         sed -i "s|^$var_name=.*|$var_name=$var_value|" "$ENV_FILE"
     else
         echo "Appending $var_name to $ENV_FILE..."
-        echo "$var_name=$var_value" >> "$ENV_FILE"
+        echo "$var_name=$var_value" >>"$ENV_FILE"
     fi
 }
 
@@ -66,5 +84,7 @@ update_env_var() {
 update_env_var "L2_MSG_PROXY" "$L1MESSAGEPROXY_ADDRESS"
 update_env_var "FOSSIL_STORE" "$FOSSILSTORE_ADDRESS"
 update_env_var "STARKNET_VERIFIER" "$VERIFIER_ADDRESS"
+
+source ../../.env
 
 echo "Environment variables successfully updated in $ENV_FILE"

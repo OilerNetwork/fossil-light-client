@@ -6718,6 +6718,7 @@ version = "0.1.0"
 dependencies = [
  "dotenv",
  "eyre",
+ "num-traits",
  "starknet",
  "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio",

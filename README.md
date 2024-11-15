@@ -15,33 +15,12 @@ In this terminal, you'll set up an Ethereum development environment using Anvil,
 
 2. Start the Anvil Ethereum development network:
    ```bash
-   anvil --fork-url $ETH_RPC_URL
+   anvil --fork-url $ETH_RPC_URL --block-time 12
    ```
 
 > **Note:** `${ETH_RPC_URL}` should be configured in `anvil.env` to point to the desired RPC provider (e.g., Infura or Alchemy) for forking mainnet data.
 
-## Terminal 2: Deploy L1MessageSender.sol
-
-In this terminal, you will deploy the `L1MessageSender.sol` contract to the Anvil development network, which is essential for message relaying between Ethereum and Starknet in this testing setup.
-
-1. Load the environment variables:
-   ```bash
-   source .env
-   ```
-
-2. Navigate to the Ethereum directory:
-   ```bash
-   cd contracts/ethereum
-   ```
-
-3. Deploy the contract:
-   ```bash
-   forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL
-   ```
-
-> **Note:** This deployment requires `forge` and should be configured to point to the `ANVIL_URL` as specified in `anvil.env`.
-
-## Terminal 3: Start Katana Starknet Devnet and Deploy Contracts
+## Terminal 2: Start Katana Starknet Devnet and Deploy Contracts
 
 In this terminal, you'll initialize Katana, a local Starknet development environment. Katana will work in tandem with Anvil for cross-chain interactions in your testing setup.
 
@@ -66,13 +45,33 @@ In this terminal, you'll initialize Katana, a local Starknet development environ
 
 > **Note:** `--messaging` enables communication between Anvil and Katana, and `--disable-fee` allows for testing without transaction fees.
 
-## Terminal 4: Deploy Starknet Contracts
 
-In this terminal, you will deploy all necessary Starknet contracts to the Katana development network.
+## Terminal 3: Deploy L1MessageSender.sol
 
-1. Navigate to the Starknet directory:
+In this terminal, you will deploy the `L1MessageSender.sol` contract to the Anvil development network, which is essential for message relaying between Ethereum and Starknet in this testing setup.
+
+1. Load the environment variables:
    ```bash
-   cd scripts/katana
+   source .env
+   ```
+
+2. Navigate to the Ethereum directory:
+   ```bash
+   cd contracts/ethereum
+   ```
+
+3. Deploy the contract:
+   ```bash
+   forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL
+   ```
+
+> **Note:** This deployment requires `forge` and should be configured to point to the `ANVIL_URL` as specified in `anvil.env`.
+
+   Now deploy all necessary Starknet contracts to the Katana development network.
+
+1. Navigate to the Starknet deployment script directory:
+   ```bash
+   cd ../../scripts/katana/
    ```
 
 2. Run the deployment script:
@@ -83,23 +82,7 @@ In this terminal, you will deploy all necessary Starknet contracts to the Katana
 > **Note:** Ensure the `deploy.sh` script is configured correctly to deploy the required contracts for testing on Katana.
 >
 
-## Terminal 5: Send Finalized Block Hash to L2
-
-In this terminal, you will send the finalized block hash from the Ethereum network to the Starknet network.
-
-1. Navigate to the Ethereum directory:
-   ```bash
-   cd crates/relayer
-   ```
-
-2. Start the Relayer and send the finalized block hash to the Starknet network:
-   ```bash
-   cargo run 
-   ```
-
-## Next Steps
-
-## Run The Light Client
+## Terminal 4: Run The Light Client
 
 1. Navigate to the Light Client directory:
    ```bash
@@ -108,11 +91,20 @@ In this terminal, you will send the finalized block hash from the Ethereum netwo
 
 2. Start the Light Client:
    ```bash
-   cargo run
+   RUST_LOG=info cargo run
    ```
 
-Once all terminals are set up, your local testing environment should be fully operational. You can now proceed with testing cross-chain messaging or other interactions between the simulated Ethereum and Starknet environments. 
+## Back to Terminal 3: Trigger the Relayer to Send Finalized Block Hash to L2
 
-For further customization or troubleshooting, refer to individual configuration files and environment variables in each service directory.
+3. Send the finalized block hash from the Ethereum network to the Starknet network.
 
+1. Navigate to the Ethereum directory:
+   ```bash
+   cd ../../crates/relayer
+   ```
+
+2. Start the Relayer and send the finalized block hash to the Starknet network:
+   ```bash
+   cargo run
+   ```
 </readme>
