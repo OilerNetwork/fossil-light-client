@@ -19,10 +19,10 @@ jobs:
       - name: Install risczero toolchain
         run: |
           curl -L https://risczero.com/install | bash
-          echo "$HOME/.risc0/bin" >> $GITHUB_PATH  # Add to PATH using GitHub Actions method
-          echo "PATH=$HOME/.risc0/bin:$PATH" >> $GITHUB_ENV  # Ensure it's available for the session
+          export PATH="$HOME/.risc0/bin:$PATH"  
           rzup install
           rzup install cpp
+          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
 
       - name: Build
         run: cargo build --verbose
