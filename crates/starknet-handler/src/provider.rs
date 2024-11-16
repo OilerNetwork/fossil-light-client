@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{error::StarknetHandlerError, get_selector};
+use crate::{get_felt_from_str, get_selector, StarknetHandlerError};
 use eyre::Result;
 use starknet::{
     core::types::{BlockId, BlockTag, FunctionCall},
@@ -28,8 +28,7 @@ impl StarknetProvider {
         verifier_address: &str,
         calldata: &[Felt],
     ) -> Result<Vec<Felt>> {
-        let contract_address = Felt::from_hex(verifier_address)
-            .map_err(|_| StarknetHandlerError::ParseError(verifier_address.to_string()))?;
+        let contract_address = get_felt_from_str(verifier_address)?;
         tracing::info!("contract_address: {:?}", contract_address);
 
         let entry_point_selector = get_selector("verify_groth16_proof_bn254")?;

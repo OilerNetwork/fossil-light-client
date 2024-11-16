@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{error::StarknetHandlerError, get_selector};
+use crate::{get_felt_from_str, get_selector};
 use eyre::Result;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
@@ -20,12 +20,10 @@ impl StarknetAccount {
         account_private_key: &str,
         account_address: &str,
     ) -> Result<Self> {
-        let private_key = Felt::from_hex(account_private_key)
-            .map_err(|_| StarknetHandlerError::ParseError(account_private_key.to_string()))?;
+        let private_key = get_felt_from_str(account_private_key)?;
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(private_key));
 
-        let address = Felt::from_hex(account_address)
-            .map_err(|_| StarknetHandlerError::ParseError(account_address.to_string()))?;
+        let address = get_felt_from_str(account_address)?;
 
         let account = SingleOwnerAccount::new(
             provider, // Use `Arc` directly
