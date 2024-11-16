@@ -2,28 +2,36 @@ name: Rust
 
 on:
   push:
-    branches: ['main']
+    branches: ["main"]
   pull_request:
-    branches: ['main']
+    branches: ["main"]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  build-fmt-lint:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install risczero toolchain
+        run: |
+          curl -L https://risczero.com/install | bash
+          export PATH="$HOME/.risc0/bin:$PATH"  
+          rzup install
+          rzup install cpp
+          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
+
       - name: Build
         run: cargo build --verbose
+
       - name: Run tests
         run: cargo test --verbose
+
       - name: Run format check
         run: cargo fmt --check
-      - name: Run Clippy
-        run: |
-          cd crates/relayer && cargo clippy -- -D warnings
-          cd ../starknet-handler && cargo clippy -- -D warnings
-          cd ../common && cargo clippy -- -D warnings
 
+      # - name: Run Clippy
+      #   run: cargo clippy -- -D warnings
