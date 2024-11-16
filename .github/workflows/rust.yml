@@ -19,8 +19,8 @@ jobs:
       - name: Install risczero toolchain
         run: |
           curl -L https://risczero.com/install | bash
-          echo "::add-path::${HOME}/.risc0/bin"  # Explicitly add to PATH
-          source ~/.bashrc
+          echo "$HOME/.risc0/bin" >> $GITHUB_PATH  # Add to PATH using GitHub Actions method
+          echo "PATH=$HOME/.risc0/bin:$PATH" >> $GITHUB_ENV  # Ensure it's available for the session
           rzup install
           rzup install cpp
 
@@ -33,5 +33,5 @@ jobs:
       - name: Run format check
         run: cargo fmt --check
 
-      # - name: Run Clippy
-      #   run: cargo clippy -- -D warnings
+      - name: Run Clippy
+        run: cargo clippy -- -D warnings
