@@ -22,3 +22,5 @@ contracts/ethereum/remappings.txt
 scripts/katana/deploy.log
 
 scripts/katana/katana.log
+
+.cargo/

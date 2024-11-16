@@ -2477,6 +2477,7 @@ dependencies = [
  "mmr-accumulator",
  "starknet",
  "starknet-handler",
+ "thiserror 2.0.3",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -2579,6 +2580,7 @@ version = "0.1.0"
 dependencies = [
  "dotenv",
  "eyre",
+ "thiserror 2.0.3",
  "tracing-subscriber 0.3.18",
 ]
 
@@ -5458,6 +5460,7 @@ dependencies = [
  "common",
  "dotenv",
  "eyre",
+ "thiserror 2.0.3",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -6734,6 +6737,7 @@ dependencies = [
  "num-traits",
  "starknet",
  "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "thiserror 2.0.3",
  "tokio",
  "tracing",
 ]

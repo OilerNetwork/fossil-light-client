@@ -7,6 +7,7 @@ edition = "2021"
 host = { path = "../host" }
 starknet-handler = { path = "../starknet-handler" }
 
+thiserror = "2.0.3"
 db-access = { git = "https://github.com/OilerNetwork/fossil-offchain-processor.git", branch = "block-validity-deps-segregation" }
 mmr-accumulator = { git = "https://github.com/OilerNetwork/fossil-offchain-processor.git", branch = "block-validity-deps-segregation" }
 common = { path = "../common" }
