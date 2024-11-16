@@ -11,7 +11,6 @@ use tracing::info;
 pub enum RelayerError {
     #[error("Ethereum provider initialization failed: {0}")]
     ProviderError(String),
-
     #[error("Transaction failed: {0}")]
     TransactionError(String),
 }

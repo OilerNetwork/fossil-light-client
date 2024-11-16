@@ -8,10 +8,8 @@ use thiserror::Error;
 pub enum CommonError {
     #[error("Environment variable {0} not set")]
     EnvVarNotSet(String),
-
     #[error("Unable to parse {0} environment variable: {1}")]
     ParseError(String, String),
-
     #[error("Logger initialization failed")]
     LoggerInitFailed,
 }
