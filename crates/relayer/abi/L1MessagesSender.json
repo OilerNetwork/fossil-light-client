@@ -1,0 +1,26 @@
+[
+    {
+        "type": "constructor",
+        "inputs": [
+            {
+                "name": "snMessaging",
+                "type": "address",
+                "internalType": "address"
+            }
+        ],
+        "stateMutability": "nonpayable"
+    },
+    {
+        "type": "function",
+        "name": "sendFinalizedBlockHashToL2",
+        "inputs": [
+            {
+                "name": "l2RecipientAddr",
+                "type": "uint256",
+                "internalType": "uint256"
+            }
+        ],
+        "outputs": [],
+        "stateMutability": "payable"
+    }
+]
