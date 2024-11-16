@@ -1,6 +1,5 @@
 use eyre::Result;
-use std::time::Duration;
-use tokio::time::sleep;
+use tokio::time::{self, Duration};
 use tracing::{error, info};
 
 use common::get_env_var;
@@ -53,19 +52,15 @@ impl LightClient {
 
     /// Runs the light client event loop.
     pub async fn run(&mut self) -> Result<()> {
+        let mut interval = time::interval(Duration::from_secs(60));
+
         loop {
+            interval.tick().await;
             info!("Listening for new events...");
 
-            match self.process_new_events().await {
-                Ok(_) => {
-                    // Continue to the next iteration
-                }
-                Err(e) => {
-                    error!("Error processing events: {:?}", e);
-                }
+            if let Err(e) = self.process_new_events().await {
+                error!("Error processing events: {:?}", e);
             }
-
-            sleep(Duration::from_secs(60)).await; // Check every 60 seconds
         }
     }
 
