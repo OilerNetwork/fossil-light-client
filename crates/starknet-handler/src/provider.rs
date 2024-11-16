@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
-use crate::{get_felt_from_str, get_selector, StarknetHandlerError};
+use crate::{felt, StarknetHandlerError};
 use eyre::Result;
+use starknet::macros::selector;
 use starknet::{
     core::types::{BlockId, BlockTag, FunctionCall},
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider, Url},
@@ -28,10 +29,10 @@ impl StarknetProvider {
         verifier_address: &str,
         calldata: &[Felt],
     ) -> Result<Vec<Felt>> {
-        let contract_address = get_felt_from_str(verifier_address)?;
+        let contract_address = felt(verifier_address)?;
         tracing::info!("contract_address: {:?}", contract_address);
 
-        let entry_point_selector = get_selector("verify_groth16_proof_bn254")?;
+        let entry_point_selector = selector!("verify_groth16_proof_bn254");
 
         let result = self
             .provider
@@ -50,7 +51,7 @@ impl StarknetProvider {
     }
 
     pub async fn get_latest_mmr_state(&self, l2_store_address: &Felt) -> Result<(u64, Felt)> {
-        let entry_point_selector = get_selector("get_mmr_state")?;
+        let entry_point_selector = selector!("get_mmr_state");
 
         let data = self
             .provider
@@ -72,7 +73,7 @@ impl StarknetProvider {
     }
 
     pub async fn get_latest_relayed_block(&self, l2_store_address: &Felt) -> Result<u64> {
-        let entry_point_selector = get_selector("get_latest_blockhash_from_l1")?;
+        let entry_point_selector = selector!("get_latest_blockhash_from_l1");
 
         let data = self
             .provider

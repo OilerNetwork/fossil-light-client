@@ -13,11 +13,6 @@ pub enum StarknetHandlerError {
     TransactionError(String),
 }
 
-pub fn get_selector(name: &str) -> Result<Felt, StarknetHandlerError> {
-    starknet::core::utils::get_selector_from_name(name)
-        .map_err(|_| StarknetHandlerError::SelectorError(name.to_string()))
-}
-
-pub fn get_felt_from_str(str: &str) -> Result<Felt, StarknetHandlerError> {
+pub fn felt(str: &str) -> Result<Felt, StarknetHandlerError> {
     Felt::from_hex(str).map_err(|_| StarknetHandlerError::ParseError(str.to_string()))
 }
