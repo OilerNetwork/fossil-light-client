@@ -1,4 +1,4 @@
-// src/main.rs
+#![deny(unused_crate_dependencies)]
 
 mod relayer;
 

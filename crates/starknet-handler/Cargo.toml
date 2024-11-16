@@ -4,15 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# anyhow = "1.0"
 eyre = "0.6"
-dotenv = "0.15"
-tokio = "1"
 thiserror = "2.0.3"
 starknet-crypto = "0.7.3"
 starknet = "0.12"
 tracing = "0.1"
-num-traits = "0.2"
 
 [lints]
 workspace = true

@@ -1,3 +1,8 @@
+#![deny(unused_crate_dependencies)]
+use clap as _;
+use common as _;
+use risc0_groth16 as _;
+
 pub mod accumulator;
 pub mod proof_generator;
 pub mod types;

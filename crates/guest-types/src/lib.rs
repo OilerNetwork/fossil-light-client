@@ -1,3 +1,5 @@
+#![deny(unused_crate_dependencies)]
+
 use block_validity::BlockHeader;
 use risc0_zkvm::Receipt;
 use serde::{Deserialize, Serialize};

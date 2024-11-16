@@ -1,3 +1,5 @@
+#![deny(unused_crate_dependencies)]
+
 use eyre::Result;
 use std::str::FromStr;
 use thiserror::Error;
