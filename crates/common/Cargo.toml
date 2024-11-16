@@ -7,3 +7,6 @@ edition = "2021"
 eyre = "0.6"
 dotenv = "0.15"
 tracing-subscriber = "0.3.18"
+
+[lints]
+workspace = true

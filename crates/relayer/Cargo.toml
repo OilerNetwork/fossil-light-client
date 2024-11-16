@@ -15,5 +15,6 @@ dotenv = "0.15.0"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 eyre = "0.6"
-# [lints]
-# workspace = true
+
+[lints]
+workspace = true

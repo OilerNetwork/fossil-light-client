@@ -1,5 +1,5 @@
-use std::str::FromStr;
 use eyre::Result;
+use std::str::FromStr;
 
 /// Retrieves an environment variable or returns an error if not set.
 pub fn get_env_var(key: &str) -> Result<String> {
@@ -21,8 +21,7 @@ where
 pub fn initialize_logger_and_env() -> Result<()> {
     dotenv::dotenv().ok();
 
-    tracing_subscriber::fmt()
-        .init();
+    tracing_subscriber::fmt().init();
 
     Ok(())
 }

@@ -3,9 +3,9 @@
 mod relayer;
 
 use crate::relayer::Relayer;
+use common::initialize_logger_and_env;
 use eyre::Result;
 use tracing::info;
-use common::initialize_logger_and_env;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,4 +21,3 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
-

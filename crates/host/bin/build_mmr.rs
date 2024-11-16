@@ -1,10 +1,9 @@
 use clap::Parser;
-use dotenv::dotenv;
-use eyre::Result;
+use common::{get_env_var, initialize_logger_and_env};
+use eyre::{eyre, Result};
 use host::{get_store_path, AccumulatorBuilder, ProofGenerator, ProofType};
 use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
 use starknet_handler::provider::StarknetProvider;
-use std::env;
 use tracing::info;
 
 #[derive(Parser, Debug)]
@@ -25,23 +24,17 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Load environment variables from .env file
-    dotenv().ok();
+    initialize_logger_and_env()?;
 
-    let rpc_url = env::var("STARKNET_RPC_URL").expect("STARKNET_RPC_URL must be set");
-    let verifier_address = env::var("VERIFIER_ADDRESS").expect("VERIFIER_ADDRESS must be set");
-
-    // Initialize tracing subscriber
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::filter::EnvFilter::from_default_env())
-        .init();
+    let rpc_url = get_env_var("STARKNET_RPC_URL")?;
+    let verifier_address = get_env_var("VERIFIER_ADDRESS")?;
 
     info!("Starting Publisher...");
 
     // Parse CLI arguments
     let args = Args::parse();
 
-    let store_path = get_store_path(args.db_file).expect("Failed to get store path");
+    let store_path = get_store_path(args.db_file).map_err(|e| eyre!(e))?;
 
     info!("Initializing proof generator...");
     // Initialize proof generator
@@ -71,11 +64,11 @@ async fn main() -> Result<()> {
             Some(ProofType::Stark { .. }) => info!("Generated STARK proof"),
             Some(ProofType::Groth16 { calldata, .. }) => {
                 info!("Generated Groth16 proof");
-                let provider = StarknetProvider::new(&rpc_url);
-                let result = provider.verify_groth16_proof_onchain(&verifier_address, &calldata);
+                let provider = StarknetProvider::new(&rpc_url)?;
+                let result = provider.verify_groth16_proof_onchain(&verifier_address, calldata);
                 info!(
                     "Proof verification result: {:?}",
-                    result.await.expect("Failed to verify final Groth16 proof")
+                    result.await.map_err(|e| eyre!(e))?
                 );
             }
             None => info!("No proof generated"),

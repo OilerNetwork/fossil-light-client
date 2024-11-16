@@ -1,8 +1,8 @@
 mod client;
 
-use eyre::Result;
 use client::LightClient;
 use common::initialize_logger_and_env;
+use eyre::Result;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -13,5 +13,3 @@ async fn main() -> Result<()> {
     let mut client = LightClient::new().await?;
     client.run().await
 }
-
-

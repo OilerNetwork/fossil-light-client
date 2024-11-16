@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 host = { path = "../host" }
 starknet-handler = { path = "../starknet-handler" }
+
 db-access = { git = "https://github.com/OilerNetwork/fossil-offchain-processor.git", branch = "block-validity-deps-segregation" }
 mmr-accumulator = { git = "https://github.com/OilerNetwork/fossil-offchain-processor.git", branch = "block-validity-deps-segregation" }
 common = { path = "../common" }
@@ -17,5 +18,5 @@ eyre = "0.6.10"
 tracing = "0.1.39"
 tracing-subscriber = "0.3.18"
 
-# [lints]
-# workspace = true
+[lints]
+workspace = true

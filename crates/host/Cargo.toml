@@ -19,6 +19,7 @@ path = "bin/build_mmr.rs"
 guest-types = { path = "../guest-types" }
 starknet-handler = { path = "../starknet-handler" }
 methods = { path = "../methods" }
+common = { path = "../common" }
 
 garaga_rs = { git = "https://github.com/ametel01/garaga.git" }
 mmr-accumulator = { git = "https://github.com/OilerNetwork/fossil-offchain-processor.git", branch = "block-validity-deps-segregation" }
@@ -26,7 +27,7 @@ db-access = { git = "https://github.com/OilerNetwork/fossil-offchain-processor.g
 mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "workspace" }
 store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "workspace" }
 
-
+bytemuck = "1.14"
 risc0-zkvm = { version = "1.1.3" }
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 serde = "1.0"
@@ -48,3 +49,6 @@ clap = { version = "4.5", features = ["derive"] }
 [dev-dependencies]
 tempfile = "3.13"
 block-validity = { git = "https://github.com/OilerNetwork/fossil-offchain-processor.git", branch = "block-validity-deps-segregation" }
+
+[lints]
+workspace = true

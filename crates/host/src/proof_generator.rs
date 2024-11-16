@@ -113,8 +113,7 @@ impl ProofGenerator {
 
     pub fn decode_journal<T: for<'a> Deserialize<'a>>(&self, proof: &ProofType) -> Result<T> {
         let receipt = match proof {
-            ProofType::Stark { receipt, .. } => receipt,
-            ProofType::Groth16 { receipt, .. } => receipt,
+            ProofType::Groth16 { receipt, .. } | ProofType::Stark { receipt, .. } => receipt,
         };
         Ok(receipt.journal.decode()?)
     }

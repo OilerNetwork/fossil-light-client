@@ -1,8 +1,8 @@
-use std::sync::Arc;
 use eyre::Result;
-use tracing::{error, info};
+use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
+use tracing::{error, info};
 
 use common::get_env_var;
 use host::update_mmr_and_verify_onchain;
@@ -35,7 +35,7 @@ impl LightClient {
         let starknet_account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
 
         // Initialize providers
-        let starknet_provider = StarknetProvider::new(&starknet_rpc_url);
+        let starknet_provider = StarknetProvider::new(&starknet_rpc_url)?;
 
         // Set up the database file path
         let current_dir = ensure_directory_exists("db-store")?;
@@ -119,10 +119,7 @@ impl LightClient {
             .get_latest_mmr_state(&self.l2_store_addr)
             .await?;
 
-        info!(
-            "Latest MMR block on Starknet: {}",
-            latest_mmr_block
-        );
+        info!("Latest MMR block on Starknet: {}", latest_mmr_block);
         info!(
             "Latest relayed block number on Starknet: {}",
             latest_relayed_block
@@ -178,7 +175,7 @@ impl LightClient {
             Arc::clone(&self.starknet_provider.provider),
             &self.starknet_private_key,
             &self.starknet_account_address,
-        );
+        )?;
 
         starknet_account
             .update_mmr_state(

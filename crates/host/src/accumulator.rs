@@ -187,7 +187,7 @@ impl AccumulatorBuilder {
                 break;
             }
 
-            let start_block = current_end.saturating_sub(self.batch_size as u64 - 1);
+            let start_block = current_end.saturating_sub(self.batch_size - 1);
 
             let result = self.process_batch(start_block, current_end).await?;
 
@@ -202,7 +202,7 @@ impl AccumulatorBuilder {
     pub async fn build_from_finalized(&mut self) -> Result<Vec<BatchResult>> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
 
-        self.total_batches = (finalized_block_number / self.batch_size as u64) + 1;
+        self.total_batches = (finalized_block_number / self.batch_size) + 1;
         self.current_batch = 0;
         self.previous_proofs.clear(); // Clear any existing proofs
 
@@ -211,7 +211,7 @@ impl AccumulatorBuilder {
         let mut current_end = finalized_block_number;
 
         while current_end > 0 {
-            let start_block = current_end.saturating_sub(self.batch_size as u64 - 1);
+            let start_block = current_end.saturating_sub(self.batch_size - 1);
 
             let result = self.process_batch(start_block, current_end).await?;
 
@@ -229,12 +229,12 @@ impl AccumulatorBuilder {
         start_block: u64,
         end_block: u64,
     ) -> Result<(Vec<Felt>, String)> {
-        self.total_batches = ((end_block - start_block) / self.batch_size as u64) + 1;
+        self.total_batches = ((end_block - start_block) / self.batch_size) + 1;
 
         let result = self.process_batch(start_block, end_block).await?;
 
         // Extract the `calldata` from the `Groth16` proof
-        if let ProofType::Groth16 { calldata, .. } = result.proof.unwrap() {
+        if let Some(ProofType::Groth16 { calldata, .. }) = result.proof {
             Ok((calldata, result.new_mmr_root_hash))
         } else {
             Err(eyre::eyre!(

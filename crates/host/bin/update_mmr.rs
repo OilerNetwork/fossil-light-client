@@ -2,9 +2,8 @@ use std::env;
 
 use clap::Parser;
 use dotenv::dotenv;
-use eyre::Result;
-use host::{get_store_path, update_mmr_and_verify_onchain}; // Import the function from your library
-use tracing_subscriber;
+use eyre::{eyre, Result};
+use host::{get_store_path, update_mmr_and_verify_onchain};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -41,7 +40,7 @@ async fn main() -> Result<()> {
 
     let args = Args::parse();
 
-    let store_path = get_store_path(args.db_file).expect("Failed to get store path");
+    let store_path = get_store_path(args.db_file).map_err(|e| eyre!(e))?;
 
     let (proof_verified, new_mmr_root) = update_mmr_and_verify_onchain(
         &store_path,
