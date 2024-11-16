@@ -29,8 +29,8 @@ impl StarknetProvider {
         verifier_address: &str,
         calldata: &[Felt],
     ) -> Result<Vec<Felt>> {
+        tracing::info!("Verifying Groth16 proof onchain...");
         let contract_address = felt(verifier_address)?;
-        tracing::info!("contract_address: {:?}", contract_address);
 
         let entry_point_selector = selector!("verify_groth16_proof_bn254");
 
