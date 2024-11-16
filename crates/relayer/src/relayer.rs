@@ -70,6 +70,10 @@ impl Relayer {
             .sendFinalizedBlockHashToL2(self.l2_recipient_addr)
             .value(U256::from(30000));
         info!("Prepared transaction to send block hash with value: 30000 Wei");
+        info!(
+            "Sending transaction to L2 address: {:?}",
+            self.l2_recipient_addr
+        );
 
         let pending_tx = call_builder
             .send()
