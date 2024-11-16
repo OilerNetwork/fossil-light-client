@@ -10,7 +10,19 @@ use mmr_accumulator::{
 };
 use starknet_crypto::Felt;
 use store::{SqlitePool, SubKey};
+use thiserror::Error;
 use tracing::info;
+
+#[derive(Error, Debug)]
+pub enum AccumulatorError {
+    #[error("Invalid state transition: elements count decreased")]
+    InvalidStateTransition,
+    #[error("Failed to verify stored peaks after update")]
+    PeaksVerificationError,
+    #[error("Expected Groth16 proof but got a different proof type")]
+    ExpectedGroth16Proof,
+}
+
 pub struct AccumulatorBuilder {
     batch_size: u64,
     store_manager: StoreManager,
@@ -29,9 +41,6 @@ impl AccumulatorBuilder {
         batch_size: u64,
     ) -> Result<Self> {
         let (store_manager, mmr, pool) = initialize_mmr(store_path).await?;
-
-        // Configure pool with appropriate settings
-        // sqlx::migrate!("./migrations").run(&pool).await?;
 
         Ok(Self {
             batch_size,
@@ -101,9 +110,7 @@ impl AccumulatorBuilder {
         // Verify state after update
         let final_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
         if final_peaks != guest_output.final_peaks {
-            return Err(eyre::eyre!(
-                "Final peaks verification failed after batch processing"
-            ));
+            return Err(AccumulatorError::PeaksVerificationError.into());
         }
 
         self.current_batch += 1;
@@ -120,9 +127,7 @@ impl AccumulatorBuilder {
         // Verify state transition
         let current_elements_count = self.mmr.elements_count.get().await?;
         if guest_output.elements_count < current_elements_count {
-            return Err(eyre::eyre!(
-                "Invalid state transition: elements count decreased"
-            ));
+            return Err(AccumulatorError::InvalidStateTransition.into());
         }
 
         // First update the MMR counters
@@ -159,7 +164,7 @@ impl AccumulatorBuilder {
         let stored_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
 
         if stored_peaks != guest_output.final_peaks {
-            return Err(eyre::eyre!("Failed to verify stored peaks after update"));
+            return Err(AccumulatorError::PeaksVerificationError.into());
         }
 
         let bag = self.mmr.bag_the_peaks(None).await?;
@@ -239,9 +244,7 @@ impl AccumulatorBuilder {
         if let Some(ProofType::Groth16 { calldata, .. }) = result.proof {
             Ok((calldata, result.new_mmr_root_hash))
         } else {
-            Err(eyre::eyre!(
-                "Expected Groth16 proof but got a different proof type"
-            ))
+            Err(AccumulatorError::ExpectedGroth16Proof.into())
         }
     }
 }

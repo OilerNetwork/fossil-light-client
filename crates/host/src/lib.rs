@@ -8,12 +8,19 @@ pub mod proof_generator;
 pub mod types;
 
 pub use accumulator::AccumulatorBuilder;
-use eyre::{eyre, Result};
+use eyre::Result;
 use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
 use mmr_accumulator::processor_utils::{create_database_file, ensure_directory_exists};
 pub use proof_generator::{ProofGenerator, ProofType};
 use starknet_crypto::Felt;
 use starknet_handler::provider::StarknetProvider;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum HostError {
+    #[error("Verification result is empty")]
+    VerificationError,
+}
 
 pub async fn update_mmr_and_verify_onchain(
     db_file: &str,          // Path to the existing SQLite database file
@@ -38,12 +45,11 @@ pub async fn update_mmr_and_verify_onchain(
     // Attempt to verify the Groth16 proof on-chain
     let verification_result = provider
         .verify_groth16_proof_onchain(verifier_address, &proof_calldata)
-        .await
-        .map_err(|e| eyre!("Failed to verify final Groth16 proof: {}", e))?;
+        .await?;
 
     let verified = *verification_result
         .first()
-        .ok_or_else(|| eyre!("Verification result is empty"))?
+        .ok_or_else(|| HostError::VerificationError)?
         == Felt::from(1);
 
     Ok((verified, new_mmr_root_hash))

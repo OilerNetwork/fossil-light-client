@@ -3281,6 +3281,7 @@ dependencies = [
  "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "starknet-handler",
  "store",
+ "thiserror 2.0.3",
  "tokio",
  "tracing",
 ]

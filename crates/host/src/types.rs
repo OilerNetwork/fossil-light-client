@@ -15,16 +15,10 @@ pub enum ProofType {
     },
 }
 
+#[derive(Debug, Clone)]
 pub struct BatchResult {
     pub start_block: u64,
     pub end_block: u64,
     pub new_mmr_root_hash: String,
     pub proof: Option<ProofType>,
 }
-
-// #[derive(Clone)]
-// pub struct MMRState {
-//     pub peaks: Vec<String>,
-//     pub elements_count: usize,
-//     pub leaves_count: usize,
-// }

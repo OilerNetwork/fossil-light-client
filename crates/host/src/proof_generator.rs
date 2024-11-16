@@ -10,8 +10,25 @@ use guest_types::CombinedInput;
 use risc0_ethereum_contracts::encode_seal;
 use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, VerifierContext};
 use serde::Deserialize;
+use thiserror::Error;
 use tokio::task;
 use tracing::info;
+
+#[derive(Error, Debug)]
+pub enum ProofGeneratorError {
+    #[error("Failed to write input to executor env")]
+    ExecutorEnvError(String),
+    #[error("Failed to generate receipt")]
+    ReceiptError(String),
+    #[error("Failed to compute image id")]
+    ImageIdError(String),
+    #[error("Failed to encode seal")]
+    SealError(String),
+    #[error("Failed to generate StarkNet calldata")]
+    CalldataError(String),
+    #[error("Failed to spawn blocking task")]
+    SpawnBlockingError(String),
+}
 
 pub struct ProofGenerator {
     method_elf: &'static [u8],
@@ -37,17 +54,17 @@ impl ProofGenerator {
         let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
             let env = ExecutorEnv::builder()
                 .write(&input)
-                .map_err(|e| eyre::eyre!("Failed to write input: {}", e))?
+                .map_err(|e| ProofGeneratorError::ExecutorEnvError(e.to_string()))?
                 .build()
-                .map_err(|e| eyre::eyre!("Failed to build executor env: {}", e))?;
+                .map_err(|e| ProofGeneratorError::ExecutorEnvError(e.to_string()))?;
 
             let receipt = default_prover()
                 .prove(env, method_elf)
-                .map_err(|e| eyre::eyre!("Proof generation failed: {}", e))?
+                .map_err(|e| ProofGeneratorError::ReceiptError(e.to_string()))?
                 .receipt;
 
             let image_id = compute_image_id(method_elf)
-                .map_err(|e| eyre::eyre!("Failed to compute image id: {}", e))?;
+                .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
 
             Ok(ProofType::Stark {
                 receipt,
@@ -56,7 +73,7 @@ impl ProofGenerator {
             })
         })
         .await?
-        .map_err(|e| eyre::eyre!("Spawn blocking task failed: {}", e))?;
+        .map_err(|e| ProofGeneratorError::SpawnBlockingError(e.to_string()))?;
 
         Ok(proof)
     }
@@ -72,9 +89,9 @@ impl ProofGenerator {
         let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
             let env = ExecutorEnv::builder()
                 .write(&input)
-                .map_err(|e| eyre::eyre!("Failed to write input: {}", e))?
+                .map_err(|e| ProofGeneratorError::ExecutorEnvError(e.to_string()))?
                 .build()
-                .map_err(|e| eyre::eyre!("Failed to build executor env: {}", e))?;
+                .map_err(|e| ProofGeneratorError::ExecutorEnvError(e.to_string()))?;
 
             // Generate with Groth16 options
             let receipt = default_prover()
@@ -84,15 +101,15 @@ impl ProofGenerator {
                     method_elf,
                     &ProverOpts::groth16(),
                 )
-                .map_err(|e| eyre::eyre!("Proof generation failed: {}", e))?
+                .map_err(|e| ProofGeneratorError::ReceiptError(e.to_string()))?
                 .receipt;
 
             // Convert to Groth16
             let encoded_seal =
-                encode_seal(&receipt).map_err(|e| eyre::eyre!("Failed to encode seal: {}", e))?;
+                encode_seal(&receipt).map_err(|e| ProofGeneratorError::SealError(e.to_string()))?;
 
             let image_id = compute_image_id(method_elf)
-                .map_err(|e| eyre::eyre!("Failed to compute image id: {}", e))?;
+                .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
 
             let journal = receipt.journal.bytes.clone();
 
@@ -101,12 +118,12 @@ impl ProofGenerator {
 
             info!("Generating StarkNet calldata...");
             let calldata = get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
-                .map_err(|e| eyre::eyre!("Failed to generate StarkNet calldata: {}", e))?;
+                .map_err(|e| ProofGeneratorError::CalldataError(e.to_string()))?;
 
             Ok(ProofType::Groth16 { receipt, calldata })
         })
         .await?
-        .map_err(|e| eyre::eyre!("Spawn blocking task failed: {}", e))?;
+        .map_err(|e| ProofGeneratorError::SpawnBlockingError(e.to_string()))?;
 
         Ok(proof)
     }
