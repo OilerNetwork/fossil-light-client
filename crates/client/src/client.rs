@@ -1,6 +1,6 @@
 use eyre::Result;
 use tokio::time::{self, Duration};
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 
 use common::get_env_var;
 use host::update_mmr_and_verify_onchain;
@@ -100,6 +100,7 @@ impl LightClient {
     }
 
     /// Handles the events by updating the MMR and verifying proofs.
+    #[instrument(skip(self))]
     pub async fn handle_events(&self) -> Result<()> {
         // Fetch the latest stored blockhash from L1
         let latest_relayed_block = self
@@ -113,13 +114,12 @@ impl LightClient {
             .get_latest_mmr_state(&self.l2_store_addr)
             .await?;
 
-        info!("Latest MMR block on Starknet: {}", latest_mmr_block);
         info!(
-            "Latest relayed block number on Starknet: {}",
-            latest_relayed_block
+            latest_mmr_block,
+            latest_relayed_block, "Fetched latest MMR and relayed blocks from Starknet"
         );
 
-        // Call Risc0 prover to verify the block headers, append to MMR, and verify SNARK proof
+        // Update MMR and verify proofs
         self.update_mmr(latest_mmr_block, latest_relayed_block)
             .await?;
 
@@ -127,9 +127,10 @@ impl LightClient {
     }
 
     /// Updates the MMR and verifies the proof on-chain.
+    #[instrument(skip(self))]
     pub async fn update_mmr(&self, latest_mmr_block: u64, latest_relayed_block: u64) -> Result<()> {
         info!(
-            "Calling Risc0, proving block headers from {} to {}",
+            "Calling RISC Zero prover to verify block headers from {} to {}",
             latest_mmr_block + 1,
             latest_relayed_block
         );
@@ -143,15 +144,13 @@ impl LightClient {
         )
         .await?;
 
-        info!("Proof verified: {:?}", proof_verified);
-        info!("New MMR root: {:?}", new_mmr_root);
+        info!(%proof_verified, %new_mmr_root, "Proof verification completed");
 
-        // If SNARK proof is valid, update the latest stored blockhash and MMR root on L2
         if proof_verified {
             self.update_mmr_state_on_starknet(latest_relayed_block, new_mmr_root)
                 .await?;
         } else {
-            error!("Proof verification failed.");
+            error!("Proof verification failed");
         }
 
         Ok(())
@@ -180,8 +179,9 @@ impl LightClient {
             .await?;
 
         info!(
-            "MMR state updated on Starknet with latest relayed block number: {}, new MMR root: {}",
-            latest_relayed_block, new_mmr_root
+            latest_relayed_block,
+            new_mmr_root,
+            "MMR state updated on Starknet with latest relayed block number and new MMR root"
         );
 
         Ok(())
