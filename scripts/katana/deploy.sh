@@ -4,7 +4,7 @@
 set -e
 
 WORKING_DIR="../../contracts/starknet/"
-L1_MESSAGES_SENDER="0xb60971942E4528A811D24826768Bc91ad1383D21"
+L1_MESSAGES_SENDER="0xD185B4846E5fd5419fD4D077dc636084BEfC51C0"
 
 # Load environment variables
 source ../../config/katana.env

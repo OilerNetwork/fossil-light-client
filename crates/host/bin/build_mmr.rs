@@ -3,7 +3,7 @@ use dotenv::dotenv;
 use eyre::Result;
 use host::{get_store_path, AccumulatorBuilder, ProofGenerator, ProofType};
 use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
-use starknet_handler::StarknetProvider;
+use starknet_handler::provider::StarknetProvider;
 use std::env;
 use tracing::info;
 

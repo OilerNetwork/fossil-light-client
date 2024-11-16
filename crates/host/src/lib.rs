@@ -8,7 +8,7 @@ use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
 use mmr_accumulator::processor_utils::{create_database_file, ensure_directory_exists};
 pub use proof_generator::{ProofGenerator, ProofType};
 use starknet_crypto::Felt;
-use starknet_handler::StarknetProvider;
+use starknet_handler::provider::StarknetProvider;
 
 pub async fn update_mmr_and_verify_onchain(
     db_file: &str,          // Path to the existing SQLite database file

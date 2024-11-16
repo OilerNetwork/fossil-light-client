@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+common = { path = "../common" }
+
 alloy = { version = "0.6.4", features = ["providers", "network", "sol-types", "signer-local"] }
 alloy-contract = "0.6.4"
 alloy-primitives = "0.8.12"
@@ -12,6 +14,6 @@ tokio = { version = "1.41.1", features = ["full"] }
 dotenv = "0.15.0"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
-
+eyre = "0.6"
 # [lints]
 # workspace = true

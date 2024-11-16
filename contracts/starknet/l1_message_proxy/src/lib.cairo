@@ -36,6 +36,7 @@ pub mod L1MessageProxy {
         );
 
         let store = self.store_dispatcher.read();
+        println!("store address: {:?}", store.contract_address);
         store.store_latest_blockhash_from_l1(block_number, block_hash);
     }
 }

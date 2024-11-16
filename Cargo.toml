@@ -7,6 +7,7 @@ members = [
     "crates/guest-types",
     "crates/client",
     "crates/relayer",
+    "crates/common",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.

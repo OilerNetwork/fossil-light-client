@@ -38,6 +38,7 @@ mod Store {
         fn store_latest_blockhash_from_l1(
             ref self: ContractState, block_number: u64, blockhash: u256
         ) {
+            println!("STORE: store_latest_blockhash_from_l1");
             self.latest_blockhash_from_l1.write((block_number, blockhash));
             self.emit(LatestBlockhashFromL1Stored { block_number, blockhash });
         }
