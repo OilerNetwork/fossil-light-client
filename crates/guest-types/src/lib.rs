@@ -1,9 +1,25 @@
+// mod.rs
+
 #![deny(unused_crate_dependencies)]
 
 use block_validity::BlockHeader;
 use risc0_zkvm::Receipt;
 use serde::{Deserialize, Serialize};
 
+#[derive(Clone, Default)]
+pub struct PeaksOptions {
+    pub elements_count: Option<usize>,
+    pub formatting_opts: Option<PeaksFormattingOptions>,
+}
+
+#[derive(Clone)]
+pub struct FormattingOptions {
+    pub output_size: usize,
+    pub null_value: String,
+}
+
+pub type PeaksFormattingOptions = FormattingOptions;
+// AppendResult
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AppendResult {
     leaves_count: usize,
@@ -34,8 +50,17 @@ impl AppendResult {
     pub fn element_index(&self) -> usize {
         self.element_index
     }
+
+    pub fn leaves_count(&self) -> usize {
+        self.leaves_count
+    }
+
+    pub fn last_element_idx(&self) -> usize {
+        self.elements_count
+    }
 }
 
+// GuestOutput
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GuestOutput {
     final_peaks: Vec<String>,
@@ -67,11 +92,16 @@ impl GuestOutput {
         &self.append_results
     }
 
-    pub fn final_peaks(&self) -> &Vec<String> {
-        &self.final_peaks
+    pub fn final_peaks(&self) -> Vec<String> {
+        self.final_peaks.clone()
+    }
+
+    pub fn leaves_count(&self) -> usize {
+        self.leaves_count
     }
 }
 
+// CombinedInput
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CombinedInput {
     headers: Vec<BlockHeader>,
@@ -86,8 +116,13 @@ impl CombinedInput {
     pub fn headers(&self) -> &Vec<BlockHeader> {
         &self.headers
     }
+
+    pub fn mmr_input(&self) -> &GuestInput {
+        &self.mmr_input
+    }
 }
 
+// GuestInput
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GuestInput {
     initial_peaks: Vec<String>,
@@ -113,15 +148,31 @@ impl GuestInput {
             previous_proofs,
         }
     }
+
+    pub fn previous_proofs(&self) -> &Vec<BatchProof> {
+        &self.previous_proofs
+    }
+
+    pub fn initial_peaks(&self) -> Vec<String> {
+        self.initial_peaks.clone()
+    }
+
+    pub fn elements_count(&self) -> usize {
+        self.elements_count
+    }
+
+    pub fn leaves_count(&self) -> usize {
+        self.leaves_count
+    }
 }
 
+// BatchProof
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BatchProof {
     receipt: Receipt,
     image_id: Vec<u8>,
     method_id: [u32; 8],
 }
-
 impl BatchProof {
     pub fn new(receipt: Receipt, image_id: Vec<u8>, method_id: [u32; 8]) -> Self {
         Self {
@@ -129,5 +180,13 @@ impl BatchProof {
             image_id,
             method_id,
         }
+    }
+
+    pub fn receipt(&self) -> &Receipt {
+        &self.receipt
+    }
+
+    pub fn method_id(&self) -> [u32; 8] {
+        self.method_id
     }
 }

@@ -106,7 +106,7 @@ impl AccumulatorBuilder {
 
         // Verify state after update
         let final_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
-        if final_peaks != guest_output.final_peaks() {
+        if final_peaks != guest_output.final_peaks().to_vec() {
             return Err(AccumulatorError::PeaksVerificationError.into());
         }
 

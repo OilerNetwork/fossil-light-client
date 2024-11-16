@@ -87,12 +87,12 @@ impl GuestMMR {
         let bag = self.bag_the_peaks()?;
         let root_hash = self.calculate_root_hash(&bag, last_element_idx)?;
 
-        Ok(AppendResult {
-            leaves_count: self.leaves_count,
-            elements_count: last_element_idx,
-            element_index: leaf_element_index,
+        Ok(AppendResult::new(
+            self.leaves_count,
+            last_element_idx,
+            leaf_element_index,
             root_hash,
-        })
+        ))
     }
 
     fn retrieve_peaks_hashes(&self, peak_idxs: Vec<usize>) -> Result<Vec<String>, MMRError> {
