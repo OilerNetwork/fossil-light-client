@@ -91,7 +91,7 @@ In this terminal, you will deploy the `L1MessageSender.sol` contract to the Anvi
 
 2. Start the Light Client:
    ```bash
-   RUST_LOG=info cargo run
+   cargo run
    ```
 
 ## Back to Terminal 3: Trigger the Relayer to Send Finalized Block Hash to L2

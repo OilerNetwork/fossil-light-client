@@ -30,7 +30,6 @@ eyre = "0.6"
 risc0-groth16 = "1.1.2"
 tokio = { version = "1.30", features = ["full"] }
 starknet-crypto = "0.7.3"
-sqlx = "0.8.2"
 tracing = "0.1"
 clap = { version = "4.5", features = ["derive"] }
 

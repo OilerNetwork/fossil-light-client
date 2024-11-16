@@ -10,7 +10,7 @@ use mmr_accumulator::{
 };
 use starknet_crypto::Felt;
 use store::{SqlitePool, SubKey};
-
+use tracing::info;
 pub struct AccumulatorBuilder {
     batch_size: u64,
     store_manager: StoreManager,
@@ -31,7 +31,7 @@ impl AccumulatorBuilder {
         let (store_manager, mmr, pool) = initialize_mmr(store_path).await?;
 
         // Configure pool with appropriate settings
-        sqlx::migrate!("./migrations").run(&pool).await?;
+        // sqlx::migrate!("./migrations").run(&pool).await?;
 
         Ok(Self {
             batch_size,
@@ -47,6 +47,7 @@ impl AccumulatorBuilder {
 
     async fn process_batch(&mut self, start_block: u64, end_block: u64) -> Result<BatchResult> {
         // Fetch headers
+        info!("Fetching headers..");
         let headers = get_block_headers_in_range(start_block, end_block).await?;
 
         // Get and verify current MMR state
@@ -231,6 +232,7 @@ impl AccumulatorBuilder {
     ) -> Result<(Vec<Felt>, String)> {
         self.total_batches = ((end_block - start_block) / self.batch_size) + 1;
 
+        info!("Updating MMR in Risc0-VM");
         let result = self.process_batch(start_block, end_block).await?;
 
         // Extract the `calldata` from the `Groth16` proof
