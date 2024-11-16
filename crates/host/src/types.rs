@@ -17,8 +17,40 @@ pub enum ProofType {
 
 #[derive(Debug, Clone)]
 pub struct BatchResult {
-    pub start_block: u64,
-    pub end_block: u64,
-    pub new_mmr_root_hash: String,
-    pub proof: Option<ProofType>,
+    start_block: u64,
+    end_block: u64,
+    new_mmr_root_hash: String,
+    proof: Option<ProofType>,
+}
+
+impl BatchResult {
+    pub fn new(
+        start_block: u64,
+        end_block: u64,
+        new_mmr_root_hash: String,
+        proof: Option<ProofType>,
+    ) -> Self {
+        Self {
+            start_block,
+            end_block,
+            new_mmr_root_hash,
+            proof,
+        }
+    }
+
+    pub fn start_block(&self) -> u64 {
+        self.start_block
+    }
+
+    pub fn end_block(&self) -> u64 {
+        self.end_block
+    }
+
+    pub fn new_mmr_root_hash(&self) -> String {
+        self.new_mmr_root_hash.clone()
+    }
+
+    pub fn proof(&self) -> Option<ProofType> {
+        self.proof.clone()
+    }
 }

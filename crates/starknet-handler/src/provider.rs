@@ -10,8 +10,8 @@ use starknet::{
 use starknet_crypto::Felt;
 
 pub struct StarknetProvider {
-    pub provider: Arc<JsonRpcClient<HttpTransport>>,
-    pub rpc_url: String,
+    provider: Arc<JsonRpcClient<HttpTransport>>,
+    rpc_url: String,
 }
 
 impl StarknetProvider {
@@ -22,6 +22,14 @@ impl StarknetProvider {
             provider: Arc::new(JsonRpcClient::new(HttpTransport::new(parsed_url))),
             rpc_url: rpc_url.to_string(),
         })
+    }
+
+    pub fn rpc_url(&self) -> &str {
+        &self.rpc_url
+    }
+
+    pub fn provider(&self) -> Arc<JsonRpcClient<HttpTransport>> {
+        self.provider.clone()
     }
 
     pub async fn verify_groth16_proof_onchain(

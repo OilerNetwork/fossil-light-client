@@ -1,8 +1,8 @@
 use guest_types::{AppendResult, PeaksFormattingOptions, PeaksOptions};
 use serde::{Deserialize, Serialize};
+use starknet_crypto::{poseidon_hash, poseidon_hash_many, poseidon_hash_single, Felt};
 use std::collections::{HashMap, VecDeque};
 use thiserror::Error;
-use starknet_crypto::{poseidon_hash, poseidon_hash_single, poseidon_hash_many, Felt};
 
 #[derive(Error, Debug)]
 pub enum FormattingError {
@@ -124,9 +124,12 @@ impl GuestMMR {
                 let second_last = peaks_hashes.pop_back().unwrap();
                 let root0 = hash(vec![second_last, last])?;
 
-                let final_root = peaks_hashes.into_iter().rev().fold(root0, |prev: String, cur: String| {
-                    hash(vec![cur, prev]).unwrap()
-                });
+                let final_root = peaks_hashes
+                    .into_iter()
+                    .rev()
+                    .fold(root0, |prev: String, cur: String| {
+                        hash(vec![cur, prev]).unwrap()
+                    });
 
                 Ok(final_root)
             }
@@ -164,14 +167,13 @@ impl GuestMMR {
     }
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Proof {
-    pub element_index: usize,
-    pub element_hash: String,
-    pub siblings_hashes: Vec<String>,
-    pub peaks_hashes: Vec<String>,
-    pub elements_count: usize,
+    element_index: usize,
+    element_hash: String,
+    siblings_hashes: Vec<String>,
+    peaks_hashes: Vec<String>,
+    elements_count: usize,
 }
 
 impl std::fmt::Display for MMRError {

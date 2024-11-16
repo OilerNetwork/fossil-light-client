@@ -11,7 +11,7 @@ use starknet_crypto::Felt;
 use std::sync::Arc;
 
 pub struct StarknetAccount {
-    pub account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,
+    account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,
 }
 
 impl StarknetAccount {
@@ -34,6 +34,10 @@ impl StarknetAccount {
         );
 
         Ok(Self { account })
+    }
+
+    pub fn account(&self) -> SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet> {
+        self.account.clone()
     }
 
     pub async fn update_mmr_state(

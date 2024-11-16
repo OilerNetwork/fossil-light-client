@@ -58,14 +58,15 @@ async fn main() -> Result<()> {
     for result in &results {
         info!(
             "Processed blocks {} to {}",
-            result.start_block, result.end_block
+            result.start_block(),
+            result.end_block()
         );
-        match &result.proof {
+        match result.proof() {
             Some(ProofType::Stark { .. }) => info!("Generated STARK proof"),
             Some(ProofType::Groth16 { calldata, .. }) => {
                 info!("Generated Groth16 proof");
                 let provider = StarknetProvider::new(&rpc_url)?;
-                let result = provider.verify_groth16_proof_onchain(&verifier_address, calldata);
+                let result = provider.verify_groth16_proof_onchain(&verifier_address, &calldata);
                 info!(
                     "Proof verification result: {:?}",
                     result.await.map_err(|e| eyre!(e))?

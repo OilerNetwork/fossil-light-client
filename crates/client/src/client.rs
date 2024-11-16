@@ -1,5 +1,4 @@
 use eyre::Result;
-use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 use tracing::{error, info};
@@ -82,7 +81,7 @@ impl LightClient {
 
         let events = self
             .starknet_provider
-            .provider
+            .provider()
             .get_events(event_filter, None, 1)
             .await?;
 
@@ -144,7 +143,7 @@ impl LightClient {
             &self.db_file,
             latest_mmr_block,
             latest_relayed_block,
-            &self.starknet_provider.rpc_url,
+            &self.starknet_provider.rpc_url(),
             &self.verifier_addr,
         )
         .await?;
@@ -172,7 +171,7 @@ impl LightClient {
         info!("Updating MMR state on Starknet...");
 
         let starknet_account = StarknetAccount::new(
-            Arc::clone(&self.starknet_provider.provider),
+            self.starknet_provider.provider(),
             &self.starknet_private_key,
             &self.starknet_account_address,
         )?;
