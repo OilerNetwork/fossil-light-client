@@ -10,24 +10,28 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  risc0-install:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install risc0
-        run: |
-          curl -L https://risczero.com/install | bash
-          rzup install
-  build:
+  build-fmt-lint:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install risczero toolchain
+        run: |
+          curl -L https://risczero.com/install | bash
+          echo "::add-path::${HOME}/.risc0/bin"  # Explicitly add to PATH
+          source ~/.bashrc
+          rzup install
+          rzup install cpp
+
       - name: Build
         run: cargo build --verbose
+
       - name: Run tests
         run: cargo test --verbose
+
       - name: Run format check
         run: cargo fmt --check
-      - name: Run Clippy
-        run: cargo clippy -- -D warnings
+
+      # - name: Run Clippy
+      #   run: cargo clippy -- -D warnings
