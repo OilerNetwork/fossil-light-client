@@ -1,7 +1,7 @@
 use clap::Parser;
+use common::{get_env_var, initialize_logger_and_env};
 use eyre::{eyre, Result};
 use host::{get_store_path, update_mmr_and_verify_onchain};
-use common::{get_env_var, initialize_logger_and_env};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -30,7 +30,6 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     initialize_logger_and_env()?;
-    
 
     let args = Args::parse();
 
@@ -39,14 +38,9 @@ async fn main() -> Result<()> {
 
     let store_path = get_store_path(args.db_file).map_err(|e| eyre!(e))?;
 
-    let (proof_verified, new_mmr_root) = update_mmr_and_verify_onchain(
-        &store_path,
-        args.start,
-        args.end,
-        &rpc_url,
-        &verifier,
-    )
-    .await?;
+    let (proof_verified, new_mmr_root) =
+        update_mmr_and_verify_onchain(&store_path, args.start, args.end, &rpc_url, &verifier)
+            .await?;
 
     println!("Proof verified: {:?}", proof_verified);
     println!("New MMR root: {:?}", new_mmr_root);
