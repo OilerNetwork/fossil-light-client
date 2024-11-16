@@ -3,7 +3,6 @@ pub mod proof_generator;
 pub mod types;
 
 pub use accumulator::AccumulatorBuilder;
-use bytemuck::cast;
 use eyre::{eyre, Result};
 use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
 use mmr_accumulator::processor_utils::{create_database_file, ensure_directory_exists};
@@ -18,14 +17,6 @@ pub async fn update_mmr_and_verify_onchain(
     rpc_url: &str,          // RPC URL for Starknet
     verifier_address: &str, // Verifier contract address
 ) -> Result<(bool, String)> {
-    let mmr_guest_id_bytes: [u8; 32] = cast(MMR_GUEST_ID);
-
-    // Use mmr_guest_id_bytes as needed
-    if MMR_GUEST_ELF.is_empty() || mmr_guest_id_bytes == [0; 32] {
-        return Err(eyre!(
-            "Guest code is not available. Please ensure the guest code is built."
-        ));
-    }
     // Initialize proof generator
     let proof_generator = ProofGenerator::new(MMR_GUEST_ELF, MMR_GUEST_ID);
 

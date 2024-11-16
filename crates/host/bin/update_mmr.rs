@@ -1,9 +1,7 @@
-use std::env;
-
 use clap::Parser;
-use dotenv::dotenv;
 use eyre::{eyre, Result};
 use host::{get_store_path, update_mmr_and_verify_onchain};
+use common::{get_env_var, initialize_logger_and_env};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -21,7 +19,7 @@ struct Args {
     end: u64,
 
     /// RPC URL
-    #[arg(short, long, default_value_t = String::from(env::var("STARKNET_RPC_URL").expect("STARKNET_RPC_URL must be set")))]
+    #[arg(short, long)]
     rpc_url: String,
 
     /// Verifier address
@@ -31,14 +29,13 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Load environment variables
-    dotenv().ok();
-
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
+    initialize_logger_and_env()?;
+    
 
     let args = Args::parse();
+
+    let rpc_url = get_env_var("STARKNET_RPC_URL")?;
+    let verifier = get_env_var("STARKNET_VERIFIER")?;
 
     let store_path = get_store_path(args.db_file).map_err(|e| eyre!(e))?;
 
@@ -46,8 +43,8 @@ async fn main() -> Result<()> {
         &store_path,
         args.start,
         args.end,
-        &args.rpc_url,
-        &args.verifier,
+        &rpc_url,
+        &verifier,
     )
     .await?;
 

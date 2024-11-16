@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
     initialize_logger_and_env()?;
 
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
-    let verifier_address = get_env_var("VERIFIER_ADDRESS")?;
+    let verifier_address = get_env_var("STARKNET_VERIFIER")?;
 
     info!("Starting Publisher...");
 

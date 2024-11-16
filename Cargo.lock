@@ -3670,7 +3670,6 @@ dependencies = [
  "anyhow",
  "async-trait",
  "block-validity",
- "bytemuck",
  "clap",
  "common",
  "db-access",
