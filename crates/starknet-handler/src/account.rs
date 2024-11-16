@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::error::StarknetHandlerError;
+use crate::{error::StarknetHandlerError, get_selector};
 use eyre::Result;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
@@ -20,14 +20,12 @@ impl StarknetAccount {
         account_private_key: &str,
         account_address: &str,
     ) -> Result<Self> {
-        let private_key = Felt::from_hex(account_private_key).map_err(|_| {
-            StarknetHandlerError::ParseError("Invalid private key provided".to_string())
-        })?;
+        let private_key = Felt::from_hex(account_private_key)
+            .map_err(|_| StarknetHandlerError::ParseError(account_private_key.to_string()))?;
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(private_key));
 
-        let address = Felt::from_hex(account_address).map_err(|_| {
-            StarknetHandlerError::ParseError("Invalid address provided".to_string())
-        })?;
+        let address = Felt::from_hex(account_address)
+            .map_err(|_| StarknetHandlerError::ParseError(account_address.to_string()))?;
 
         let account = SingleOwnerAccount::new(
             provider, // Use `Arc` directly
@@ -46,8 +44,7 @@ impl StarknetAccount {
         latest_block_number: u64,
         new_mmr_root: Felt,
     ) -> Result<Felt> {
-        let selector = starknet::core::utils::get_selector_from_name("update_mmr_state")
-            .map_err(|_| StarknetHandlerError::SelectorError("update_mmr_state".to_string()))?;
+        let selector = get_selector("update_mmr_state")?;
 
         let tx = self
             .account
