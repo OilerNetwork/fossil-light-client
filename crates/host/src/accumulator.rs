@@ -19,8 +19,8 @@ pub enum AccumulatorError {
     InvalidStateTransition,
     #[error("Failed to verify stored peaks after update")]
     PeaksVerificationError,
-    #[error("Expected Groth16 proof but got a different proof type")]
-    ExpectedGroth16Proof,
+    #[error("Expected Groth16 proof but got {got:?}")]
+    ExpectedGroth16Proof { got: ProofType },
 }
 
 pub struct AccumulatorBuilder {
@@ -244,7 +244,10 @@ impl AccumulatorBuilder {
         if let Some(ProofType::Groth16 { calldata, .. }) = result.proof {
             Ok((calldata, result.new_mmr_root_hash))
         } else {
-            Err(AccumulatorError::ExpectedGroth16Proof.into())
+            Err(AccumulatorError::ExpectedGroth16Proof {
+                got: result.proof.unwrap(),
+            }
+            .into())
         }
     }
 }

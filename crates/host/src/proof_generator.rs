@@ -16,17 +16,17 @@ use tracing::info;
 
 #[derive(Error, Debug)]
 pub enum ProofGeneratorError {
-    #[error("Failed to write input to executor env")]
+    #[error("Failed to write input to executor env: {0}")]
     ExecutorEnvError(String),
-    #[error("Failed to generate receipt")]
+    #[error("Failed to generate receipt: {0}")]
     ReceiptError(String),
-    #[error("Failed to compute image id")]
+    #[error("Failed to compute image id: {0}")]
     ImageIdError(String),
-    #[error("Failed to encode seal")]
+    #[error("Failed to encode seal: {0}")]
     SealError(String),
-    #[error("Failed to generate StarkNet calldata")]
+    #[error("Failed to generate StarkNet calldata: {0}")]
     CalldataError(String),
-    #[error("Failed to spawn blocking task")]
+    #[error("Failed to spawn blocking task: {0}")]
     SpawnBlockingError(String),
 }
 
