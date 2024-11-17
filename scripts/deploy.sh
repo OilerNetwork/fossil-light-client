@@ -3,12 +3,25 @@
 # Ensure the script stops on the first error
 set -e
 
-WORKING_DIR="../../contracts/starknet/"
-L1_MESSAGES_SENDER="0xD185B4846E5fd5419fD4D077dc636084BEfC51C0"
+WORKING_DIR="../contracts/starknet/"
+SOLIDITY_DIR="../contracts/ethereum/"
 
 # Load environment variables
-source ../../config/katana.env
+source ../.env
+source ../config/katana.env
 
+# First deploy Solidity contracts
+echo "Deploying Solidity contracts..."
+cd $SOLIDITY_DIR
+
+# Build and deploy Solidity contracts
+forge build
+forge create --unlocked --from $DEPLOYER_ADDRESS src/FossilL2MessageReceiver.sol:FossilL2MessageReceiver
+L1_MESSAGES_SENDER=$(cast send --unlocked --from $DEPLOYER_ADDRESS --create $(cat out/FossilL2MessageReceiver.sol/FossilL2MessageReceiver.json | jq -r .bytecode.object) | grep -o '0x[a-fA-F0-9]\{40\}')
+echo "L1 Message Receiver deployed at: $L1_MESSAGES_SENDER"
+
+# Now deploy Starknet contracts
+echo "Deploying Starknet contracts..."
 cd $WORKING_DIR
 
 scarb build
