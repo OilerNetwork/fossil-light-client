@@ -28,7 +28,7 @@ where
     let var_value = get_env_var(name)?;
     var_value
         .parse::<T>()
-        .map_err(|_| CommonError::ParseError(name.to_string()))
+        .map_err(|e| CommonError::ParseError(format!("{}: {}", name, e)))
 }
 
 /// Function to initialize logging and environment variables
