@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use crate::{felt, StarknetHandlerError};
+use crate::StarknetHandlerError;
+use common::felt;
 use eyre::Result;
 use starknet::macros::selector;
 use starknet::{

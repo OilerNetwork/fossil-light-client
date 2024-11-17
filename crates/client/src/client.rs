@@ -2,7 +2,7 @@ use eyre::Result;
 use tokio::time::{self, Duration};
 use tracing::{error, info, instrument};
 
-use common::get_env_var;
+use common::{felt, get_env_var};
 use host::update_mmr_and_verify_onchain;
 use mmr_accumulator::processor_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
@@ -20,14 +20,15 @@ pub struct LightClient {
     db_file: String,
     starknet_private_key: String,
     starknet_account_address: String,
+    polling_interval: Duration,
 }
 
 impl LightClient {
     /// Creates a new instance of the light client.
-    pub async fn new() -> Result<Self> {
+    pub async fn new(polling_interval: u64) -> Result<Self> {
         // Load environment variables
         let starknet_rpc_url = get_env_var("STARKNET_RPC_URL")?;
-        let l2_store_addr = Felt::from_hex(&get_env_var("FOSSIL_STORE")?)?;
+        let l2_store_addr = felt(&get_env_var("FOSSIL_STORE")?)?;
         let verifier_addr = get_env_var("STARKNET_VERIFIER")?;
         let starknet_private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
         let starknet_account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
@@ -47,19 +48,34 @@ impl LightClient {
             db_file,
             starknet_private_key,
             starknet_account_address,
+            polling_interval: Duration::from_secs(polling_interval),
         })
     }
 
     /// Runs the light client event loop.
     pub async fn run(&mut self) -> Result<()> {
-        let mut interval = time::interval(Duration::from_secs(60));
+        let mut interval = time::interval(self.polling_interval);
+
+        // Create the shutdown signal once
+        let mut shutdown = Box::pin(tokio::signal::ctrl_c());
+
+        info!(
+            "Starting light client with {}s polling interval",
+            self.polling_interval.as_secs()
+        );
 
         loop {
-            interval.tick().await;
-            info!("Listening for new events...");
-
-            if let Err(e) = self.process_new_events().await {
-                error!("Error processing events: {:?}", e);
+            tokio::select! {
+                _ = interval.tick() => {
+                    info!("Polling for new events...");
+                    if let Err(e) = self.process_new_events().await {
+                        error!("Failed to process events: {:#}", e);
+                    }
+                }
+                _ = &mut shutdown => {
+                    info!("Received shutdown signal, stopping light client");
+                    break Ok(());  // Return Result explicitly
+                }
             }
         }
     }
@@ -174,7 +190,7 @@ impl LightClient {
             .update_mmr_state(
                 self.l2_store_addr,
                 latest_relayed_block,
-                Felt::from_hex(&new_mmr_root)?,
+                felt(&new_mmr_root)?,
             )
             .await?;
 

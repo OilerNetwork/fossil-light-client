@@ -1,6 +1,7 @@
 #![deny(unused_crate_dependencies)]
 
 use eyre::Result;
+use starknet_crypto::Felt;
 use std::str::FromStr;
 use thiserror::Error;
 
@@ -8,8 +9,8 @@ use thiserror::Error;
 pub enum CommonError {
     #[error("Environment variable {0} not set")]
     EnvVarNotSet(String),
-    #[error("Unable to parse {0} environment variable: {1}")]
-    ParseError(String, String),
+    #[error("Unable to parse {0} environment variable")]
+    ParseError(String),
     #[error("Logger initialization failed")]
     LoggerInitFailed,
 }
@@ -27,7 +28,7 @@ where
     let var_value = get_env_var(name)?;
     var_value
         .parse::<T>()
-        .map_err(|e| CommonError::ParseError(name.to_string(), e.to_string()))
+        .map_err(|_| CommonError::ParseError(name.to_string()))
 }
 
 /// Function to initialize logging and environment variables
@@ -35,4 +36,8 @@ pub fn initialize_logger_and_env() -> Result<(), CommonError> {
     dotenv::dotenv().ok();
     tracing_subscriber::fmt().init();
     Ok(())
+}
+
+pub fn felt(str: &str) -> Result<Felt> {
+    Ok(Felt::from_hex(str).map_err(|_| CommonError::ParseError(str.to_string()))?)
 }

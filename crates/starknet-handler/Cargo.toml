@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+common = { path = "../common" }
+
 eyre = "0.6"
 thiserror = "2.0.3"
 starknet-crypto = "0.7.3"

@@ -1,3 +1,4 @@
+use common::felt;
 use guest_types::{AppendResult, PeaksFormattingOptions, PeaksOptions};
 use serde::{Deserialize, Serialize};
 use starknet_crypto::{poseidon_hash, poseidon_hash_many, poseidon_hash_single, Felt};
@@ -242,10 +243,7 @@ fn hash(data: Vec<String>) -> Result<String, MMRError> {
     //     self.is_element_size_valid(element)?;
     // }
 
-    let field_elements: Vec<Felt> = data
-        .iter()
-        .map(|e| Felt::from_hex(e).unwrap_or_default())
-        .collect();
+    let field_elements: Vec<Felt> = data.iter().map(|e| felt(e).unwrap_or_default()).collect();
 
     let hash_core = match field_elements.len() {
         0 => return Err(MMRError::HashError),
