@@ -1,0 +1,23 @@
+[workspace]
+members = ["l1_message_proxy", "store", "verifier"]
+
+[workspace.dependencies]
+starknet = "2.8.4"
+assert_macros = "2.8.4"
+snforge_std = "0.32.0"
+
+[[target.starknet-contract]]
+casm = true
+casm-add-pythonic-hints = true
+
+[workspace.tool.fmt]
+sort-module-level-items = true
+
+[tool]
+fmt.workspace = true
+
+[lib]
+casm = true
+
+[cairo]
+sierra-replace-ids = false

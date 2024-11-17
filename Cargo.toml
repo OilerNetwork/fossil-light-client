@@ -1,13 +1,34 @@
-[package]
-name = "send-hash-to-l2"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = "2"
+members = [
+    "crates/starknet-handler",
+    "crates/client",
+    "crates/relayer",
+    "crates/common",
+    "crates/methods",
+]
 
-[dependencies]
-alloy-contract = "0.5.4"
-alloy-network = "0.5.4"
-alloy-primitives = "0.8.9"
-alloy-provider = "0.5.4"
-alloy-signer-local = "0.5.4"
-alloy-sol-types = { version = "0.8.9", features = ["json"] }
-tokio = { version = "1.41.0", features = ["full"] }
+# Always optimize; building and running the guest takes much longer without optimization.
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+debug = 1
+lto = true
+
+[workspace.lints.clippy]
+single_match = "warn"
+single_match_else = "warn"
+needless_match = "warn"
+needless_late_init = "warn"
+redundant_pattern_matching = "warn"
+redundant_pattern = "warn"
+redundant_guards = "warn"
+collapsible_match = "warn"
+match_single_binding = "warn"
+match_same_arms = "warn"
+match_ref_pats = "warn"
+match_bool = "warn"
+needless_bool = "deny"
+unwrap_used = "warn"
+expect_used = "warn"
