@@ -4,9 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+eyre = { workspace = true }
+tokio = { workspace = true }
+
 sqlx = "0.8.2"
-eyre = "0.6.12"
-tokio = { version = "1.30", features = ["full"] } 
 uuid = "1.1.2"
 
 store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "workspace" }

@@ -6,11 +6,12 @@ edition = "2021"
 [dependencies]
 common = { path = "../common" }
 
-eyre = "0.6"
-thiserror = "2.0.3"
+eyre = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+starknet = { workspace = true }
+
 starknet-crypto = "0.7.3"
-starknet = "0.12"
-tracing = "0.1"
 
 [lints]
 workspace = true

@@ -1,14 +1,14 @@
 use eyre::Result;
+use hasher::stark_poseidon::StarkPoseidonHasher;
 use mmr::MMR;
 use sqlx::{Row, SqlitePool};
 use std::fs::File;
 use std::path::Path;
-use std::{env, fs};
-use std::{collections::HashMap, path::PathBuf};
 use std::sync::Arc;
+use std::{collections::HashMap, path::PathBuf};
+use std::{env, fs};
 use store::{sqlite::SQLiteStore, StoreError};
 use tokio::sync::Mutex;
-use hasher::stark_poseidon::StarkPoseidonHasher;
 use uuid::Uuid;
 #[allow(dead_code)]
 pub struct StoreFactory;

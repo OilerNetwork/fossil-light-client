@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-eyre = "0.6"
-dotenv = "0.15"
+eyre = { workspace = true }
+thiserror = { workspace = true }
+dotenv = { workspace = true }
+
 tracing-subscriber = "0.3.18"
-thiserror = "2.0.3"
 starknet-crypto = "0.7.3"
 
 # [lints]

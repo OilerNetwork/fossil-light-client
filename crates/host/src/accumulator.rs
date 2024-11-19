@@ -2,11 +2,11 @@
 use crate::proof_generator::ProofGenerator;
 use crate::types::{BatchResult, ProofType};
 use db_access::rpc::get_block_headers_in_range;
+use ethereum::get_finalized_block_hash;
 use eyre::Result;
 use guest_types::{BatchProof, CombinedInput, GuestInput, GuestOutput};
 use mmr::{find_peaks, PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, StoreManager};
-use ethereum::get_finalized_block_hash;
 use starknet_crypto::Felt;
 use store::{SqlitePool, SubKey};
 use thiserror::Error;

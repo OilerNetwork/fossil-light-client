@@ -6,6 +6,11 @@ edition = "2021"
 [dependencies]
 common = { path = "../common" }
 
+eyre = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
+
 alloy = { version = "0.6.4", features = [
     "providers",
     "network",
@@ -14,10 +19,6 @@ alloy = { version = "0.6.4", features = [
 ] }
 alloy-contract = "0.6.4"
 alloy-sol-types = { version = "0.8.12", features = ["json"] }
-tokio = { version = "1.41.1", features = ["full"] }
-tracing = "0.1.40"
-eyre = "0.6"
-thiserror = "2.0.3"
 
 # [lints]
 # workspace = true

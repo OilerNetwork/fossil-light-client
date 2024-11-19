@@ -4,10 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+eyre = { workspace = true }
+tracing = { workspace = true }
+dotenv = { workspace = true }
+
 alloy = { version = "0.4", features = ["full", "node-bindings"] }
-dotenv = "0.15.0"
-eyre = "0.6.12"
-tracing = "0.1.39"
 
 # [lints]
 # workspace = true
