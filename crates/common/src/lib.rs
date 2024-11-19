@@ -5,6 +5,7 @@ use starknet_crypto::Felt;
 use std::str::FromStr;
 use thiserror::Error;
 
+
 #[derive(Debug, Error)]
 pub enum CommonError {
     #[error("Environment variable {0} not set")]
@@ -41,3 +42,4 @@ pub fn initialize_logger_and_env() -> Result<(), CommonError> {
 pub fn felt(str: &str) -> Result<Felt> {
     Ok(Felt::from_hex(str).map_err(|_| CommonError::ParseError(str.to_string()))?)
 }
+

@@ -10,7 +10,7 @@ pub mod types;
 pub use accumulator::AccumulatorBuilder;
 use eyre::Result;
 use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
-use mmr_accumulator::processor_utils::{create_database_file, ensure_directory_exists};
+use mmr_utils::{create_database_file, ensure_directory_exists};
 pub use proof_generator::{ProofGenerator, ProofType};
 use starknet_crypto::Felt;
 use starknet_handler::provider::StarknetProvider;

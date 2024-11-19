@@ -4,10 +4,9 @@ use crate::types::{BatchResult, ProofType};
 use db_access::rpc::get_block_headers_in_range;
 use eyre::Result;
 use guest_types::{BatchProof, CombinedInput, GuestInput, GuestOutput};
-use mmr::{find_peaks, PeaksOptions};
-use mmr_accumulator::{
-    ethereum::get_finalized_block_hash, processor_utils::*, store::StoreManager, MMR,
-};
+use mmr::{find_peaks, PeaksOptions, MMR};
+use mmr_utils::{initialize_mmr, StoreManager};
+use ethereum::get_finalized_block_hash;
 use starknet_crypto::Felt;
 use store::{SqlitePool, SubKey};
 use thiserror::Error;
@@ -90,6 +89,8 @@ impl AccumulatorBuilder {
 
         // Decode and update state
         let guest_output: GuestOutput = self.proof_generator.decode_journal(&proof)?;
+
+        // TODO: Remove this and update MMR state after the proof is verified onchain
         let new_mmr_root_hash = self.update_mmr_state(&guest_output).await?;
 
         // If this is a STARK proof, add it to previous_proofs for the next batch

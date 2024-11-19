@@ -1,5 +1,5 @@
 // main.rs
-use block_validity::utils::are_blocks_and_chain_valid;
+use eth_rlp_verify::are_blocks_and_chain_valid;
 use risc0_zkvm::guest::env;
 mod guest_mmr;
 use guest_mmr::GuestMMR;

@@ -16,9 +16,10 @@ guest-types = { path = "../guest-types" }
 starknet-handler = { path = "../starknet-handler" }
 methods = { path = "../methods" }
 common = { path = "../common" }
+ethereum = { path = "../ethereum" }
+mmr-utils = { path = "../mmr-utils" }
 
 garaga_rs = { git = "https://github.com/ametel01/garaga.git" }
-mmr-accumulator = { git = "https://github.com/OilerNetwork/fossil-offchain-processor.git", branch = "block-validity-deps-segregation" }
 db-access = { git = "https://github.com/OilerNetwork/fossil-offchain-processor.git", branch = "block-validity-deps-segregation" }
 mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "workspace" }
 store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "workspace" }
