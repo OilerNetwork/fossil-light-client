@@ -28,7 +28,7 @@ store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "w
 eyre = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 sqlx = { workspace = true, features = ["postgres", "runtime-tokio-native-tls"] }
 dotenv = { workspace = true }
 starknet-crypto = { workspace = true }
