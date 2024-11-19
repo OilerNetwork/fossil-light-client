@@ -10,7 +10,6 @@ use mmr_utils::{initialize_mmr, StoreManager, MMRUtilsError};
 use starknet_crypto::Felt;
 use store::{SqlitePool, SubKey, StoreError};
 use thiserror::Error;
-use tracing::info;
 
 #[derive(Error, Debug)]
 pub enum AccumulatorError {
@@ -72,7 +71,6 @@ impl AccumulatorBuilder {
     async fn process_batch(&mut self, start_block: u64, end_block: u64) -> Result<BatchResult, AccumulatorError> {
         let db_connection = DbConnection::new().await?;
         // Fetch headers
-        info!("Fetching headers..");
         let headers = get_block_headers_by_block_range(&db_connection.pool, start_block, end_block).await?;
 
         // Get and verify current MMR state
@@ -257,7 +255,6 @@ impl AccumulatorBuilder {
     ) -> Result<(Vec<Felt>, String), AccumulatorError> {
         self.total_batches = ((end_block - start_block) / self.batch_size) + 1;
 
-        info!("Updating MMR in Risc0-VM");
         let result = self.process_batch(start_block, end_block).await?;
 
         // Extract the `calldata` from the `Groth16` proof

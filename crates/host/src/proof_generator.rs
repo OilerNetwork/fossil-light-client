@@ -11,7 +11,6 @@ use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, Veri
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::task;
-use tracing::info;
 
 #[derive(Error, Debug)]
 pub enum ProofGeneratorError {
@@ -52,8 +51,6 @@ impl ProofGenerator {
         let method_id = self.method_id;
         let input = input.clone();
 
-        info!("Generating STARK proof...");
-
         let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
             let env = ExecutorEnv::builder()
                 .write(&input)
@@ -87,8 +84,6 @@ impl ProofGenerator {
         // let method_id = self.method_id;
         let input = input.clone();
 
-        info!("Generating Groth16 proof...");
-
         let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
             let env = ExecutorEnv::builder()
                 .write(&input)
@@ -119,7 +114,6 @@ impl ProofGenerator {
             let groth16_proof =
                 Groth16Proof::from_risc0(encoded_seal, image_id.as_bytes().to_vec(), journal);
 
-            info!("Generating StarkNet calldata...");
             let calldata = get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
                 .map_err(|e| ProofGeneratorError::CalldataError(e.to_string()))?;
 
