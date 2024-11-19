@@ -6,6 +6,7 @@ use risc0_groth16 as _;
 pub mod accumulator;
 pub mod proof_generator;
 pub mod types;
+pub mod db_access;
 
 pub use accumulator::AccumulatorBuilder;
 use eyre::Result;

@@ -4,11 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-eyre = { workspace = true }
-tracing = { workspace = true }
-dotenv = { workspace = true }
+common = { path = "../common" }
 
-alloy = { version = "0.4", features = ["full", "node-bindings"] }
+alloy = { version = "0.6.4", features = ["full", "node-bindings"] }
 
-# [lints]
-# workspace = true
+[lints]
+workspace = true

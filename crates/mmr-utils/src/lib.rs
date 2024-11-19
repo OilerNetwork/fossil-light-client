@@ -1,4 +1,5 @@
-use eyre::Result;
+#![deny(unused_crate_dependencies)]
+
 use hasher::stark_poseidon::StarkPoseidonHasher;
 use mmr::MMR;
 use sqlx::{Row, SqlitePool};
@@ -10,6 +11,18 @@ use std::{env, fs};
 use store::{sqlite::SQLiteStore, StoreError};
 use tokio::sync::Mutex;
 use uuid::Uuid;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum MMRUtilsError {
+    #[error("Store error: {0}")]
+    Store(#[from] StoreError),
+    #[error("SQLx error: {0}")]
+    Sqlx(#[from] sqlx::Error),
+    #[error("IO error: {0}")]
+    IOError(#[from] std::io::Error),
+}
+
 #[allow(dead_code)]
 pub struct StoreFactory;
 
@@ -139,7 +152,7 @@ impl StoreManager {
 }
 
 /// Initializes the MMR by retrieving or creating the MMR ID and setting up the hasher and store
-pub async fn initialize_mmr(store_path: &str) -> Result<(StoreManager, MMR, SqlitePool)> {
+pub async fn initialize_mmr(store_path: &str) -> Result<(StoreManager, MMR, SqlitePool), MMRUtilsError> {
     let pool = SqlitePool::connect(store_path).await?;
     let store_manager = StoreManager::new(store_path).await?;
     let store = Arc::new(SQLiteStore::new(store_path, Some(true), None).await?);
@@ -184,7 +197,7 @@ async fn save_mmr_id(pool: &SqlitePool, mmr_id: &str) -> Result<(), sqlx::Error>
 }
 
 /// Ensures that a directory exists, creates it if necessary
-pub fn ensure_directory_exists(dir_name: &str) -> Result<PathBuf> {
+pub fn ensure_directory_exists(dir_name: &str) -> Result<PathBuf, MMRUtilsError> {
     let current_dir = env::current_dir()?.join(dir_name);
     if !current_dir.exists() {
         fs::create_dir_all(&current_dir)?; // Ensure directory is created
@@ -193,7 +206,7 @@ pub fn ensure_directory_exists(dir_name: &str) -> Result<PathBuf> {
 }
 
 /// Creates a database file if it doesn't exist and returns the path to the file
-pub fn create_database_file(current_dir: &Path, db_file_counter: usize) -> Result<String> {
+pub fn create_database_file(current_dir: &Path, db_file_counter: usize) -> Result<String, MMRUtilsError> {
     let store_path = current_dir.join(format!("{}.db", db_file_counter));
     let store_path_str = store_path.to_str().unwrap();
 

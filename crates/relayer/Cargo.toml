@@ -9,7 +9,7 @@ common = { path = "../common" }
 eyre = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 alloy = { version = "0.6.4", features = [
     "providers",
@@ -20,5 +20,5 @@ alloy = { version = "0.6.4", features = [
 alloy-contract = "0.6.4"
 alloy-sol-types = { version = "0.8.12", features = ["json"] }
 
-# [lints]
-# workspace = true
+[lints]
+workspace = true

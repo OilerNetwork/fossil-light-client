@@ -7,9 +7,10 @@ edition = "2021"
 eyre = { workspace = true }
 thiserror = { workspace = true }
 dotenv = { workspace = true }
+starknet-crypto = { workspace = true }
 
 tracing-subscriber = "0.3.18"
-starknet-crypto = "0.7.3"
+alloy-contract = { version = "0.6.4" }
 
-# [lints]
-# workspace = true
+[lints]
+workspace = true

@@ -1,7 +1,7 @@
+#![deny(unused_crate_dependencies)]
+
 use alloy::{providers::ProviderBuilder, sol};
-use dotenv::dotenv;
-use eyre::Result;
-use std::env;
+use common::{get_env_var, initialize_logger_and_env, LightClientError};
 
 // Codegen from embedded Solidity code and precompiled bytecode.
 sol! {
@@ -19,11 +19,10 @@ sol! {
 }
 
 #[allow(dead_code)]
-pub async fn get_finalized_block_hash() -> Result<(u64, String)> {
-    dotenv().ok();
+pub async fn get_finalized_block_hash() -> Result<(u64, String), LightClientError> {
+    initialize_logger_and_env()?;
 
-    tracing::info!("Getting onchain finalized block hash");
-    let rpc_url = env::var("ETH_RPC_URL").expect("RPC_URL must be set");
+    let rpc_url = get_env_var("ETH_RPC_URL")?;
     let provider = ProviderBuilder::new()
         .with_recommended_fillers()
         .on_anvil_with_wallet_and_config(|anvil| anvil.fork(rpc_url));

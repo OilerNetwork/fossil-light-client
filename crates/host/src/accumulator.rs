@@ -1,14 +1,14 @@
 // host/src/accumulator.rs
-use crate::proof_generator::ProofGenerator;
+use crate::proof_generator::{ProofGenerator, ProofGeneratorError};
 use crate::types::{BatchResult, ProofType};
-use db_access::rpc::get_block_headers_in_range;
+use crate::db_access::{get_block_headers_by_block_range, DbConnection};
+use common::LightClientError;
 use ethereum::get_finalized_block_hash;
-use eyre::Result;
 use guest_types::{BatchProof, CombinedInput, GuestInput, GuestOutput};
-use mmr::{find_peaks, PeaksOptions, MMR};
-use mmr_utils::{initialize_mmr, StoreManager};
+use mmr::{find_peaks, PeaksOptions, MMR, MMRError, InStoreTableError};
+use mmr_utils::{initialize_mmr, StoreManager, MMRUtilsError};
 use starknet_crypto::Felt;
-use store::{SqlitePool, SubKey};
+use store::{SqlitePool, SubKey, StoreError};
 use thiserror::Error;
 use tracing::info;
 
@@ -22,6 +22,20 @@ pub enum AccumulatorError {
     ExpectedGroth16Proof { got: ProofType },
     #[error("MMR root is not a valid Starknet field element: {0}")]
     InvalidFeltHex(String),
+    #[error("SQLx error: {0}")]
+    Sqlx(#[from] sqlx::Error),
+    #[error("LightClientError: {0}")]
+    LightClient(#[from] LightClientError),
+    #[error("MMR error: {0}")]
+    MMRError(#[from] MMRError),
+    #[error("Store error: {0}")]
+    Store(#[from] StoreError),
+    #[error("ProofGenerator error: {0}")]
+    ProofGenerator(#[from] ProofGeneratorError),
+    #[error("MMRUtils error: {0}")]
+    MMRUtils(#[from] MMRUtilsError),
+    #[error("InStoreTable error: {0}")]
+    InStoreTable(#[from] InStoreTableError),
 }
 
 pub struct AccumulatorBuilder {
@@ -40,7 +54,7 @@ impl AccumulatorBuilder {
         store_path: &str,
         proof_generator: ProofGenerator,
         batch_size: u64,
-    ) -> Result<Self> {
+    ) -> Result<Self, AccumulatorError> {
         let (store_manager, mmr, pool) = initialize_mmr(store_path).await?;
 
         Ok(Self {
@@ -55,10 +69,11 @@ impl AccumulatorBuilder {
         })
     }
 
-    async fn process_batch(&mut self, start_block: u64, end_block: u64) -> Result<BatchResult> {
+    async fn process_batch(&mut self, start_block: u64, end_block: u64) -> Result<BatchResult, AccumulatorError> {
+        let db_connection = DbConnection::new().await?;
         // Fetch headers
         info!("Fetching headers..");
-        let headers = get_block_headers_in_range(start_block, end_block).await?;
+        let headers = get_block_headers_by_block_range(&db_connection.pool, start_block, end_block).await?;
 
         // Get and verify current MMR state
         let current_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
@@ -123,7 +138,7 @@ impl AccumulatorBuilder {
         ))
     }
 
-    async fn update_mmr_state(&mut self, guest_output: &GuestOutput) -> Result<String> {
+    async fn update_mmr_state(&mut self, guest_output: &GuestOutput) -> Result<String, AccumulatorError> {
         // Verify state transition
         let current_elements_count = self.mmr.elements_count.get().await?;
         if guest_output.elements_count() < current_elements_count {
@@ -182,7 +197,7 @@ impl AccumulatorBuilder {
     }
 
     /// Build the MMR using a specified number of batches
-    pub async fn build_with_num_batches(&mut self, num_batches: u64) -> Result<Vec<BatchResult>> {
+    pub async fn build_with_num_batches(&mut self, num_batches: u64) -> Result<Vec<BatchResult>, AccumulatorError> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
 
         self.total_batches = num_batches;
@@ -210,7 +225,7 @@ impl AccumulatorBuilder {
         Ok(batch_results)
     }
 
-    pub async fn build_from_finalized(&mut self) -> Result<Vec<BatchResult>> {
+    pub async fn build_from_finalized(&mut self) -> Result<Vec<BatchResult>, AccumulatorError> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
 
         self.total_batches = (finalized_block_number / self.batch_size) + 1;
@@ -239,7 +254,7 @@ impl AccumulatorBuilder {
         &mut self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<(Vec<Felt>, String)> {
+    ) -> Result<(Vec<Felt>, String), AccumulatorError> {
         self.total_batches = ((end_block - start_block) / self.batch_size) + 1;
 
         info!("Updating MMR in Risc0-VM");
@@ -258,7 +273,7 @@ impl AccumulatorBuilder {
 }
 
 /// Validates that a hex string represents a valid Starknet field element (252 bits)
-fn validate_felt_hex(hex_str: &str) -> Result<()> {
+fn validate_felt_hex(hex_str: &str) -> Result<(), AccumulatorError> {
     // Check if it's a valid hex string with '0x' prefix
     if !hex_str.starts_with("0x") {
         return Err(AccumulatorError::InvalidFeltHex(hex_str.to_string()).into());
