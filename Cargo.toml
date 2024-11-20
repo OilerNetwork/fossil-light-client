@@ -21,26 +21,16 @@ debug = 1
 lto = true
 
 [workspace.dependencies]
+eth-rlp-types = { git = "https://github.com/ametel01/eth-rlp-verify.git" }
+eth-rlp-verify = { git = "https://github.com/ametel01/eth-rlp-verify.git" }
+
 eyre = "0.6"
 thiserror = "2.0.3"
 tracing = "0.1.40"
 tokio = "1.41.1"
 dotenv = "0.15"
 starknet = "0.12.0"
+sqlx = "0.8.2"
+starknet-crypto = "0.7.3"
+clap = "4.5"
 
-[workspace.lints.clippy]
-single_match = "warn"
-single_match_else = "warn"
-needless_match = "warn"
-needless_late_init = "warn"
-redundant_pattern_matching = "warn"
-redundant_pattern = "warn"
-redundant_guards = "warn"
-collapsible_match = "warn"
-match_single_binding = "warn"
-match_same_arms = "warn"
-match_ref_pats = "warn"
-match_bool = "warn"
-needless_bool = "deny"
-unwrap_used = "warn"
-expect_used = "warn"

@@ -160,8 +160,6 @@ impl LightClient {
         )
         .await?;
 
-        info!(%proof_verified, %new_mmr_root, "Proof verification completed");
-
         if proof_verified {
             self.update_mmr_state_on_starknet(latest_relayed_block, new_mmr_root)
                 .await?;

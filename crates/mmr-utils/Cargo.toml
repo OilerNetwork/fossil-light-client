@@ -14,5 +14,3 @@ store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "w
 hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "workspace" }
 mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "workspace" }
 
-[lints]
-workspace = true

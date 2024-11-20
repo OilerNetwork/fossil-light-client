@@ -44,14 +44,16 @@ pub async fn update_mmr_and_verify_onchain(
     // Initialize accumulator builder
     let mut builder = AccumulatorBuilder::new(db_file, proof_generator, 1024).await?;
 
+    tracing::info!("Publisher received proving request for blocks from {} to {}", start_block, end_block);
     // Update the MMR with new block headers and get the proof calldata
     let (proof_calldata, new_mmr_root_hash) = builder
         .update_mmr_with_new_headers(start_block, end_block)
         .await?;
+    tracing::info!("Updated MMR with new block headers and got proof calldata");
 
     let provider = StarknetProvider::new(rpc_url)?;
 
-    // Attempt to verify the Groth16 proof on-chain
+    tracing::info!("Verifying proof onchain...");
     let verification_result = provider
         .verify_groth16_proof_onchain(verifier_address, &proof_calldata)
         .await?;
@@ -60,6 +62,7 @@ pub async fn update_mmr_and_verify_onchain(
         .first()
         .ok_or_else(|| HostError::VerificationError)?
         == Felt::from(1);
+    tracing::info!("Proof verification successful");
 
     Ok((verified, new_mmr_root_hash))
 }
