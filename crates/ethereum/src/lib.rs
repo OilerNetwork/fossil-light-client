@@ -32,10 +32,7 @@ pub async fn get_finalized_block_hash() -> Result<(u64, String), LightClientErro
     let builder = contract.getBlockHash();
     let result = builder.call().await?;
 
-    let block_number: u64 = result
-        .blockNumber
-        .try_into()
-        .expect("Failed to convert block number to u64");
+    let block_number: u64 = result.blockNumber.try_into()?;
     let block_hash = result.blockHash.to_string();
 
     Ok((block_number, block_hash))

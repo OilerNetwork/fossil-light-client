@@ -11,4 +11,5 @@ starknet-crypto = { workspace = true }
 
 tracing-subscriber = "0.3.18"
 alloy-contract = { version = "0.6.4" }
+ruint = "1.12.3"
 

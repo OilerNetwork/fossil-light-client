@@ -15,6 +15,8 @@ pub enum LightClientError {
     LoggerInitFailed,
     #[error("Alloy contract error: {0}")]
     AlloyContractError(#[from] alloy_contract::Error),
+    #[error("Failed to convert Uint to u64")]
+    UintError(#[from] ruint::FromUintError<u64>),
 }
 
 /// Retrieves an environment variable or returns an error if not set.
@@ -41,5 +43,5 @@ pub fn initialize_logger_and_env() -> Result<(), LightClientError> {
 }
 
 pub fn felt(str: &str) -> Result<Felt, LightClientError> {
-    Ok(Felt::from_hex(str).map_err(|_| LightClientError::ParseError(str.to_string()))?)
+    Felt::from_hex(str).map_err(|_| LightClientError::ParseError(str.to_string()))
 }

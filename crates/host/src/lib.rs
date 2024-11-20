@@ -6,9 +6,9 @@ use risc0_groth16 as _;
 use tracing as _;
 
 pub mod accumulator;
+pub mod db_access;
 pub mod proof_generator;
 pub mod types;
-pub mod db_access;
 
 pub use accumulator::AccumulatorBuilder;
 use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
@@ -44,7 +44,11 @@ pub async fn update_mmr_and_verify_onchain(
     // Initialize accumulator builder
     let mut builder = AccumulatorBuilder::new(db_file, proof_generator, 1024).await?;
 
-    tracing::info!("Publisher received proving request for blocks from {} to {}", start_block, end_block);
+    tracing::info!(
+        "Publisher received proving request for blocks from {} to {}",
+        start_block,
+        end_block
+    );
     // Update the MMR with new block headers and get the proof calldata
     let (proof_calldata, new_mmr_root_hash) = builder
         .update_mmr_with_new_headers(start_block, end_block)

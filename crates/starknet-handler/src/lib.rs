@@ -3,10 +3,10 @@
 pub mod account;
 pub mod provider;
 use common::LightClientError;
-use thiserror::Error;
 use starknet::accounts::single_owner::SignError;
-use starknet::signers::local_wallet::SignError as LocalWalletSignError;
 use starknet::accounts::AccountError;
+use starknet::signers::local_wallet::SignError as LocalWalletSignError;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum StarknetHandlerError {

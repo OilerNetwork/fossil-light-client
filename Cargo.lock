@@ -1721,6 +1721,7 @@ dependencies = [
  "alloy-contract 0.6.4",
  "dotenv",
  "eyre",
+ "ruint",
  "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 2.0.3",
  "tracing-subscriber 0.3.18",
@@ -3587,7 +3588,6 @@ dependencies = [
  "sqlx",
  "store",
  "thiserror 2.0.3",
- "tokio",
  "uuid 1.11.0",
 ]
 

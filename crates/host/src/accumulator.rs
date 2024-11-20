@@ -1,14 +1,14 @@
 // host/src/accumulator.rs
+use crate::db_access::{get_block_headers_by_block_range, DbConnection};
 use crate::proof_generator::{ProofGenerator, ProofGeneratorError};
 use crate::types::{BatchResult, ProofType};
-use crate::db_access::{get_block_headers_by_block_range, DbConnection};
 use common::LightClientError;
 use ethereum::get_finalized_block_hash;
 use guest_types::{BatchProof, CombinedInput, GuestInput, GuestOutput};
-use mmr::{find_peaks, PeaksOptions, MMR, MMRError, InStoreTableError};
-use mmr_utils::{initialize_mmr, StoreManager, MMRUtilsError};
+use mmr::{find_peaks, InStoreTableError, MMRError, PeaksOptions, MMR};
+use mmr_utils::{initialize_mmr, MMRUtilsError, StoreManager};
 use starknet_crypto::Felt;
-use store::{SqlitePool, SubKey, StoreError};
+use store::{SqlitePool, StoreError, SubKey};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -68,10 +68,15 @@ impl AccumulatorBuilder {
         })
     }
 
-    async fn process_batch(&mut self, start_block: u64, end_block: u64) -> Result<BatchResult, AccumulatorError> {
+    async fn process_batch(
+        &mut self,
+        start_block: u64,
+        end_block: u64,
+    ) -> Result<BatchResult, AccumulatorError> {
         let db_connection = DbConnection::new().await?;
         // Fetch headers
-        let headers = get_block_headers_by_block_range(&db_connection.pool, start_block, end_block).await?;
+        let headers =
+            get_block_headers_by_block_range(&db_connection.pool, start_block, end_block).await?;
 
         // Get and verify current MMR state
         let current_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
@@ -136,7 +141,10 @@ impl AccumulatorBuilder {
         ))
     }
 
-    async fn update_mmr_state(&mut self, guest_output: &GuestOutput) -> Result<String, AccumulatorError> {
+    async fn update_mmr_state(
+        &mut self,
+        guest_output: &GuestOutput,
+    ) -> Result<String, AccumulatorError> {
         // Verify state transition
         let current_elements_count = self.mmr.elements_count.get().await?;
         if guest_output.elements_count() < current_elements_count {
@@ -195,7 +203,10 @@ impl AccumulatorBuilder {
     }
 
     /// Build the MMR using a specified number of batches
-    pub async fn build_with_num_batches(&mut self, num_batches: u64) -> Result<Vec<BatchResult>, AccumulatorError> {
+    pub async fn build_with_num_batches(
+        &mut self,
+        num_batches: u64,
+    ) -> Result<Vec<BatchResult>, AccumulatorError> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
 
         self.total_batches = num_batches;

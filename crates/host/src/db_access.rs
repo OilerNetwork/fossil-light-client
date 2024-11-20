@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
+use common::get_env_var;
 use dotenv::dotenv;
 use eth_rlp_types::BlockHeader;
 use sqlx::{postgres::PgPoolOptions, PgPool, Pool, Postgres};
-use common::get_env_var;
 
 use crate::accumulator::AccumulatorError;
 
@@ -16,7 +16,7 @@ pub struct DbConnection {
 impl DbConnection {
     pub async fn new() -> Result<Arc<Self>, AccumulatorError> {
         dotenv().ok();
-        
+
         let database_url = get_env_var("DATABASE_URL")?;
 
         let pool = PgPoolOptions::new()
