@@ -25,11 +25,13 @@ jobs:
       - name: Install `sqlx-cli`
         run: cargo install sqlx-cli --no-default-features --features postgres
 
-      - name: Install RISC Zero toolchain
+      - name: Install risczero toolchain
         run: |
           curl -L https://risczero.com/install | bash
-          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
+          export PATH="$HOME/.risc0/bin:$PATH"  
           rzup install
+          rzup install cpp
+          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
 
       - name: Add DATABASE_URL environment variable
         env:
