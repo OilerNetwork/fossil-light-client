@@ -12,4 +12,3 @@ uuid = "1.1.2"
 store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "workspace" }
 hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "workspace" }
 mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "workspace" }
-

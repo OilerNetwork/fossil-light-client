@@ -29,7 +29,7 @@ eyre = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
-sqlx = { workspace = true, features = ["postgres", "runtime-tokio-native-tls"] }
+sqlx = { workspace = true }
 dotenv = { workspace = true }
 starknet-crypto = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
