@@ -33,7 +33,7 @@ jobs:
       - name: Prepare sqlx database query cache
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: sqlx prepare --database-url $DATABASE_URL
+        run: cargo sqlx prepare --database-url $DATABASE_URL
 
       - name: Build
         run: cargo build --verbose
@@ -48,7 +48,6 @@ jobs:
 
       # - name: Run Clippy
       #   run: cargo clippy -- -D warnings
-
 
       - name: Run Clippy
         run: cargo clippy -p common -p ethereum -p guest-types -p mmr-utils -p relayer -p starknet-handler -- -D warnings
