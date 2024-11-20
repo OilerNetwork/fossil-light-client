@@ -2,7 +2,7 @@
 
 #![deny(unused_crate_dependencies)]
 
-use block_validity::BlockHeader;
+use eth_rlp_types::BlockHeader;
 use risc0_zkvm::Receipt;
 use serde::{Deserialize, Serialize};
 

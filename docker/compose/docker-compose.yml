@@ -1,0 +1,164 @@
+services:
+  anvil:
+    build:
+      context: ../..
+      dockerfile: docker/images/anvil/Dockerfile
+    ports:
+      - "8545:8545"
+    env_file:
+      - ../../.env
+    environment:
+      - ETH_RPC_URL=${ETH_RPC_URL}
+      - FOUNDRY_EVM_VERSION=${FOUNDRY_EVM_VERSION}
+    healthcheck:
+      test: ["CMD", 
+              "curl", 
+              "-X", 
+              "POST", 
+              "-H", 
+              "Content-Type: application/json", 
+              "-d", '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}', 
+              "http://localhost:8545"
+            ]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+      timeout: 5s
+    networks:
+      fossil_net:
+        aliases:
+          - anvil
+
+  katana:
+    build:
+      context: ../..
+      dockerfile: docker/images/katana/Dockerfile
+    ports:
+      - "5050:5050"
+    volumes:
+      - ../../config:/app/config
+    environment:
+      - STARKNET_RPC_URL=${STARKNET_RPC_URL}
+      - STARKNET_PRIVATE_KEY=${STARKNET_PRIVATE_KEY}
+      - STARKNET_ACCOUNT_ADDRESS=${STARKNET_ACCOUNT_ADDRESS}
+    healthcheck:
+      test: ["CMD", 
+              "curl", 
+          "-X", 
+          "POST", 
+          "-H", "Content-Type: application/json", 
+          "-d", "{\"jsonrpc\":\"2.0\",\"method\":\"starknet_getBlockWithTxHashes\",\"params\":[\"latest\"],\"id\":1}", 
+              "http://localhost:5050"
+            ]
+      interval: 10s
+      retries: 5
+      start_period: 20s
+      timeout: 5s
+    depends_on:
+      anvil:
+        condition: service_healthy
+    command: >
+      katana 
+      --messaging /app/config/anvil.messaging.json
+      --disable-fee
+      --disable-validate
+      --host 0.0.0.0
+    networks:
+      fossil_net:
+        aliases:
+          - katana
+  
+  ethereum:
+    build:
+      context: ../..
+      dockerfile: docker/images/ethereum/Dockerfile
+    env_file:
+      - ../../.env
+    environment:
+      - FOUNDRY_EVM_VERSION=${FOUNDRY_EVM_VERSION}
+      - ETH_RPC_URL=http://anvil:8545
+      - PRIVATE_KEY=${ACCOUNT_PRIVATE_KEY}
+    volumes:
+      - type: bind
+        source: ../../contracts
+        target: /app/contracts
+      - type: bind
+        source: ../../scripts
+        target: /app/scripts
+      - type: bind
+        source: ../../contracts/ethereum/lib
+        target: /app/lib
+      - type: bind
+        source: ../../contracts/ethereum/foundry.toml
+        target: /app/foundry.toml
+    depends_on:
+      anvil:
+        condition: service_healthy
+    networks:
+      fossil_net:
+        aliases:
+          - ethereum-deployer
+
+  starknet:
+    build:
+      context: ../..
+      dockerfile: docker/images/starknet/Dockerfile
+    env_file:
+      - ../../.env
+    environment:
+      - STARKNET_ACCOUNT=katana-0
+      - STARKNET_RPC=http://katana:5050
+      - STARKNET_RPC_URL=http://katana:5050
+    volumes:
+      - ../..:/app
+    depends_on:
+      katana:
+        condition: service_healthy
+    networks:
+      fossil_net:
+        aliases:
+          - starknet-deployer
+
+  client:
+    build:
+      context: ../..
+      dockerfile: docker/images/client/Dockerfile
+    image: fossil-client:latest
+    env_file:
+      - ../../.env
+    environment:
+      - STARKNET_RPC_URL=http://katana:5050
+    networks:
+      fossil_net:
+        aliases:
+          - light-client
+
+  relayer:
+    build:
+      context: ../..
+      dockerfile: docker/images/relayer/Dockerfile
+    image: fossil-relayer:latest
+    env_file:
+      - ../../.env
+    depends_on:
+      - client
+    networks:
+      fossil_net:
+        aliases:
+          - relayer
+
+networks:
+  fossil_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
+
+volumes:
+  scarb-cache:

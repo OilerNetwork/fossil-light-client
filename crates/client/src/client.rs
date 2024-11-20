@@ -4,7 +4,7 @@ use tracing::{error, info, instrument};
 
 use common::{felt, get_env_var};
 use host::update_mmr_and_verify_onchain;
-use mmr_accumulator::processor_utils::{create_database_file, ensure_directory_exists};
+use mmr_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
     core::types::{BlockId, BlockTag, EventFilter, Felt},
     macros::selector,
@@ -159,8 +159,6 @@ impl LightClient {
             &self.verifier_addr,
         )
         .await?;
-
-        info!(%proof_verified, %new_mmr_root, "Proof verification completed");
 
         if proof_verified {
             self.update_mmr_state_on_starknet(latest_relayed_block, new_mmr_root)

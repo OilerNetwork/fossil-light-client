@@ -2,8 +2,8 @@ use alloy::{
     network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
     signers::local::PrivateKeySigner, sol_types::sol,
 };
-use common::{get_env_var, get_var};
-use eyre::Result;
+use common::{get_env_var, get_var, LightClientError};
+// use eyre::Result;
 use thiserror::Error;
 use tracing::info;
 
@@ -13,6 +13,8 @@ pub enum RelayerError {
     ProviderError(String),
     #[error("Transaction failed: {0}")]
     TransactionError(String),
+    #[error("LightClient error: {0}")]
+    LightClient(#[from] LightClientError),
 }
 
 sol!(
@@ -27,7 +29,7 @@ pub struct Relayer {
 }
 
 impl Relayer {
-    pub async fn new() -> Result<Self> {
+    pub async fn new() -> Result<Self, RelayerError> {
         // Load the private key and initialize the signer
         let signer: PrivateKeySigner = get_var("ACCOUNT_PRIVATE_KEY")?;
 
@@ -43,7 +45,7 @@ impl Relayer {
         })
     }
 
-    pub async fn send_finalized_block_hash_to_l2(&self) -> Result<()> {
+    pub async fn send_finalized_block_hash_to_l2(&self) -> Result<(), RelayerError> {
         // Create the provider
         let provider_url = get_env_var("ANVIL_URL")?;
 

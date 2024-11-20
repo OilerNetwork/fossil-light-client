@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use crate::StarknetHandlerError;
 use common::felt;
-use eyre::Result;
 use starknet::macros::selector;
 use starknet::{
     core::types::{BlockId, BlockTag, FunctionCall},
@@ -16,7 +15,7 @@ pub struct StarknetProvider {
 }
 
 impl StarknetProvider {
-    pub fn new(rpc_url: &str) -> Result<Self> {
+    pub fn new(rpc_url: &str) -> Result<Self, StarknetHandlerError> {
         let parsed_url = Url::parse(rpc_url)
             .map_err(|_| StarknetHandlerError::ParseError(rpc_url.to_string()))?;
         Ok(Self {
@@ -37,7 +36,7 @@ impl StarknetProvider {
         &self,
         verifier_address: &str,
         calldata: &[Felt],
-    ) -> Result<Vec<Felt>> {
+    ) -> Result<Vec<Felt>, StarknetHandlerError> {
         tracing::info!("Verifying Groth16 proof onchain...");
         let contract_address = felt(verifier_address)?;
 
@@ -59,7 +58,10 @@ impl StarknetProvider {
         Ok(result)
     }
 
-    pub async fn get_latest_mmr_state(&self, l2_store_address: &Felt) -> Result<(u64, Felt)> {
+    pub async fn get_latest_mmr_state(
+        &self,
+        l2_store_address: &Felt,
+    ) -> Result<(u64, Felt), StarknetHandlerError> {
         let entry_point_selector = selector!("get_mmr_state");
 
         let data = self
@@ -81,7 +83,10 @@ impl StarknetProvider {
         Ok((from_block, data[1]))
     }
 
-    pub async fn get_latest_relayed_block(&self, l2_store_address: &Felt) -> Result<u64> {
+    pub async fn get_latest_relayed_block(
+        &self,
+        l2_store_address: &Felt,
+    ) -> Result<u64, StarknetHandlerError> {
         let entry_point_selector = selector!("get_latest_blockhash_from_l1");
 
         let data = self

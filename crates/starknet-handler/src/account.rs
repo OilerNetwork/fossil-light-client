@@ -1,5 +1,4 @@
 use common::felt;
-use eyre::Result;
 use starknet::macros::selector;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
@@ -10,6 +9,8 @@ use starknet::{
 use starknet_crypto::Felt;
 use std::sync::Arc;
 
+use crate::StarknetHandlerError;
+
 pub struct StarknetAccount {
     account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,
 }
@@ -19,7 +20,7 @@ impl StarknetAccount {
         provider: Arc<JsonRpcClient<HttpTransport>>,
         account_private_key: &str,
         account_address: &str,
-    ) -> Result<Self> {
+    ) -> Result<Self, StarknetHandlerError> {
         let private_key = felt(account_private_key)?;
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(private_key));
 
@@ -45,7 +46,7 @@ impl StarknetAccount {
         store_address: Felt,
         latest_block_number: u64,
         new_mmr_root: Felt,
-    ) -> Result<Felt> {
+    ) -> Result<Felt, StarknetHandlerError> {
         let selector = selector!("update_mmr_state");
 
         let tx = self

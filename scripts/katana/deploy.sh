@@ -3,12 +3,32 @@
 # Ensure the script stops on the first error
 set -e
 
-WORKING_DIR="../../contracts/starknet/"
-L1_MESSAGES_SENDER="0xD185B4846E5fd5419fD4D077dc636084BEfC51C0"
+L1_MESSAGE_SENDER=0xF94AB55a20B32AC37c3A105f12dB535986697945
+
+# Function to wait for Katana to be ready
+wait_for_katana() {
+    echo "Waiting for Katana to be ready..."
+    while ! curl -s -X POST -H "Content-Type: application/json" \
+        -d '{"jsonrpc":"2.0","method":"starknet_chainId","params":[],"id":1}' \
+        http://katana:5050 > /dev/null; do
+        echo "Katana is not ready yet. Waiting..."
+        sleep 5
+    done
+    echo "Katana is ready!"
+}
+
+# Wait for Katana to be ready
+wait_for_katana
+
+# Set absolute paths
+WORKING_DIR="/app/contracts/starknet"
+CONFIG_DIR="/app/config"
 
 # Load environment variables
-source ../../config/katana.env
+source ${CONFIG_DIR}/katana.env
 
+# Now deploy Starknet contracts
+echo "Deploying Starknet contracts..."
 cd $WORKING_DIR
 
 scarb build
@@ -28,7 +48,7 @@ L1MESSAGEPROXY_HASH=$(starkli declare ./target/dev/l1_message_proxy_L1MessagePro
 echo "Class hash declared: $L1MESSAGEPROXY_HASH"
 
 echo "Deploying Fossil L1MessageProxy contract..."
-L1MESSAGEPROXY_ADDRESS=$(starkli deploy $L1MESSAGEPROXY_HASH $L1_MESSAGES_SENDER $FOSSILSTORE_ADDRESS --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+L1MESSAGEPROXY_ADDRESS=$(starkli deploy $L1MESSAGEPROXY_HASH $L1_MESSAGE_SENDER $FOSSILSTORE_ADDRESS --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo "Contract address: $L1MESSAGEPROXY_ADDRESS"
 
 # Declare and deploy Universal ECIP contract
@@ -56,7 +76,7 @@ if [[ $ETH_BLOCK =~ ^[0-9]+$ ]]; then
     # Subtract 256 from the current block number
     ETH_BLOCK=$((ETH_BLOCK - 256))
     echo "Updated Ethereum block number: $ETH_BLOCK"
-    
+
     # Run the Starkli command with the updated block number
     starkli invoke $FOSSILSTORE_ADDRESS update_mmr_state $ETH_BLOCK 0x0
     echo "Updated MMR state on Starknet for testing with block number: $ETH_BLOCK"

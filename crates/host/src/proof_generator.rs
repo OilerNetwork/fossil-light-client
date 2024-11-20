@@ -1,5 +1,4 @@
 pub use crate::types::ProofType;
-use eyre::Result;
 use garaga_rs::{
     calldata::full_proof_with_hints::groth16::{
         get_groth16_calldata, risc0_utils::get_risc0_vk, Groth16Proof,
@@ -12,7 +11,6 @@ use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, Veri
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::task;
-use tracing::info;
 
 #[derive(Error, Debug)]
 pub enum ProofGeneratorError {
@@ -27,7 +25,11 @@ pub enum ProofGeneratorError {
     #[error("Failed to generate StarkNet calldata: {0}")]
     CalldataError(String),
     #[error("Failed to spawn blocking task: {0}")]
-    SpawnBlockingError(String),
+    SpawnBlocking(String),
+    #[error("Task join error: {0}")]
+    Join(#[from] tokio::task::JoinError),
+    #[error("Risc0 serde error: {0}")]
+    Risc0Serde(#[from] risc0_zkvm::serde::Error),
 }
 
 pub struct ProofGenerator {
@@ -44,12 +46,13 @@ impl ProofGenerator {
     }
 
     /// Generate a standard Stark proof for intermediate batches
-    pub async fn generate_stark_proof(&self, input: &CombinedInput) -> Result<ProofType> {
+    pub async fn generate_stark_proof(
+        &self,
+        input: &CombinedInput,
+    ) -> Result<ProofType, ProofGeneratorError> {
         let method_elf = self.method_elf;
         let method_id = self.method_id;
         let input = input.clone();
-
-        info!("Generating STARK proof...");
 
         let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
             let env = ExecutorEnv::builder()
@@ -73,18 +76,19 @@ impl ProofGenerator {
             })
         })
         .await?
-        .map_err(|e| ProofGeneratorError::SpawnBlockingError(e.to_string()))?;
+        .map_err(|e| ProofGeneratorError::SpawnBlocking(e.to_string()))?;
 
         Ok(proof)
     }
 
     /// Generate a Groth16 proof for the final batch
-    pub async fn generate_groth16_proof(&self, input: &CombinedInput) -> Result<ProofType> {
+    pub async fn generate_groth16_proof(
+        &self,
+        input: &CombinedInput,
+    ) -> Result<ProofType, ProofGeneratorError> {
         let method_elf = self.method_elf;
         // let method_id = self.method_id;
         let input = input.clone();
-
-        info!("Generating Groth16 proof...");
 
         let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
             let env = ExecutorEnv::builder()
@@ -116,19 +120,21 @@ impl ProofGenerator {
             let groth16_proof =
                 Groth16Proof::from_risc0(encoded_seal, image_id.as_bytes().to_vec(), journal);
 
-            info!("Generating StarkNet calldata...");
             let calldata = get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
                 .map_err(|e| ProofGeneratorError::CalldataError(e.to_string()))?;
 
             Ok(ProofType::Groth16 { receipt, calldata })
         })
         .await?
-        .map_err(|e| ProofGeneratorError::SpawnBlockingError(e.to_string()))?;
+        .map_err(|e| ProofGeneratorError::SpawnBlocking(e.to_string()))?;
 
         Ok(proof)
     }
 
-    pub fn decode_journal<T: for<'a> Deserialize<'a>>(&self, proof: &ProofType) -> Result<T> {
+    pub fn decode_journal<T: for<'a> Deserialize<'a>>(
+        &self,
+        proof: &ProofType,
+    ) -> Result<T, ProofGeneratorError> {
         let receipt = match proof {
             ProofType::Groth16 { receipt, .. } | ProofType::Stark { receipt, .. } => receipt,
         };
