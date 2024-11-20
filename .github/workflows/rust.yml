@@ -8,6 +8,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
 jobs:
   build-fmt-lint:
@@ -40,11 +41,6 @@ jobs:
 
       - name: Build
         run: cargo build --verbose
-
-      - name: Prepare sqlx database query cache
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: cargo sqlx prepare --database-url $DATABASE_URL
 
       - name: Run tests
         env:
