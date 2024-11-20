@@ -24,14 +24,32 @@ jobs:
           rzup install cpp
           echo "$HOME/.risc0/bin" >> $GITHUB_PATH
 
+      - name: Set up Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Add DATABASE_URL environment variable
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: echo "DATABASE_URL is set"
+
+      - name: Prepare sqlx database query cache
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: cargo sqlx prepare --database-url $DATABASE_URL
+
       - name: Build
         run: cargo build --verbose
 
       - name: Run tests
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: cargo test --verbose
 
       - name: Run format check
         run: cargo fmt --check
 
-      # - name: Run Clippy
-      #   run: cargo clippy -- -D warnings
+      - name: Run Clippy
+        run: cargo clippy -p common -p ethereum -p guest-types -p mmr-utils -p relayer -p starknet-handler -- -D warnings
