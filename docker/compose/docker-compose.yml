@@ -123,6 +123,7 @@ services:
     build:
       context: ../..
       dockerfile: docker/images/client/Dockerfile
+    platform: linux/amd64
     image: fossil-client:latest
     env_file:
       - ../../.env
