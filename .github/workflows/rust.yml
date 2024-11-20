@@ -28,7 +28,11 @@ jobs:
       - name: Install RISC Zero toolchain
         run: |
           curl -L https://risczero.com/install | bash
+          export PATH="$HOME/.risc0/bin:$PATH"
           rzup install
+
+      - name: Add RISC Zero to PATH
+        run: echo "::add-path::$HOME/.risc0/bin"
 
       - name: Add DATABASE_URL environment variable
         env:
