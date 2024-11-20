@@ -30,13 +30,13 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: echo "DATABASE_URL is set"
 
+      - name: Build
+        run: cargo build --verbose
+
       - name: Prepare sqlx database query cache
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: cargo sqlx prepare --database-url $DATABASE_URL
-
-      - name: Build
-        run: cargo build --verbose
 
       - name: Run tests
         env:
