@@ -25,6 +25,11 @@ jobs:
       - name: Install `sqlx-cli`
         run: cargo install sqlx-cli --no-default-features --features postgres
 
+      - name: Install RISC Zero toolchain
+        run: |
+          curl -L https://risczero.com/install | bash
+          rzup install
+
       - name: Add DATABASE_URL environment variable
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -45,9 +50,6 @@ jobs:
 
       - name: Run format check
         run: cargo fmt --check
-
-      # - name: Run Clippy
-      #   run: cargo clippy -- -D warnings
 
       - name: Run Clippy
         run: cargo clippy -p common -p ethereum -p guest-types -p mmr-utils -p relayer -p starknet-handler -- -D warnings
