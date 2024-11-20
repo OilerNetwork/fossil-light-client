@@ -16,19 +16,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install risczero toolchain
-        run: |
-          curl -L https://risczero.com/install | bash
-          export PATH="$HOME/.risc0/bin:$PATH"  
-          rzup install
-          rzup install cpp
-          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
-
-      - name: Set up Rust
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
           override: true
+
+      - name: Install `sqlx-cli`
+        run: cargo install sqlx-cli --no-default-features --features postgres
 
       - name: Add DATABASE_URL environment variable
         env:
@@ -38,7 +33,7 @@ jobs:
       - name: Prepare sqlx database query cache
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: cargo sqlx prepare --database-url $DATABASE_URL
+        run: sqlx prepare --database-url $DATABASE_URL
 
       - name: Build
         run: cargo build --verbose
@@ -50,6 +45,10 @@ jobs:
 
       - name: Run format check
         run: cargo fmt --check
+
+      # - name: Run Clippy
+      #   run: cargo clippy -- -D warnings
+
 
       - name: Run Clippy
         run: cargo clippy -p common -p ethereum -p guest-types -p mmr-utils -p relayer -p starknet-handler -- -D warnings
