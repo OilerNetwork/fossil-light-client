@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use crate::StarknetHandlerError;
-use common::felt;
+use crate::{felt, StarknetHandlerError};
 use starknet::macros::selector;
 use starknet::{
     core::types::{BlockId, BlockTag, FunctionCall},

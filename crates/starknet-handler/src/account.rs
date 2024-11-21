@@ -1,4 +1,3 @@
-use common::felt;
 use starknet::macros::selector;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
@@ -9,7 +8,7 @@ use starknet::{
 use starknet_crypto::Felt;
 use std::sync::Arc;
 
-use crate::StarknetHandlerError;
+use crate::{felt, StarknetHandlerError};
 
 pub struct StarknetAccount {
     account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,

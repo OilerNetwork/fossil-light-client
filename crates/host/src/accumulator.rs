@@ -8,6 +8,7 @@ use guest_types::{BatchProof, CombinedInput, GuestInput, GuestOutput};
 use mmr::{find_peaks, InStoreTableError, MMRError, PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, MMRUtilsError, StoreManager};
 use starknet_crypto::Felt;
+use starknet_handler::MmrState;
 use store::{SqlitePool, StoreError, SubKey};
 use thiserror::Error;
 
@@ -136,7 +137,7 @@ impl AccumulatorBuilder {
         Ok(BatchResult::new(
             start_block,
             end_block,
-            new_mmr_root_hash,
+            new_mmr_state,
             Some(proof),
         ))
     }
@@ -144,7 +145,7 @@ impl AccumulatorBuilder {
     async fn update_mmr_state(
         &mut self,
         guest_output: &GuestOutput,
-    ) -> Result<String, AccumulatorError> {
+    ) -> Result<MmrState, AccumulatorError> {
         // Verify state transition
         let current_elements_count = self.mmr.elements_count.get().await?;
         if guest_output.elements_count() < current_elements_count {
@@ -199,7 +200,14 @@ impl AccumulatorBuilder {
 
         validate_felt_hex(&new_mmr_root_hash)?;
 
-        Ok(new_mmr_root_hash)
+        let new_mmr_state = MmrState::new(
+            new_mmr_root_hash,
+            guest_output.elements_count() as u64,
+            guest_output.leaves_count() as u64,
+            guest_output.final_peaks().to_vec(),
+        );
+
+        Ok(new_mmr_state)
     }
 
     /// Build the MMR using a specified number of batches
@@ -263,14 +271,14 @@ impl AccumulatorBuilder {
         &mut self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<(Vec<Felt>, String), AccumulatorError> {
+    ) -> Result<(Vec<Felt>, MmrState), AccumulatorError> {
         self.total_batches = ((end_block - start_block) / self.batch_size) + 1;
 
         let result = self.process_batch(start_block, end_block).await?;
 
         // Extract the `calldata` from the `Groth16` proof
         if let Some(ProofType::Groth16 { calldata, .. }) = result.proof() {
-            Ok((calldata, result.new_mmr_root_hash()))
+            Ok((calldata, result.new_mmr_state()))
         } else {
             Err(AccumulatorError::ExpectedGroth16Proof {
                 got: result.proof().unwrap(),

@@ -1,6 +1,7 @@
 use risc0_zkvm::Receipt;
 use serde::{Deserialize, Serialize};
 use starknet_crypto::Felt;
+use starknet_handler::MmrState;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ProofType {
@@ -19,7 +20,7 @@ pub enum ProofType {
 pub struct BatchResult {
     start_block: u64,
     end_block: u64,
-    new_mmr_root_hash: String,
+    new_mmr_state: MmrState,
     proof: Option<ProofType>,
 }
 
@@ -27,13 +28,13 @@ impl BatchResult {
     pub fn new(
         start_block: u64,
         end_block: u64,
-        new_mmr_root_hash: String,
+        new_mmr_state: MmrState,
         proof: Option<ProofType>,
     ) -> Self {
         Self {
             start_block,
             end_block,
-            new_mmr_root_hash,
+            new_mmr_state,
             proof,
         }
     }
@@ -46,8 +47,8 @@ impl BatchResult {
         self.end_block
     }
 
-    pub fn new_mmr_root_hash(&self) -> String {
-        self.new_mmr_root_hash.clone()
+    pub fn new_mmr_state(&self) -> MmrState {
+        self.new_mmr_state.clone()
     }
 
     pub fn proof(&self) -> Option<ProofType> {

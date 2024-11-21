@@ -1,7 +1,6 @@
 #![deny(unused_crate_dependencies)]
 
 use eyre::Result;
-use starknet_crypto::Felt;
 use std::str::FromStr;
 use thiserror::Error;
 
@@ -40,8 +39,4 @@ pub fn initialize_logger_and_env() -> Result<(), LightClientError> {
     dotenv::dotenv().ok();
     tracing_subscriber::fmt().init();
     Ok(())
-}
-
-pub fn felt(str: &str) -> Result<Felt, LightClientError> {
-    Felt::from_hex(str).map_err(|_| LightClientError::ParseError(str.to_string()))
 }
