@@ -20,7 +20,11 @@ impl DbConnection {
         let database_url = get_env_var("DATABASE_URL")?;
 
         let pool = PgPoolOptions::new()
-            .max_connections(5)
+            .max_connections(20)
+            .min_connections(5)
+            .max_lifetime(std::time::Duration::from_secs(30 * 60))
+            .idle_timeout(std::time::Duration::from_secs(10 * 60))
+            .acquire_timeout(std::time::Duration::from_secs(30))
             .connect(&database_url)
             .await?;
 

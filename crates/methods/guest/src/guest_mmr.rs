@@ -1,9 +1,9 @@
 use guest_types::{AppendResult, PeaksFormattingOptions, PeaksOptions};
 use serde::{Deserialize, Serialize};
 use starknet_crypto::{poseidon_hash, poseidon_hash_many, poseidon_hash_single, Felt};
-use starknet_handler::felt;
 use std::collections::{HashMap, VecDeque};
 use thiserror::Error;
+use common::felt;
 
 #[derive(Error, Debug)]
 pub enum FormattingError {

@@ -1,14 +1,17 @@
+use crate::MmrState;
 use starknet::macros::selector;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
-    core::chain_id,
+    core::{chain_id, codec::Encode},
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
     signers::{LocalWallet, SigningKey},
 };
 use starknet_crypto::Felt;
 use std::sync::Arc;
 
-use crate::{felt, StarknetHandlerError};
+use common::felt;
+
+use crate::StarknetHandlerError;
 
 pub struct StarknetAccount {
     account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,
@@ -43,16 +46,20 @@ impl StarknetAccount {
     pub async fn update_mmr_state(
         &self,
         store_address: Felt,
-        latest_block_number: u64,
-        new_mmr_root: Felt,
+        latest_mmr_block: u64,
+        new_mmr_state: &MmrState,
     ) -> Result<Felt, StarknetHandlerError> {
         let selector = selector!("update_mmr_state");
+
+        let mut calldata = vec![];
+        calldata.push(Felt::from(latest_mmr_block + 1));
+        new_mmr_state.encode(&mut calldata)?;
 
         let tx = self
             .account
             .execute_v1(vec![starknet::core::types::Call {
                 selector,
-                calldata: vec![Felt::from(latest_block_number), new_mmr_root],
+                calldata,
                 to: store_address,
             }])
             .send()

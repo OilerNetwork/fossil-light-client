@@ -15,8 +15,7 @@ use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
 use mmr_utils::{create_database_file, ensure_directory_exists, MMRUtilsError};
 pub use proof_generator::{ProofGenerator, ProofType};
 use starknet_crypto::Felt;
-use starknet_handler::provider::StarknetProvider;
-use starknet_handler::StarknetHandlerError;
+use starknet_handler::{provider::StarknetProvider, MmrState, StarknetHandlerError};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -32,32 +31,34 @@ pub enum HostError {
 }
 
 pub async fn update_mmr_and_verify_onchain(
-    db_file: &str,          // Path to the existing SQLite database file
-    start_block: u64,       // Start block to update the MMR
-    end_block: u64,         // End block to update the MMR
-    rpc_url: &str,          // RPC URL for Starknet
-    verifier_address: &str, // Verifier contract address
-) -> Result<(bool, String), HostError> {
-    // Initialize proof generator
+    db_file: &str,
+    start_block: u64,
+    end_block: u64,
+    rpc_url: &str,
+    verifier_address: &str,
+) -> Result<(bool, MmrState), HostError> {
     let proof_generator = ProofGenerator::new(MMR_GUEST_ELF, MMR_GUEST_ID);
-
-    // Initialize accumulator builder
     let mut builder = AccumulatorBuilder::new(db_file, proof_generator, 1024).await?;
 
-    tracing::info!(
-        "Publisher received proving request for blocks from {} to {}",
+    tracing::debug!(
+        db_file,
         start_block,
-        end_block
+        end_block,
+        "Starting MMR update and proof generation"
     );
-    // Update the MMR with new block headers and get the proof calldata
-    let (proof_calldata, new_mmr_root_hash) = builder
+
+    let (proof_calldata, new_mmr_state) = builder
         .update_mmr_with_new_headers(start_block, end_block)
         .await?;
-    tracing::info!("Updated MMR with new block headers and got proof calldata");
+    tracing::info!(
+        start_block,
+        end_block,
+        "Successfully generated proof for block range"
+    );
 
     let provider = StarknetProvider::new(rpc_url)?;
+    tracing::debug!(verifier_address, "Submitting proof for verification");
 
-    tracing::info!("Verifying proof onchain...");
     let verification_result = provider
         .verify_groth16_proof_onchain(verifier_address, &proof_calldata)
         .await?;
@@ -66,9 +67,14 @@ pub async fn update_mmr_and_verify_onchain(
         .first()
         .ok_or_else(|| HostError::VerificationError)?
         == Felt::from(1);
-    tracing::info!("Proof verification successful");
 
-    Ok((verified, new_mmr_root_hash))
+    if verified {
+        tracing::info!("Proof verification successful on-chain");
+    } else {
+        tracing::warn!("Proof verification failed on-chain");
+    }
+
+    Ok((verified, new_mmr_state))
 }
 
 pub fn get_store_path(db_file: Option<String>) -> Result<String, HostError> {

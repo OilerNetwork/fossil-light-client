@@ -1,8 +1,5 @@
-use eyre::Result;
-use tokio::time::{self, Duration};
-use tracing::{error, info, instrument};
-
 use common::{felt, get_env_var};
+use eyre::Result;
 use host::update_mmr_and_verify_onchain;
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
@@ -10,7 +7,9 @@ use starknet::{
     macros::selector,
     providers::Provider as EventProvider,
 };
-use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
+use starknet_handler::{account::StarknetAccount, provider::StarknetProvider, MmrState};
+use tokio::time::{self, Duration};
+use tracing::{error, info, instrument};
 
 pub struct LightClient {
     starknet_provider: StarknetProvider,
@@ -60,21 +59,20 @@ impl LightClient {
         let mut shutdown = Box::pin(tokio::signal::ctrl_c());
 
         info!(
-            "Starting light client with {}s polling interval",
-            self.polling_interval.as_secs()
+            polling_interval_secs = self.polling_interval.as_secs(),
+            "Light client started"
         );
 
         loop {
             tokio::select! {
                 _ = interval.tick() => {
-                    info!("Polling for new events...");
                     if let Err(e) = self.process_new_events().await {
-                        error!("Failed to process events: {:#}", e);
+                        error!(error = %e, "Event processing failed");
                     }
                 }
                 _ = &mut shutdown => {
-                    info!("Received shutdown signal, stopping light client");
-                    break Ok(());  // Return Result explicitly
+                    info!("Light client stopped");
+                    break Ok(());
                 }
             }
         }
@@ -97,7 +95,11 @@ impl LightClient {
             .await?;
 
         if !events.events.is_empty() {
-            info!("Fetched {} new events", events.events.len());
+            info!(
+                event_count = events.events.len(),
+                latest_block = self.latest_processed_block,
+                "New events processed"
+            );
 
             // Update the latest processed block to the latest block from the new events
             self.latest_processed_block = events
@@ -108,8 +110,6 @@ impl LightClient {
 
             // Process the events
             self.handle_events().await?;
-        } else {
-            info!("No new events found.");
         }
 
         Ok(())
@@ -125,14 +125,14 @@ impl LightClient {
             .await?;
 
         // Fetch latest MMR state from L2
-        let (latest_mmr_block, _latest_mmr_root) = self
+        let (latest_mmr_block, _latest_mmr_state) = self
             .starknet_provider
             .get_latest_mmr_state(&self.l2_store_addr)
             .await?;
 
         info!(
-            latest_mmr_block,
-            latest_relayed_block, "Fetched latest MMR and relayed blocks from Starknet"
+            latest_relayed_block,
+            latest_mmr_block, "State fetched from Starknet"
         );
 
         // Update MMR and verify proofs
@@ -146,12 +146,12 @@ impl LightClient {
     #[instrument(skip(self))]
     pub async fn update_mmr(&self, latest_mmr_block: u64, latest_relayed_block: u64) -> Result<()> {
         info!(
-            "Calling RISC Zero prover to verify block headers from {} to {}",
-            latest_mmr_block + 1,
-            latest_relayed_block
+            from_block = latest_mmr_block + 1,
+            to_block = latest_relayed_block,
+            "Starting proof verification"
         );
 
-        let (proof_verified, new_mmr_root) = update_mmr_and_verify_onchain(
+        let (proof_verified, new_mmr_state) = update_mmr_and_verify_onchain(
             &self.db_file,
             latest_mmr_block,
             latest_relayed_block,
@@ -161,10 +161,14 @@ impl LightClient {
         .await?;
 
         if proof_verified {
-            self.update_mmr_state_on_starknet(latest_relayed_block, new_mmr_root)
+            self.update_mmr_state_on_starknet(latest_relayed_block, new_mmr_state)
                 .await?;
         } else {
-            error!("Proof verification failed");
+            error!(
+                from_block = latest_mmr_block + 1,
+                to_block = latest_relayed_block,
+                "Proof verification failed"
+            );
         }
 
         Ok(())
@@ -174,10 +178,8 @@ impl LightClient {
     pub async fn update_mmr_state_on_starknet(
         &self,
         latest_relayed_block: u64,
-        new_mmr_root: String,
+        new_mmr_state: MmrState,
     ) -> Result<()> {
-        info!("Updating MMR state on Starknet...");
-
         let starknet_account = StarknetAccount::new(
             self.starknet_provider.provider(),
             &self.starknet_private_key,
@@ -185,17 +187,13 @@ impl LightClient {
         )?;
 
         starknet_account
-            .update_mmr_state(
-                self.l2_store_addr,
-                latest_relayed_block,
-                felt(&new_mmr_root)?,
-            )
+            .update_mmr_state(self.l2_store_addr, latest_relayed_block, &new_mmr_state)
             .await?;
 
         info!(
-            latest_relayed_block,
-            new_mmr_root,
-            "MMR state updated on Starknet with latest relayed block number and new MMR root"
+            latest_block = latest_relayed_block,
+            mmr_root = %new_mmr_state.root_hash(),
+            "MMR state updated on Starknet"
         );
 
         Ok(())

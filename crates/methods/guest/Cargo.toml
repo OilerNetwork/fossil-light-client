@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 guest-types = { path = "../../guest-types" }
-starknet-handler = { path = "../../starknet-handler" }
+common = { path = "../../common" }
 
 eth-rlp-types = { git = "https://github.com/ametel01/eth-rlp-verify.git" }
 eth-rlp-verify = { git = "https://github.com/ametel01/eth-rlp-verify.git" }

@@ -23,9 +23,13 @@ pub enum StarknetHandlerError {
     Starknet(#[from] SignError<LocalWalletSignError>),
     #[error("Account error: {0}")]
     Account(#[from] AccountError<SignError<LocalWalletSignError>>),
+    #[error("Common error: {0}")]
+    Common(#[from] common::CommonError),
+    #[error("Encode error: {0}")]
+    Encode(#[from] starknet::core::codec::Error),
 }
 
-#[derive(Debug, Encode, Decode)]
+#[derive(Clone, Debug, Encode, Decode)]
 pub struct MmrState {
     root_hash: Felt,
     elements_count: u64,
@@ -42,17 +46,12 @@ impl MmrState {
             peaks,
         }
     }
-}
 
-pub fn string_array_to_felt_array(
-    string_array: Vec<String>,
-) -> Result<Vec<Felt>, StarknetHandlerError> {
-    string_array
-        .iter()
-        .map(|s| felt(s).map_err(|_| StarknetHandlerError::ParseError(s.clone())))
-        .collect()
-}
+    pub fn root_hash(&self) -> String {
+        self.root_hash.to_string()
+    }
 
-pub fn felt(str: &str) -> Result<Felt, StarknetHandlerError> {
-    Felt::from_hex(str).map_err(|_| StarknetHandlerError::ParseError(str.to_string()))
+    pub fn leaves_count(&self) -> u64 {
+        self.leaves_count
+    }
 }

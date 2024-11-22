@@ -11,6 +11,7 @@ use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, Veri
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::task;
+use tracing::{debug, info, warn};
 
 #[derive(Error, Debug)]
 pub enum ProofGeneratorError {
@@ -50,25 +51,41 @@ impl ProofGenerator {
         &self,
         input: &CombinedInput,
     ) -> Result<ProofType, ProofGeneratorError> {
+        info!("Generating STARK proof for intermediate batch");
+        debug!("Input size: {} bytes", std::mem::size_of_val(input));
+
         let method_elf = self.method_elf;
         let method_id = self.method_id;
         let input = input.clone();
 
         let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
+            debug!("Building executor environment");
             let env = ExecutorEnv::builder()
                 .write(&input)
-                .map_err(|e| ProofGeneratorError::ExecutorEnvError(e.to_string()))?
+                .map_err(|e| {
+                    warn!("Failed to write input to executor env: {}", e);
+                    ProofGeneratorError::ExecutorEnvError(e.to_string())
+                })?
                 .build()
-                .map_err(|e| ProofGeneratorError::ExecutorEnvError(e.to_string()))?;
+                .map_err(|e| {
+                    warn!("Failed to build executor env: {}", e);
+                    ProofGeneratorError::ExecutorEnvError(e.to_string())
+                })?;
 
+            debug!("Generating STARK proof with default prover");
             let receipt = default_prover()
                 .prove(env, method_elf)
-                .map_err(|e| ProofGeneratorError::ReceiptError(e.to_string()))?
+                .map_err(|e| {
+                    warn!("Failed to generate STARK proof: {}", e);
+                    ProofGeneratorError::ReceiptError(e.to_string())
+                })?
                 .receipt;
 
+            debug!("Computing image ID");
             let image_id = compute_image_id(method_elf)
                 .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
 
+            info!("Successfully generated STARK proof");
             Ok(ProofType::Stark {
                 receipt,
                 image_id: image_id.as_bytes().to_vec(),
@@ -86,18 +103,27 @@ impl ProofGenerator {
         &self,
         input: &CombinedInput,
     ) -> Result<ProofType, ProofGeneratorError> {
+        info!("Generating Groth16 proof for final batch");
+        debug!("Input size: {} bytes", std::mem::size_of_val(input));
+
         let method_elf = self.method_elf;
-        // let method_id = self.method_id;
         let input = input.clone();
 
         let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
+            debug!("Building executor environment");
             let env = ExecutorEnv::builder()
                 .write(&input)
-                .map_err(|e| ProofGeneratorError::ExecutorEnvError(e.to_string()))?
+                .map_err(|e| {
+                    warn!("Failed to write input to executor env: {}", e);
+                    ProofGeneratorError::ExecutorEnvError(e.to_string())
+                })?
                 .build()
-                .map_err(|e| ProofGeneratorError::ExecutorEnvError(e.to_string()))?;
+                .map_err(|e| {
+                    warn!("Failed to build executor env: {}", e);
+                    ProofGeneratorError::ExecutorEnvError(e.to_string())
+                })?;
 
-            // Generate with Groth16 options
+            debug!("Generating proof with Groth16 options");
             let receipt = default_prover()
                 .prove_with_ctx(
                     env,
@@ -105,24 +131,37 @@ impl ProofGenerator {
                     method_elf,
                     &ProverOpts::groth16(),
                 )
-                .map_err(|e| ProofGeneratorError::ReceiptError(e.to_string()))?
+                .map_err(|e| {
+                    warn!("Failed to generate Groth16 proof: {}", e);
+                    ProofGeneratorError::ReceiptError(e.to_string())
+                })?
                 .receipt;
 
-            // Convert to Groth16
-            let encoded_seal =
-                encode_seal(&receipt).map_err(|e| ProofGeneratorError::SealError(e.to_string()))?;
+            debug!("Encoding seal");
+            let encoded_seal = encode_seal(&receipt).map_err(|e| {
+                warn!("Failed to encode seal: {}", e);
+                ProofGeneratorError::SealError(e.to_string())
+            })?;
 
+            debug!("Computing image ID");
             let image_id = compute_image_id(method_elf)
                 .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
 
             let journal = receipt.journal.bytes.clone();
+            debug!("Journal size: {} bytes", journal.len());
 
+            debug!("Converting to Groth16 proof");
             let groth16_proof =
                 Groth16Proof::from_risc0(encoded_seal, image_id.as_bytes().to_vec(), journal);
 
+            debug!("Generating calldata");
             let calldata = get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
-                .map_err(|e| ProofGeneratorError::CalldataError(e.to_string()))?;
+                .map_err(|e| {
+                    warn!("Failed to generate calldata: {}", e);
+                    ProofGeneratorError::CalldataError(e.to_string())
+                })?;
 
+            info!("Successfully generated Groth16 proof");
             Ok(ProofType::Groth16 { receipt, calldata })
         })
         .await?

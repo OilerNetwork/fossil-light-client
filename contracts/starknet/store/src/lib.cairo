@@ -3,13 +3,14 @@ pub trait IStore<TContractState> {
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_mmr_state(
         ref self: TContractState,
+        latest_mmr_block: u64,
         mmr_root: felt252,
         elements_count: u64,
         leaves_count: u64,
         peaks: Array<felt252>
     );
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
-    fn get_mmr_state(self: @TContractState) -> (felt252, u64, u64, Array<felt252>);
+    fn get_mmr_state(self: @TContractState) -> (u64, felt252, u64, u64, Array<felt252>);
 }
 
 #[starknet::contract]
@@ -28,6 +29,7 @@ mod Store {
     #[storage]
     struct Storage {
         latest_blockhash_from_l1: (u64, u256),
+        latest_mmr_block: u64,
         mmr_state: MMRState,
         peaks: Vec<felt252>,
     }
@@ -47,6 +49,7 @@ mod Store {
 
     #[derive(Drop, starknet::Event)]
     struct MmrStateUpdated {
+        latest_mmr_block: u64,
         root_hash: felt252,
         elements_count: u64,
         leaves_count: u64,
@@ -68,11 +71,14 @@ mod Store {
 
         fn update_mmr_state(
             ref self: ContractState,
+            latest_mmr_block: u64,
             mmr_root: felt252,
             elements_count: u64,
             leaves_count: u64,
             peaks: Array<felt252>
         ) {
+            self.latest_mmr_block.write(latest_mmr_block);
+
             let mut curr_state = self.mmr_state;
             curr_state.root_hash.write(mmr_root);
             curr_state.elements_count.write(elements_count);
@@ -84,11 +90,15 @@ mod Store {
 
             self
                 .emit(
-                    MmrStateUpdated { root_hash: mmr_root, elements_count, leaves_count, peaks, }
+                    MmrStateUpdated {
+                        latest_mmr_block, root_hash: mmr_root, elements_count, leaves_count, peaks
+                    }
                 );
         }
 
-        fn get_mmr_state(self: @ContractState) -> (felt252, u64, u64, Array<felt252>) {
+        fn get_mmr_state(self: @ContractState) -> (u64, felt252, u64, u64, Array<felt252>) {
+            let latest_mmr_block = self.latest_mmr_block.read();
+            
             let curr_state = self.mmr_state;
             let (mmr_root, elements_count, leaves_count) = (
                 curr_state.root_hash.read(),
@@ -101,7 +111,7 @@ mod Store {
                 peaks.append(self.peaks.at(i).read());
             };
 
-            (mmr_root, elements_count, leaves_count, peaks)
+            (latest_mmr_block, mmr_root, elements_count, leaves_count, peaks)
         }
     }
 }

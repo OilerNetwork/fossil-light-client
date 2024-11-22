@@ -1722,6 +1722,7 @@ dependencies = [
  "dotenv",
  "eyre",
  "ruint",
+ "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 2.0.3",
  "tracing-subscriber 0.3.18",
 ]
@@ -5589,6 +5590,7 @@ dependencies = [
 name = "starknet-handler"
 version = "0.1.0"
 dependencies = [
+ "common",
  "starknet",
  "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 2.0.3",

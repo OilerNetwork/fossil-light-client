@@ -1,10 +1,16 @@
 use std::sync::Arc;
 
-use crate::{felt, StarknetHandlerError};
+use common::felt;
+use starknet::providers::Provider;
+
+use crate::{MmrState, StarknetHandlerError};
 use starknet::macros::selector;
 use starknet::{
-    core::types::{BlockId, BlockTag, FunctionCall},
-    providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider, Url},
+    core::{
+        codec::Decode,
+        types::{BlockId, BlockTag, FunctionCall},
+    },
+    providers::{jsonrpc::HttpTransport, JsonRpcClient, Url},
 };
 use starknet_crypto::Felt;
 
@@ -60,7 +66,7 @@ impl StarknetProvider {
     pub async fn get_latest_mmr_state(
         &self,
         l2_store_address: &Felt,
-    ) -> Result<(u64, Felt), StarknetHandlerError> {
+    ) -> Result<(u64, MmrState), StarknetHandlerError> {
         let entry_point_selector = selector!("get_mmr_state");
 
         let data = self
@@ -76,10 +82,13 @@ impl StarknetProvider {
             .await
             .map_err(|e| StarknetHandlerError::TransactionError(e.to_string()))?;
 
-        let from_block = u64::from_str_radix(data[0].to_hex_string().trim_start_matches("0x"), 16)
-            .map_err(|_| StarknetHandlerError::ParseError(data[0].to_hex_string()))?;
+        let latest_mmr_block =
+            u64::from_str_radix(data[0].to_hex_string().trim_start_matches("0x"), 16)
+                .map_err(|_| StarknetHandlerError::ParseError(data[0].to_hex_string()))?;
 
-        Ok((from_block, data[1]))
+        let mmr_state = MmrState::decode(&data[1..])?;
+
+        Ok((latest_mmr_block, mmr_state))
     }
 
     pub async fn get_latest_relayed_block(

@@ -3,33 +3,39 @@
 # Ensure the script stops on the first error
 set -e
 
+source ../../.env
+
+ETHEREUM_DIR="../../contracts/ethereum"
+
+cd $ETHEREUM_DIR && forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL
+
 L1_MESSAGE_SENDER=0xF94AB55a20B32AC37c3A105f12dB535986697945
 
 # Function to wait for Katana to be ready
-wait_for_katana() {
-    echo "Waiting for Katana to be ready..."
-    while ! curl -s -X POST -H "Content-Type: application/json" \
-        -d '{"jsonrpc":"2.0","method":"starknet_chainId","params":[],"id":1}' \
-        http://katana:5050 > /dev/null; do
-        echo "Katana is not ready yet. Waiting..."
-        sleep 5
-    done
-    echo "Katana is ready!"
-}
+# wait_for_katana() {
+#     echo "Waiting for Katana to be ready..."
+#     while ! curl -s -X POST -H "Content-Type: application/json" \
+#         -d '{"jsonrpc":"2.0","method":"starknet_chainId","params":[],"id":1}' \
+#         http://0.0.0.0:5050 > /dev/null; do
+#         echo "Katana is not ready yet. Waiting..."
+#         sleep 5
+#     done
+#     echo "Katana is ready!"
+# }
 
-# Wait for Katana to be ready
-wait_for_katana
+# # Wait for Katana to be ready
+# wait_for_katana
 
-# Set absolute paths
-WORKING_DIR="/app/contracts/starknet"
-CONFIG_DIR="/app/config"
+# # Set absolute paths
+STARKNET_DIR="../../contracts/starknet"
+# CONFIG_DIR="/app/config"
 
-# Load environment variables
-source ${CONFIG_DIR}/katana.env
+# # Load environment variables
+# source ${CONFIG_DIR}/katana.env
 
 # Now deploy Starknet contracts
 echo "Deploying Starknet contracts..."
-cd $WORKING_DIR
+cd $STARKNET_DIR
 
 scarb build
 
@@ -78,7 +84,7 @@ if [[ $ETH_BLOCK =~ ^[0-9]+$ ]]; then
     echo "Updated Ethereum block number: $ETH_BLOCK"
 
     # Run the Starkli command with the updated block number
-    starkli invoke $FOSSILSTORE_ADDRESS update_mmr_state $ETH_BLOCK 0x0
+    starkli invoke $FOSSILSTORE_ADDRESS update_mmr_state $ETH_BLOCK 0x0 0x0 0x0 0x0
     echo "Updated MMR state on Starknet for testing with block number: $ETH_BLOCK"
 else
     echo "Failed to retrieve a valid block number from 'cast'."
@@ -105,6 +111,6 @@ update_env_var "L2_MSG_PROXY" "$L1MESSAGEPROXY_ADDRESS"
 update_env_var "FOSSIL_STORE" "$FOSSILSTORE_ADDRESS"
 update_env_var "STARKNET_VERIFIER" "$VERIFIER_ADDRESS"
 
-source ../../.env
+pwd
 
 echo "Environment variables successfully updated in $ENV_FILE"
