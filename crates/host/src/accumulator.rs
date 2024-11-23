@@ -244,9 +244,7 @@ impl AccumulatorBuilder {
         num_batches: u64,
     ) -> Result<Vec<BatchResult>, AccumulatorError> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
-        info!(
-            "Building MMR...",
-        );
+        info!("Building MMR...",);
 
         self.total_batches = num_batches;
         self.current_batch = 0;
