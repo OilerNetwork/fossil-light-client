@@ -2,14 +2,16 @@
 use crate::db_access::{get_block_headers_by_block_range, DbConnection};
 use crate::proof_generator::{ProofGenerator, ProofGeneratorError};
 use crate::types::{BatchResult, ProofType};
-use common::LightClientError;
+use common::{felt, string_array_to_felt_array, UtilsError};
 use ethereum::get_finalized_block_hash;
 use guest_types::{BatchProof, CombinedInput, GuestInput, GuestOutput};
 use mmr::{find_peaks, InStoreTableError, MMRError, PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, MMRUtilsError, StoreManager};
 use starknet_crypto::Felt;
+use starknet_handler::MmrState;
 use store::{SqlitePool, StoreError, SubKey};
 use thiserror::Error;
+use tracing::{debug, info, warn};
 
 #[derive(Error, Debug)]
 pub enum AccumulatorError {
@@ -23,8 +25,8 @@ pub enum AccumulatorError {
     InvalidFeltHex(String),
     #[error("SQLx error: {0}")]
     Sqlx(#[from] sqlx::Error),
-    #[error("LightClientError: {0}")]
-    LightClient(#[from] LightClientError),
+    #[error("Utils error: {0}")]
+    Utils(#[from] UtilsError),
     #[error("MMR error: {0}")]
     MMRError(#[from] MMRError),
     #[error("Store error: {0}")]
@@ -55,6 +57,7 @@ impl AccumulatorBuilder {
         batch_size: u64,
     ) -> Result<Self, AccumulatorError> {
         let (store_manager, mmr, pool) = initialize_mmr(store_path).await?;
+        debug!("MMR initialized at {}", store_path);
 
         Ok(Self {
             batch_size,
@@ -73,8 +76,19 @@ impl AccumulatorBuilder {
         start_block: u64,
         end_block: u64,
     ) -> Result<BatchResult, AccumulatorError> {
+        info!(
+            "Processing batch {}/{} (blocks {} to {})",
+            self.current_batch + 1,
+            self.total_batches,
+            start_block,
+            end_block
+        );
+
         let db_connection = DbConnection::new().await?;
-        // Fetch headers
+        debug!(
+            "Fetching headers for blocks {} to {}",
+            start_block, end_block
+        );
         let headers =
             get_block_headers_by_block_range(&db_connection.pool, start_block, end_block).await?;
 
@@ -96,10 +110,12 @@ impl AccumulatorBuilder {
 
         // Generate appropriate proof
         let proof = if self.current_batch == self.total_batches - 1 {
+            debug!("Generating final Groth16 proof for batch");
             self.proof_generator
                 .generate_groth16_proof(&combined_input)
                 .await?
         } else {
+            debug!("Generating intermediate STARK proof for batch");
             self.proof_generator
                 .generate_stark_proof(&combined_input)
                 .await?
@@ -109,7 +125,7 @@ impl AccumulatorBuilder {
         let guest_output: GuestOutput = self.proof_generator.decode_journal(&proof)?;
 
         // TODO: Remove this and update MMR state after the proof is verified onchain
-        let new_mmr_root_hash = self.update_mmr_state(&guest_output).await?;
+        let new_mmr_state = self.update_mmr_state(&guest_output).await?;
 
         // If this is a STARK proof, add it to previous_proofs for the next batch
         if let ProofType::Stark {
@@ -133,10 +149,11 @@ impl AccumulatorBuilder {
 
         self.current_batch += 1;
 
+        debug!("Batch processing completed successfully");
         Ok(BatchResult::new(
             start_block,
             end_block,
-            new_mmr_root_hash,
+            new_mmr_state,
             Some(proof),
         ))
     }
@@ -144,10 +161,21 @@ impl AccumulatorBuilder {
     async fn update_mmr_state(
         &mut self,
         guest_output: &GuestOutput,
-    ) -> Result<String, AccumulatorError> {
+    ) -> Result<MmrState, AccumulatorError> {
+        debug!(
+            "Updating MMR state: elements={}, leaves={}",
+            guest_output.elements_count(),
+            guest_output.leaves_count()
+        );
+
         // Verify state transition
         let current_elements_count = self.mmr.elements_count.get().await?;
         if guest_output.elements_count() < current_elements_count {
+            warn!(
+                "Invalid state transition detected: new count {} < current count {}",
+                guest_output.elements_count(),
+                current_elements_count
+            );
             return Err(AccumulatorError::InvalidStateTransition.into());
         }
 
@@ -199,7 +227,15 @@ impl AccumulatorBuilder {
 
         validate_felt_hex(&new_mmr_root_hash)?;
 
-        Ok(new_mmr_root_hash)
+        let new_mmr_state = MmrState::new(
+            felt(&new_mmr_root_hash)?,
+            guest_output.elements_count() as u64,
+            guest_output.leaves_count() as u64,
+            string_array_to_felt_array(guest_output.final_peaks().to_vec())?,
+        );
+
+        debug!("MMR state updated successfully");
+        Ok(new_mmr_state)
     }
 
     /// Build the MMR using a specified number of batches
@@ -208,6 +244,7 @@ impl AccumulatorBuilder {
         num_batches: u64,
     ) -> Result<Vec<BatchResult>, AccumulatorError> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
+        info!("Building MMR...",);
 
         self.total_batches = num_batches;
         self.current_batch = 0;
@@ -236,6 +273,10 @@ impl AccumulatorBuilder {
 
     pub async fn build_from_finalized(&mut self) -> Result<Vec<BatchResult>, AccumulatorError> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
+        debug!(
+            "Building MMR from finalized block {} with batch size {}",
+            finalized_block_number, self.batch_size
+        );
 
         self.total_batches = (finalized_block_number / self.batch_size) + 1;
         self.current_batch = 0;
@@ -263,14 +304,14 @@ impl AccumulatorBuilder {
         &mut self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<(Vec<Felt>, String), AccumulatorError> {
+    ) -> Result<(Vec<Felt>, MmrState), AccumulatorError> {
         self.total_batches = ((end_block - start_block) / self.batch_size) + 1;
 
         let result = self.process_batch(start_block, end_block).await?;
 
         // Extract the `calldata` from the `Groth16` proof
         if let Some(ProofType::Groth16 { calldata, .. }) = result.proof() {
-            Ok((calldata, result.new_mmr_root_hash()))
+            Ok((calldata, result.new_mmr_state()))
         } else {
             Err(AccumulatorError::ExpectedGroth16Proof {
                 got: result.proof().unwrap(),

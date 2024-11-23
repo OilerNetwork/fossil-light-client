@@ -2,7 +2,7 @@ use alloy::{
     network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
     signers::local::PrivateKeySigner, sol_types::sol,
 };
-use common::{get_env_var, get_var, LightClientError};
+use common::{get_env_var, get_var, UtilsError};
 // use eyre::Result;
 use thiserror::Error;
 use tracing::info;
@@ -13,8 +13,8 @@ pub enum RelayerError {
     ProviderError(String),
     #[error("Transaction failed: {0}")]
     TransactionError(String),
-    #[error("LightClient error: {0}")]
-    LightClient(#[from] LightClientError),
+    #[error("Utils error: {0}")]
+    Utils(#[from] UtilsError),
 }
 
 sol!(

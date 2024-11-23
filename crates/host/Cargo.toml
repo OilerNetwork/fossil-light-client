@@ -13,11 +13,11 @@ path = "bin/build_mmr.rs"
 
 [dependencies]
 guest-types = { path = "../guest-types" }
-starknet-handler = { path = "../starknet-handler" }
 methods = { path = "../methods" }
 common = { path = "../common" }
 ethereum = { path = "../ethereum" }
 mmr-utils = { path = "../mmr-utils" }
+starknet-handler = { path = "../starknet-handler" }
 
 eth-rlp-types = { workspace = true }
 
