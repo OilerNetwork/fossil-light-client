@@ -52,7 +52,7 @@ impl StarknetAccount {
         let selector = selector!("update_mmr_state");
 
         let mut calldata = vec![];
-        calldata.push(Felt::from(latest_mmr_block + 1));
+        calldata.push(Felt::from(latest_mmr_block));
         new_mmr_state.encode(&mut calldata)?;
 
         let tx = self

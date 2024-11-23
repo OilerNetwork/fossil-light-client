@@ -6,10 +6,10 @@ use std::str::FromStr;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum CommonError {
+pub enum UtilsError {
     #[error("Environment variable {0} not set")]
     EnvVarNotSet(String),
-    #[error("Unable to parse {0} environment variable")]
+    #[error("Unable to parse string: {0}")]
     ParseError(String),
     #[error("Logger initialization failed")]
     LoggerInitFailed,
@@ -20,35 +20,35 @@ pub enum CommonError {
 }
 
 /// Retrieves an environment variable or returns an error if not set.
-pub fn get_env_var(key: &str) -> Result<String, CommonError> {
-    dotenv::var(key).map_err(|_| CommonError::EnvVarNotSet(key.to_string()))
+pub fn get_env_var(key: &str) -> Result<String, UtilsError> {
+    dotenv::var(key).map_err(|_| UtilsError::EnvVarNotSet(key.to_string()))
 }
 
 /// Parses an environment variable into the desired type or returns an error.
-pub fn get_var<T: FromStr>(name: &str) -> Result<T, CommonError>
+pub fn get_var<T: FromStr>(name: &str) -> Result<T, UtilsError>
 where
     T::Err: std::error::Error + Send + Sync + 'static,
 {
     let var_value = get_env_var(name)?;
     var_value
         .parse::<T>()
-        .map_err(|e| CommonError::ParseError(format!("{}: {}", name, e)))
+        .map_err(|e| UtilsError::ParseError(format!("{}: {}", name, e)))
 }
 
 /// Function to initialize logging and environment variables
-pub fn initialize_logger_and_env() -> Result<(), CommonError> {
+pub fn initialize_logger_and_env() -> Result<(), UtilsError> {
     dotenv::dotenv().ok();
     tracing_subscriber::fmt().init();
     Ok(())
 }
 
-pub fn string_array_to_felt_array(string_array: Vec<String>) -> Result<Vec<Felt>, CommonError> {
+pub fn string_array_to_felt_array(string_array: Vec<String>) -> Result<Vec<Felt>, UtilsError> {
     string_array
         .iter()
-        .map(|s| felt(s).map_err(|_| CommonError::ParseError(s.clone())))
+        .map(|s| felt(s).map_err(|_| UtilsError::ParseError(s.clone())))
         .collect()
 }
 
-pub fn felt(str: &str) -> Result<Felt, CommonError> {
-    Felt::from_hex(str).map_err(|_| CommonError::ParseError(str.to_string()))
+pub fn felt(str: &str) -> Result<Felt, UtilsError> {
+    Felt::from_hex(str).map_err(|_| UtilsError::ParseError(str.to_string()))
 }

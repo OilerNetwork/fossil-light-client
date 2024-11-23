@@ -1704,6 +1704,7 @@ dependencies = [
  "mmr-utils",
  "starknet",
  "starknet-handler",
+ "thiserror 2.0.3",
  "tokio",
  "tracing",
 ]

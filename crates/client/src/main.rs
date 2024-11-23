@@ -22,5 +22,6 @@ async fn main() -> Result<()> {
     tracing::info!("Starting Fossil Light Client...");
 
     let mut client = LightClient::new(args.polling_interval).await?;
-    client.run().await
+    client.run().await?;
+    Ok(())
 }

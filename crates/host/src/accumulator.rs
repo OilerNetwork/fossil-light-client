@@ -2,7 +2,7 @@
 use crate::db_access::{get_block_headers_by_block_range, DbConnection};
 use crate::proof_generator::{ProofGenerator, ProofGeneratorError};
 use crate::types::{BatchResult, ProofType};
-use common::{felt, string_array_to_felt_array, CommonError};
+use common::{felt, string_array_to_felt_array, UtilsError};
 use ethereum::get_finalized_block_hash;
 use guest_types::{BatchProof, CombinedInput, GuestInput, GuestOutput};
 use mmr::{find_peaks, InStoreTableError, MMRError, PeaksOptions, MMR};
@@ -25,8 +25,8 @@ pub enum AccumulatorError {
     InvalidFeltHex(String),
     #[error("SQLx error: {0}")]
     Sqlx(#[from] sqlx::Error),
-    #[error("Common error: {0}")]
-    Common(#[from] CommonError),
+    #[error("Utils error: {0}")]
+    Utils(#[from] UtilsError),
     #[error("MMR error: {0}")]
     MMRError(#[from] MMRError),
     #[error("Store error: {0}")]
@@ -56,10 +56,6 @@ impl AccumulatorBuilder {
         proof_generator: ProofGenerator,
         batch_size: u64,
     ) -> Result<Self, AccumulatorError> {
-        info!(
-            "Initializing AccumulatorBuilder with batch_size={}",
-            batch_size
-        );
         let (store_manager, mmr, pool) = initialize_mmr(store_path).await?;
         debug!("MMR initialized at {}", store_path);
 
@@ -249,8 +245,7 @@ impl AccumulatorBuilder {
     ) -> Result<Vec<BatchResult>, AccumulatorError> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
         info!(
-            "Building MMR with {} batches from block {}",
-            num_batches, finalized_block_number
+            "Building MMR...",
         );
 
         self.total_batches = num_batches;
@@ -280,7 +275,7 @@ impl AccumulatorBuilder {
 
     pub async fn build_from_finalized(&mut self) -> Result<Vec<BatchResult>, AccumulatorError> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
-        info!(
+        debug!(
             "Building MMR from finalized block {} with batch size {}",
             finalized_block_number, self.batch_size
         );

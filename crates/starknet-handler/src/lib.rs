@@ -23,8 +23,8 @@ pub enum StarknetHandlerError {
     Starknet(#[from] SignError<LocalWalletSignError>),
     #[error("Account error: {0}")]
     Account(#[from] AccountError<SignError<LocalWalletSignError>>),
-    #[error("Common error: {0}")]
-    Common(#[from] common::CommonError),
+    #[error("Utils error: {0}")]
+    Utils(#[from] common::UtilsError),
     #[error("Encode error: {0}")]
     Encode(#[from] starknet::core::codec::Error),
 }
@@ -47,8 +47,8 @@ impl MmrState {
         }
     }
 
-    pub fn root_hash(&self) -> String {
-        self.root_hash.to_string()
+    pub fn root_hash(&self) -> Felt {
+        self.root_hash
     }
 
     pub fn leaves_count(&self) -> u64 {

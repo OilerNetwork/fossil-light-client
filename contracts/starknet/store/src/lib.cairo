@@ -31,7 +31,7 @@ mod Store {
         latest_blockhash_from_l1: (u64, u256),
         latest_mmr_block: u64,
         mmr_state: MMRState,
-        peaks: Vec<felt252>,
+        peaks_store: Vec<felt252>,
     }
 
     #[event]
@@ -84,9 +84,18 @@ mod Store {
             curr_state.elements_count.write(elements_count);
             curr_state.leaves_count.write(leaves_count);
 
-            for peak in peaks.clone() {
-                self.peaks.append().write(peak);
-            };
+            let curr_peaks_len = self.peaks_store.len();
+            let mut i = 0;
+            for peak in peaks
+                .clone() {
+                    if i >= curr_peaks_len {
+                        self.peaks_store.append().write(peak);
+                    } else {
+                        let mut peak_ptr = self.peaks_store.at(i);
+                        peak_ptr.write(peak);
+                    }
+                    i += 1;
+                };
 
             self
                 .emit(
@@ -98,7 +107,7 @@ mod Store {
 
         fn get_mmr_state(self: @ContractState) -> (u64, felt252, u64, u64, Array<felt252>) {
             let latest_mmr_block = self.latest_mmr_block.read();
-            
+
             let curr_state = self.mmr_state;
             let (mmr_root, elements_count, leaves_count) = (
                 curr_state.root_hash.read(),
@@ -107,8 +116,8 @@ mod Store {
             );
 
             let mut peaks = array![];
-            for i in 0..self.peaks.len() {
-                peaks.append(self.peaks.at(i).read());
+            for i in 0..self.peaks_store.len() {
+                peaks.append(self.peaks_store.at(i).read());
             };
 
             (latest_mmr_block, mmr_root, elements_count, leaves_count, peaks)

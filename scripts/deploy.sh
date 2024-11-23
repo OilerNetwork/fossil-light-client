@@ -3,9 +3,9 @@
 # Ensure the script stops on the first error
 set -e
 
-source ../../.env
+source ../.env
 
-ETHEREUM_DIR="../../contracts/ethereum"
+ETHEREUM_DIR="../contracts/ethereum"
 
 cd $ETHEREUM_DIR && forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL
 
@@ -27,11 +27,7 @@ L1_MESSAGE_SENDER=0xF94AB55a20B32AC37c3A105f12dB535986697945
 # wait_for_katana
 
 # # Set absolute paths
-STARKNET_DIR="../../contracts/starknet"
-# CONFIG_DIR="/app/config"
-
-# # Load environment variables
-# source ${CONFIG_DIR}/katana.env
+STARKNET_DIR="../starknet"
 
 # Now deploy Starknet contracts
 echo "Deploying Starknet contracts..."
@@ -112,5 +108,7 @@ update_env_var "FOSSIL_STORE" "$FOSSILSTORE_ADDRESS"
 update_env_var "STARKNET_VERIFIER" "$VERIFIER_ADDRESS"
 
 pwd
+
+source ../../.env
 
 echo "Environment variables successfully updated in $ENV_FILE"

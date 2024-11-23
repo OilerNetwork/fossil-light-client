@@ -1,5 +1,4 @@
 use common::{felt, get_env_var};
-use eyre::Result;
 use host::update_mmr_and_verify_onchain;
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
@@ -8,8 +7,33 @@ use starknet::{
     providers::Provider as EventProvider,
 };
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider, MmrState};
+use thiserror::Error;
 use tokio::time::{self, Duration};
 use tracing::{error, info, instrument};
+
+#[derive(Error, Debug)]
+pub enum LightClientError {
+    #[error("Starknet handler error: {0}")]
+    StarknetHandler(#[from] starknet_handler::StarknetHandlerError),
+    #[error("Utils error: {0}")]
+    UtilsError(#[from] common::UtilsError),
+    #[error("MMR utils error: {0}")]
+    MmrUtilsError(#[from] mmr_utils::MMRUtilsError),
+    #[error("Host error: {0}")]
+    HostError(#[from] host::HostError),
+    #[error("Starknet provider error: {0}")]
+    StarknetProvider(#[from] starknet::providers::ProviderError),
+    #[error("latest_processed_block regression from {0} to {1}")]
+    StateError(u64, u64),
+    #[error("Proof verification failed from {0} to {1}")]
+    ProofVerificationFailed(u64, u64),
+    #[error("New MMR root hash cannot be zero")]
+    StateRootError,
+    #[error("Database file does not exist at path: {0}")]
+    ConfigError(String),
+    #[error("Polling interval must be greater than zero")]
+    PollingIntervalError,
+}
 
 pub struct LightClient {
     starknet_provider: StarknetProvider,
@@ -24,7 +48,11 @@ pub struct LightClient {
 
 impl LightClient {
     /// Creates a new instance of the light client.
-    pub async fn new(polling_interval: u64) -> Result<Self> {
+    pub async fn new(polling_interval: u64) -> Result<Self, LightClientError> {
+        if polling_interval == 0 {
+            error!("Polling interval must be greater than zero");
+            return Err(LightClientError::PollingIntervalError);
+        }
         // Load environment variables
         let starknet_rpc_url = get_env_var("STARKNET_RPC_URL")?;
         let l2_store_addr = felt(&get_env_var("FOSSIL_STORE")?)?;
@@ -39,6 +67,11 @@ impl LightClient {
         let current_dir = ensure_directory_exists("db-store")?;
         let db_file = create_database_file(&current_dir, 0)?;
 
+        if !std::path::Path::new(&db_file).exists() {
+            error!("Database file does not exist at path: {}", db_file);
+            return Err(LightClientError::ConfigError(db_file));
+        }
+
         Ok(Self {
             starknet_provider,
             l2_store_addr,
@@ -52,7 +85,7 @@ impl LightClient {
     }
 
     /// Runs the light client event loop.
-    pub async fn run(&mut self) -> Result<()> {
+    pub async fn run(&mut self) -> Result<(), LightClientError> {
         let mut interval = time::interval(self.polling_interval);
 
         // Create the shutdown signal once
@@ -79,7 +112,7 @@ impl LightClient {
     }
 
     /// Processes new events from the Starknet store contract.
-    pub async fn process_new_events(&mut self) -> Result<()> {
+    pub async fn process_new_events(&mut self) -> Result<(), LightClientError> {
         // Poll for new events, starting from the block after the last processed block
         let event_filter = EventFilter {
             from_block: Some(BlockId::Number(self.latest_processed_block + 1)),
@@ -102,11 +135,25 @@ impl LightClient {
             );
 
             // Update the latest processed block to the latest block from the new events
-            self.latest_processed_block = events
+            let new_latest_block = events
                 .events
                 .last()
                 .and_then(|event| event.block_number)
                 .unwrap_or(self.latest_processed_block);
+
+            // Invariant check: new_latest_block should be greater or equal to the current
+            if new_latest_block < self.latest_processed_block {
+                error!(
+                    "New latest_processed_block ({}) is less than the current ({})",
+                    new_latest_block, self.latest_processed_block
+                );
+                return Err(LightClientError::StateError(
+                    self.latest_processed_block,
+                    new_latest_block,
+                ));
+            }
+
+            self.latest_processed_block = new_latest_block;
 
             // Process the events
             self.handle_events().await?;
@@ -117,7 +164,7 @@ impl LightClient {
 
     /// Handles the events by updating the MMR and verifying proofs.
     #[instrument(skip(self))]
-    pub async fn handle_events(&self) -> Result<()> {
+    pub async fn handle_events(&self) -> Result<(), LightClientError> {
         // Fetch the latest stored blockhash from L1
         let latest_relayed_block = self
             .starknet_provider
@@ -144,16 +191,16 @@ impl LightClient {
 
     /// Updates the MMR and verifies the proof on-chain.
     #[instrument(skip(self))]
-    pub async fn update_mmr(&self, latest_mmr_block: u64, latest_relayed_block: u64) -> Result<()> {
-        info!(
-            from_block = latest_mmr_block + 1,
-            to_block = latest_relayed_block,
-            "Starting proof verification"
-        );
+    pub async fn update_mmr(
+        &self,
+        latest_mmr_block: u64,
+        latest_relayed_block: u64,
+    ) -> Result<(), LightClientError> {
+        info!("Starting proof verification...");
 
         let (proof_verified, new_mmr_state) = update_mmr_and_verify_onchain(
             &self.db_file,
-            latest_mmr_block,
+            latest_mmr_block + 1,
             latest_relayed_block,
             &self.starknet_provider.rpc_url(),
             &self.verifier_addr,
@@ -169,6 +216,11 @@ impl LightClient {
                 to_block = latest_relayed_block,
                 "Proof verification failed"
             );
+            // Return an error instead of proceeding
+            return Err(LightClientError::ProofVerificationFailed(
+                latest_mmr_block + 1,
+                latest_relayed_block,
+            ));
         }
 
         Ok(())
@@ -179,7 +231,12 @@ impl LightClient {
         &self,
         latest_relayed_block: u64,
         new_mmr_state: MmrState,
-    ) -> Result<()> {
+    ) -> Result<(), LightClientError> {
+        if new_mmr_state.root_hash() == Felt::ZERO {
+            error!("New MMR root hash cannot be zero");
+            return Err(LightClientError::StateRootError);
+        }
+
         let starknet_account = StarknetAccount::new(
             self.starknet_provider.provider(),
             &self.starknet_private_key,

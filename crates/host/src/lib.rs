@@ -50,7 +50,7 @@ pub async fn update_mmr_and_verify_onchain(
     let (proof_calldata, new_mmr_state) = builder
         .update_mmr_with_new_headers(start_block, end_block)
         .await?;
-    tracing::info!(
+    tracing::debug!(
         start_block,
         end_block,
         "Successfully generated proof for block range"
