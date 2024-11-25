@@ -90,14 +90,9 @@ Deploy the messaging infrastructure contracts:
    source .env
    ```
 
-2. Access deployment scripts:
+2. Execute deployment pipeline:
    ```bash
-   cd scripts
-   ```
-
-3. Execute deployment pipeline:
-   ```bash
-   ./deploy.sh
+   ./scripts/deploy.sh
    ```
 
 > **Technical Note:** Verify `deploy.sh` configuration for correct contract deployment parameters on Katana network.
@@ -113,7 +108,7 @@ Initialize the Light Client service:
 
 2. Execute client binary:
    ```bash
-   cargo run
+   cargo run --release
    ```
 
 ## Terminal 5: Block Hash Relayer Process

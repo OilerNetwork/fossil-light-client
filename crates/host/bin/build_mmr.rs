@@ -1,5 +1,5 @@
 use clap::Parser;
-use common::{get_env_var, initialize_logger_and_env};
+use common::get_env_var;
 use eyre::{eyre, Result};
 use host::{get_store_path, AccumulatorBuilder, ProofGenerator, ProofType};
 use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
@@ -24,8 +24,6 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    initialize_logger_and_env()?;
-
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
     let verifier_address = get_env_var("STARKNET_VERIFIER")?;
 

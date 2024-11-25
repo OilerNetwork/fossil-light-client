@@ -3,9 +3,9 @@
 # Ensure the script stops on the first error
 set -e
 
-source ../.env
+source .env
 
-ETHEREUM_DIR="../contracts/ethereum"
+ETHEREUM_DIR="contracts/ethereum"
 
 cd $ETHEREUM_DIR && forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL
 
