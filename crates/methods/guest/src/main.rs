@@ -8,6 +8,7 @@ use guest_types::{CombinedInput, GuestOutput};
 fn main() {
     // Read combined input
     let input: CombinedInput = env::read();
+    eprintln!("Input read");
 
     // Verify previous batch proofs
     for proof in input.mmr_input().previous_proofs() {
@@ -17,20 +18,20 @@ fn main() {
             .verify(proof.method_id())
             .expect("Invalid previous proof");
     }
-
+    eprintln!("Previous proofs verified");
     // Verify block headers
     assert!(
         are_blocks_and_chain_valid(&input.headers()),
         "Invalid block headers"
     );
-
+    eprintln!("Block headers verified");
     // Initialize MMR with previous state
     let mut mmr = GuestMMR::new(
         input.mmr_input().initial_peaks(),
         input.mmr_input().elements_count(),
         input.mmr_input().leaves_count(),
     );
-
+    eprintln!("MMR initialized");
     let mut append_results = Vec::new();
     // Append block hashes to MMR
     for (_, header) in input.headers().iter().enumerate() {
@@ -53,6 +54,7 @@ fn main() {
             vec![] // This line will never be reached due to assert
         }
     };
+    eprintln!("Final peaks: {:?}", final_peaks);
 
     // Create output
     let output = GuestOutput::new(
@@ -61,7 +63,7 @@ fn main() {
         mmr.get_leaves_count(),
         append_results,
     );
-
+    eprintln!("Guest output created");
     // Commit the output
     env::commit(&output);
 }

@@ -22,7 +22,7 @@ pub enum AccumulatorError {
     #[error("Expected Groth16 proof but got {got:?}")]
     ExpectedGroth16Proof { got: ProofType },
     #[error("MMR root is not a valid Starknet field element: {0}")]
-    InvalidFeltHex(String),
+    InvalidU256Hex(String),
     #[error("SQLx error: {0}")]
     Sqlx(#[from] sqlx::Error),
     #[error("Utils error: {0}")]
@@ -225,7 +225,7 @@ impl AccumulatorBuilder {
             .mmr
             .calculate_root_hash(&bag, self.mmr.elements_count.get().await?)?;
 
-        validate_felt_hex(&new_mmr_root_hash)?;
+        validate_u256_hex(&new_mmr_root_hash)?;
 
         let new_mmr_state = MmrState::new(
             felt(&new_mmr_root_hash)?,
@@ -321,23 +321,23 @@ impl AccumulatorBuilder {
     }
 }
 
-/// Validates that a hex string represents a valid Starknet field element (252 bits)
-fn validate_felt_hex(hex_str: &str) -> Result<(), AccumulatorError> {
+/// Validates that a hex string represents a valid U256 (256-bit unsigned integer)
+fn validate_u256_hex(hex_str: &str) -> Result<(), AccumulatorError> {
     // Check if it's a valid hex string with '0x' prefix
     if !hex_str.starts_with("0x") {
-        return Err(AccumulatorError::InvalidFeltHex(hex_str.to_string()).into());
+        return Err(AccumulatorError::InvalidU256Hex(hex_str.to_string()).into());
     }
 
     // Remove '0x' prefix and check if remaining string is valid hex
     let hex_value = &hex_str[2..];
     if !hex_value.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(AccumulatorError::InvalidFeltHex(hex_str.to_string()).into());
+        return Err(AccumulatorError::InvalidU256Hex(hex_str.to_string()).into());
     }
 
-    // Check length - maximum 63 hex chars (252 bits = 63 hex digits)
+    // Check length - maximum 64 hex chars (256 bits = 64 hex digits)
     // Note: we allow shorter values as they're valid smaller numbers
-    if hex_value.len() > 63 {
-        return Err(AccumulatorError::InvalidFeltHex(hex_str.to_string()).into());
+    if hex_value.len() > 64 {
+        return Err(AccumulatorError::InvalidU256Hex(hex_str.to_string()).into());
     }
 
     Ok(())

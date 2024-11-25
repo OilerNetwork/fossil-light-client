@@ -1,6 +1,6 @@
 #![deny(unused_crate_dependencies)]
 
-use hasher::stark_poseidon::StarkPoseidonHasher;
+use hasher::sha2::Sha2Hasher;
 use mmr::MMR;
 use sqlx::{Row, SqlitePool};
 use std::fs::File;
@@ -170,7 +170,7 @@ pub async fn initialize_mmr(
         new_id
     };
 
-    let hasher = Arc::new(StarkPoseidonHasher::new(Some(false)));
+    let hasher = Arc::new(Sha2Hasher::new());
     let mmr = MMR::new(store, hasher, Some(mmr_id.clone()));
 
     Ok((store_manager, mmr, pool))

@@ -1,9 +1,8 @@
 use guest_types::{AppendResult, PeaksFormattingOptions, PeaksOptions};
 use serde::{Deserialize, Serialize};
-use starknet_crypto::{poseidon_hash, poseidon_hash_many, poseidon_hash_single, Felt};
+use sha2::{Sha256, Digest};
 use std::collections::{HashMap, VecDeque};
 use thiserror::Error;
-use common::felt;
 
 #[derive(Error, Debug)]
 pub enum FormattingError {
@@ -239,23 +238,17 @@ fn leaf_count_to_append_no_merges(leaf_count: usize) -> usize {
 }
 
 fn hash(data: Vec<String>) -> Result<String, MMRError> {
-    // for element in &data {
-    //     self.is_element_size_valid(element)?;
-    // }
+    let mut hasher = Sha256::new();
+    
+    // Concatenate all strings and update hasher
+    for element in &data {
+        hasher.update(element.as_bytes());
+    }
 
-    let field_elements: Vec<Felt> = data.iter().map(|e| felt(e).unwrap_or_default()).collect();
-
-    let hash_core = match field_elements.len() {
-        0 => return Err(MMRError::HashError),
-        1 => poseidon_hash_single(field_elements[0]),
-        2 => poseidon_hash(field_elements[0], field_elements[1]),
-        _ => poseidon_hash_many(&field_elements),
-    };
-
-    let hash = format!("{:x}", hash_core);
-    // if self.should_pad {
-    //     hash = format!("{:0>63}", hash);
-    // }
-    let hash = format!("0x{}", hash);
+    // Finalize and get the hash result
+    let result = hasher.finalize();
+    
+    // Convert to hexadecimal string with "0x" prefix
+    let hash = format!("0x{:x}", result);
     Ok(hash)
 }
