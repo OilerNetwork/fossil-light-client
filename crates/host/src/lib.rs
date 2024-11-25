@@ -12,7 +12,7 @@ pub mod types;
 
 pub use accumulator::AccumulatorBuilder;
 use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
-use mmr_utils::{create_database_file, ensure_directory_exists, MMRUtilsError};
+use mmr_utils::MMRUtilsError;
 pub use proof_generator::{ProofGenerator, ProofType};
 use starknet_crypto::Felt;
 use starknet_handler::{provider::StarknetProvider, MmrState, StarknetHandlerError};
@@ -75,17 +75,4 @@ pub async fn update_mmr_and_verify_onchain(
     }
 
     Ok((verified, new_mmr_state))
-}
-
-pub fn get_store_path(db_file: Option<String>) -> Result<String, HostError> {
-    // Load the database file path from the environment or use the provided argument
-    let store_path = if let Some(db_file) = db_file {
-        db_file
-    } else {
-        // Otherwise, create a new database file
-        let current_dir = ensure_directory_exists("db-instances")?;
-        create_database_file(&current_dir, 0)?
-    };
-
-    Ok(store_path)
 }

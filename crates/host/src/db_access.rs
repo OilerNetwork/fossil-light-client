@@ -3,9 +3,10 @@ use std::sync::Arc;
 use common::get_env_var;
 use dotenv::dotenv;
 use eth_rlp_types::BlockHeader;
+use mmr_utils::{create_database_file, ensure_directory_exists};
 use sqlx::{postgres::PgPoolOptions, PgPool, Pool, Postgres};
 
-use crate::accumulator::AccumulatorError;
+use crate::{accumulator::AccumulatorError, HostError};
 
 #[derive(Debug)]
 pub struct DbConnection {
@@ -134,4 +135,17 @@ pub async fn get_block_headers_by_block_range(
     let headers: Vec<BlockHeader> = temp_headers.into_iter().map(temp_to_block_header).collect();
 
     Ok(headers)
+}
+
+pub fn get_store_path(db_file: Option<String>) -> Result<String, HostError> {
+    // Load the database file path from the environment or use the provided argument
+    let store_path = if let Some(db_file) = db_file {
+        db_file
+    } else {
+        // Otherwise, create a new database file
+        let current_dir = ensure_directory_exists("db-instances")?;
+        create_database_file(&current_dir, 0)?
+    };
+
+    Ok(store_path)
 }
