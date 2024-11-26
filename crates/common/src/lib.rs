@@ -38,7 +38,16 @@ where
 /// Function to initialize logging and environment variables
 pub fn initialize_logger_and_env() -> Result<(), UtilsError> {
     dotenv::dotenv().ok();
-    tracing_subscriber::fmt().init();
+    
+    // Set default to info if RUST_LOG is not set
+    if std::env::var("RUST_LOG").is_err() {
+        std::env::set_var("RUST_LOG", "info");
+    }
+    
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_file(true)
+        .init();
     Ok(())
 }
 

@@ -1,7 +1,7 @@
 #![deny(unused_crate_dependencies)]
 
 use alloy::{providers::ProviderBuilder, sol};
-use common::{get_env_var, initialize_logger_and_env, UtilsError};
+use common::{get_env_var, UtilsError};
 
 // Codegen from embedded Solidity code and precompiled bytecode.
 sol! {
@@ -20,8 +20,6 @@ sol! {
 
 #[allow(dead_code)]
 pub async fn get_finalized_block_hash() -> Result<(u64, String), UtilsError> {
-    initialize_logger_and_env()?;
-
     let rpc_url = get_env_var("ETH_RPC_URL")?;
     let provider = ProviderBuilder::new()
         .with_recommended_fillers()
