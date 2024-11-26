@@ -5,7 +5,7 @@ use crate::types::{BatchResult, ProofType};
 use common::{felt, string_array_to_felt_array, UtilsError};
 use ethereum::get_finalized_block_hash;
 use guest_types::{BatchProof, CombinedInput, GuestInput, GuestOutput};
-use mmr::{find_peaks, InStoreTableError, MMRError, PeaksOptions, MMR};
+use mmr::{InStoreTableError, MMRError, PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, MMRUtilsError, StoreManager};
 use starknet_crypto::Felt;
 use starknet_handler::MmrState;
@@ -94,8 +94,11 @@ impl AccumulatorBuilder {
 
         // Get and verify current MMR state
         let current_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
+        println!("Current peaks: {:?}", current_peaks);
         let current_elements_count = self.mmr.elements_count.get().await?;
+        println!("Current elements count: {}", current_elements_count);
         let current_leaves_count = self.mmr.leaves_count.get().await?;
+        println!("Current leaves count: {}", current_leaves_count);
 
         // Prepare guest input
         let mmr_input = GuestInput::new(
@@ -140,13 +143,7 @@ impl AccumulatorBuilder {
                 method_id,
             ));
         }
-
-        // Verify state after update
-        let final_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
-        if final_peaks != guest_output.final_peaks().to_vec() {
-            return Err(AccumulatorError::PeaksVerificationError.into());
-        }
-
+    
         self.current_batch += 1;
 
         debug!("Batch processing completed successfully");
@@ -162,6 +159,7 @@ impl AccumulatorBuilder {
         &mut self,
         guest_output: &GuestOutput,
     ) -> Result<MmrState, AccumulatorError> {
+        println!("Updating MMR state...");
         debug!(
             "Updating MMR state: elements={}, leaves={}",
             guest_output.elements_count(),
@@ -190,34 +188,21 @@ impl AccumulatorBuilder {
             .await?;
 
         // Update all hashes in the store
-        for result in guest_output.append_results() {
+        for (index, hash) in guest_output.all_hashes() {
+            println!("Appending result: {:?}", (index, hash.clone()));
             // Store the hash in MMR
             self.mmr
                 .hashes
-                .set(result.root_hash(), SubKey::Usize(result.element_index()))
+                .set(&hash, SubKey::Usize(index))
                 .await?;
 
             // Update the mapping
             self.store_manager
-                .insert_value_index_mapping(&self.pool, result.root_hash(), result.element_index())
-                .await?;
-        }
-
-        // Update peaks
-        let peaks_indices = find_peaks(guest_output.elements_count());
-        for (peak_hash, &peak_idx) in guest_output.final_peaks().iter().zip(peaks_indices.iter()) {
-            self.mmr
-                .hashes
-                .set(peak_hash, SubKey::Usize(peak_idx))
+                .insert_value_index_mapping(&self.pool, &hash, index)
                 .await?;
         }
 
         // Verify the state was properly updated
-        let stored_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
-
-        if stored_peaks != guest_output.final_peaks() {
-            return Err(AccumulatorError::PeaksVerificationError.into());
-        }
 
         let bag = self.mmr.bag_the_peaks(None).await?;
 
@@ -227,11 +212,13 @@ impl AccumulatorBuilder {
 
         validate_u256_hex(&new_mmr_root_hash)?;
 
+        let final_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
+
         let new_mmr_state = MmrState::new(
             felt(&new_mmr_root_hash)?,
             guest_output.elements_count() as u64,
             guest_output.leaves_count() as u64,
-            string_array_to_felt_array(guest_output.final_peaks().to_vec())?,
+            string_array_to_felt_array(final_peaks)?,
         );
 
         debug!("MMR state updated successfully");

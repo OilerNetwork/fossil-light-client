@@ -1,27 +1,25 @@
-use guest_types::{AppendResult, PeaksFormattingOptions, PeaksOptions};
+use guest_types::AppendResult;
 use serde::{Deserialize, Serialize};
 use sha2::{Sha256, Digest};
 use std::collections::{HashMap, VecDeque};
 use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum FormattingError {
-    #[error("Formatting: Expected peaks output size is smaller than the actual size")]
-    PeaksOutputSizeError,
-}
+use num_bigint::BigInt;
+use num_traits::Num;
+use std::str::FromStr;
 
 #[derive(Error, Debug)]
 pub enum MMRError {
     NoHashFoundForIndex(usize),
-    Formatting(FormattingError),
     InsufficientPeaksForMerge,
     HashError,
+    FromHexError(#[from] hex::FromHexError),
 }
 
 pub struct GuestMMR {
     hashes: HashMap<usize, String>,
     elements_count: usize,
     leaves_count: usize,
+    root_hash: String,
 }
 
 impl GuestMMR {
@@ -38,6 +36,7 @@ impl GuestMMR {
             elements_count,
             leaves_count,
             hashes,
+            root_hash: "".to_string(),
         }
     }
 
@@ -60,7 +59,7 @@ impl GuestMMR {
         // Store the new leaf in the hash map
         self.hashes.insert(last_element_idx, value.clone());
 
-        peaks.push(value);
+        peaks.push(value.clone());
 
         let no_merges = leaf_count_to_append_no_merges(self.leaves_count);
 
@@ -81,17 +80,22 @@ impl GuestMMR {
             peaks.push(parent_hash);
         }
 
+        for value in self.hashes.values() {
+            println!("{}", value);
+        }
+
         self.elements_count = last_element_idx;
         self.leaves_count += 1;
 
         let bag = self.bag_the_peaks()?;
         let root_hash = self.calculate_root_hash(&bag, last_element_idx)?;
+        self.root_hash = root_hash;
 
         Ok(AppendResult::new(
             self.leaves_count,
             last_element_idx,
             leaf_element_index,
-            root_hash,
+            value
         ))
     }
 
@@ -147,23 +151,11 @@ impl GuestMMR {
         }
     }
 
-    pub fn get_peaks(&self, option: PeaksOptions) -> Result<Vec<String>, MMRError> {
-        let tree_size = match option.elements_count {
-            Some(count) => count,
-            None => self.elements_count,
-        };
-
-        let peaks_indices = find_peaks(tree_size);
-        let peaks = self.retrieve_peaks_hashes(peaks_indices)?;
-
-        if let Some(formatting_opts) = option.formatting_opts {
-            match format_peaks(peaks, &formatting_opts) {
-                Ok(formatted_peaks) => Ok(formatted_peaks),
-                Err(e) => Err(MMRError::Formatting(e)),
-            }
-        } else {
-            Ok(peaks)
-        }
+    pub fn get_all_hashes(&self) -> Vec<(usize, String)> {
+        self.hashes
+            .iter()
+            .map(|(&index, hash)| (index, hash.clone()))
+            .collect()
     }
 }
 
@@ -180,28 +172,11 @@ impl std::fmt::Display for MMRError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MMRError::NoHashFoundForIndex(idx) => write!(f, "No hash found for index {}", idx),
-            MMRError::Formatting(e) => write!(f, "Formatting error: {}", e),
             MMRError::InsufficientPeaksForMerge => write!(f, "Insufficient peaks for merge"),
             MMRError::HashError => write!(f, "Hash error"),
+            MMRError::FromHexError(e) => write!(f, "From hex error: {}", e),
         }
     }
-}
-
-pub fn format_peaks(
-    mut peaks: Vec<String>,
-    formatting_opts: &PeaksFormattingOptions,
-) -> Result<Vec<String>, FormattingError> {
-    if peaks.len() > formatting_opts.output_size {
-        return Err(FormattingError::PeaksOutputSizeError);
-    }
-
-    let expected_peaks_size_remainder = formatting_opts.output_size - peaks.len();
-    let peaks_null_values: Vec<String> =
-        vec![formatting_opts.null_value.clone(); expected_peaks_size_remainder];
-
-    peaks.extend(peaks_null_values);
-
-    Ok(peaks)
 }
 
 // Add this function at the bottom with other helper functions
@@ -238,17 +213,34 @@ fn leaf_count_to_append_no_merges(leaf_count: usize) -> usize {
 }
 
 fn hash(data: Vec<String>) -> Result<String, MMRError> {
-    let mut hasher = Sha256::new();
-    
-    // Concatenate all strings and update hasher
-    for element in &data {
-        hasher.update(element.as_bytes());
+    let mut sha2 = Sha256::new();
+
+    //? We deliberately don't validate the size of the elements here, because we want to allow hashing of the RLP encoded block to get a block hash
+    if data.is_empty() {
+        sha2.update(&[]);
+    } else if data.len() == 1 {
+        let no_prefix = data[0].strip_prefix("0x").unwrap_or(&data[0]);
+        sha2.update(&hex::decode(no_prefix)?);
+    } else {
+        let mut result: Vec<u8> = Vec::new();
+
+        for e in data.iter() {
+            let bigint = if e.starts_with("0x") || e.starts_with("0X") {
+                // Parse hexadecimal
+                BigInt::from_str_radix(&e[2..], 16).unwrap()
+            } else {
+                // Parse decimal
+                BigInt::from_str(e).unwrap()
+            };
+
+            let hex = format!("{:0>64}", bigint.to_str_radix(16));
+            let bytes = hex::decode(hex).unwrap();
+            result.extend(bytes);
+        }
+
+        sha2.update(&result);
     }
 
-    // Finalize and get the hash result
-    let result = hasher.finalize();
-    
-    // Convert to hexadecimal string with "0x" prefix
-    let hash = format!("0x{:x}", result);
-    Ok(hash)
+    let hash = sha2.finalize();
+    Ok(format!("0x{:0>64}", hex::encode(hash)))
 }

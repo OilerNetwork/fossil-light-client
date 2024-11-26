@@ -12,7 +12,6 @@ fn main() {
 
     // Verify previous batch proofs
     for proof in input.mmr_input().previous_proofs() {
-        // Verify each previous proof
         proof
             .receipt()
             .verify(proof.method_id())
@@ -46,19 +45,11 @@ fn main() {
         }
     }
 
-    // Get final peaks
-    let final_peaks = match mmr.get_peaks(Default::default()) {
-        Ok(peaks) => peaks,
-        Err(e) => {
-            assert!(false, "Failed to get final peaks: {:?}", e);
-            vec![] // This line will never be reached due to assert
-        }
-    };
-    eprintln!("Final peaks: {:?}", final_peaks);
+    eprintln!("All hashes: {:?}", mmr.get_all_hashes());
 
     // Create output
     let output = GuestOutput::new(
-        final_peaks,
+        mmr.get_all_hashes(),
         mmr.get_elements_count(),
         mmr.get_leaves_count(),
         append_results,

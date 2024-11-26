@@ -1,6 +1,6 @@
 use clap::Parser;
-use common::get_env_var;
-use eyre::{eyre, Result};
+use common::{get_env_var, initialize_logger_and_env};
+use eyre::Result;
 use host::{get_store_path, AccumulatorBuilder, ProofGenerator, ProofType};
 use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
 use starknet_handler::provider::StarknetProvider;
@@ -24,6 +24,8 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    initialize_logger_and_env()?;
+
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
     let verifier_address = get_env_var("STARKNET_VERIFIER")?;
 
@@ -32,7 +34,7 @@ async fn main() -> Result<()> {
     // Parse CLI arguments
     let args = Args::parse();
 
-    let store_path = get_store_path(args.db_file).map_err(|e| eyre!(e))?;
+    let store_path = get_store_path(args.db_file)?;
 
     info!("Initializing proof generator...");
     // Initialize proof generator
@@ -65,10 +67,7 @@ async fn main() -> Result<()> {
                 info!("Generated Groth16 proof");
                 let provider = StarknetProvider::new(&rpc_url)?;
                 let result = provider.verify_groth16_proof_onchain(&verifier_address, &calldata);
-                info!(
-                    "Proof verification result: {:?}",
-                    result.await.map_err(|e| eyre!(e))?
-                );
+                info!("Proof verification result: {:?}", result.await?);
             }
             None => info!("No proof generated"),
         }

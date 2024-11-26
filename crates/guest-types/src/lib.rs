@@ -25,7 +25,7 @@ pub struct AppendResult {
     leaves_count: usize,
     elements_count: usize,
     element_index: usize,
-    root_hash: String,
+    value: String,
 }
 
 impl AppendResult {
@@ -33,18 +33,18 @@ impl AppendResult {
         leaves_count: usize,
         elements_count: usize,
         element_index: usize,
-        root_hash: String,
+        value: String,
     ) -> Self {
         Self {
             leaves_count,
             elements_count,
             element_index,
-            root_hash,
+            value,
         }
     }
 
-    pub fn root_hash(&self) -> &str {
-        &self.root_hash
+    pub fn value(&self) -> &str {
+        &self.value
     }
 
     pub fn element_index(&self) -> usize {
@@ -58,12 +58,13 @@ impl AppendResult {
     pub fn last_element_idx(&self) -> usize {
         self.elements_count
     }
+
 }
 
 // GuestOutput
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GuestOutput {
-    final_peaks: Vec<String>,
+    all_hashes: Vec<(usize, String)>,
     elements_count: usize,
     leaves_count: usize,
     append_results: Vec<AppendResult>,
@@ -71,13 +72,13 @@ pub struct GuestOutput {
 
 impl GuestOutput {
     pub fn new(
-        final_peaks: Vec<String>,
+        all_hashes: Vec<(usize, String)>,
         elements_count: usize,
         leaves_count: usize,
         append_results: Vec<AppendResult>,
     ) -> Self {
         Self {
-            final_peaks,
+            all_hashes,
             elements_count,
             leaves_count,
             append_results,
@@ -92,9 +93,10 @@ impl GuestOutput {
         &self.append_results
     }
 
-    pub fn final_peaks(&self) -> Vec<String> {
-        self.final_peaks.clone()
+    pub fn all_hashes(&self) -> Vec<(usize, String)> {
+        self.all_hashes.clone()
     }
+
 
     pub fn leaves_count(&self) -> usize {
         self.leaves_count
@@ -188,5 +190,25 @@ impl BatchProof {
 
     pub fn method_id(&self) -> [u32; 8] {
         self.method_id
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FinalHash {
+    hash: String,
+    index: usize,
+}
+
+impl FinalHash {
+    pub fn new(hash: String, index: usize) -> Self {
+        Self { hash, index }
+    }
+
+    pub fn hash(&self) -> &str {
+        &self.hash
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
     }
 }
