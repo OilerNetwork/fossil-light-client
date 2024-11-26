@@ -12,3 +12,6 @@ uuid = "1.1.2"
 store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
 hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = ["sha256"] }
 mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["full"] }
