@@ -7,6 +7,7 @@ edition = "2021"
 thiserror = { workspace = true }
 dotenv = { workspace = true }
 starknet-crypto = { workspace = true }
+tracing = { workspace = true }
 
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 alloy-contract = { version = "0.6.4" }

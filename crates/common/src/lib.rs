@@ -45,8 +45,14 @@ pub fn initialize_logger_and_env() -> Result<(), UtilsError> {
 
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| {
-            tracing_subscriber::EnvFilter::new("info")
-                .add_directive("sqlx=off".parse().unwrap()) // Turn off sqlx logging completely
+            let directive = match "sqlx=off".parse() {
+                Ok(d) => d,
+                Err(e) => {
+                    tracing::warn!("Failed to parse sqlx filter directive: {}", e);
+                    Default::default()
+                }
+            };
+            tracing_subscriber::EnvFilter::new("info").add_directive(directive)
         });
 
     tracing_subscriber::fmt()

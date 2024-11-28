@@ -144,7 +144,7 @@ impl ProofGenerator {
                     ProofGeneratorError::ReceiptError(e.to_string())
                 })?
                 .receipt;
-            
+
             debug!("Encoding seal");
             let encoded_seal = encode_seal(&receipt).map_err(|e| {
                 warn!("Failed to encode seal: {}", e);

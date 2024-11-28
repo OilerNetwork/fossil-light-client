@@ -54,7 +54,7 @@ impl StarknetAccount {
         let mut calldata = vec![];
         new_mmr_state.encode(&mut calldata)?;
         calldata.extend(proof.iter().cloned());
-        
+
         let tx = self
             .account
             .execute_v1(vec![starknet::core::types::Call {

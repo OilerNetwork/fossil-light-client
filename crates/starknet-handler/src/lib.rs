@@ -81,14 +81,18 @@ mod tests {
     #[test]
     fn test_u256_from_hex() {
         // Test valid hex string
-        let result = u256_from_hex("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80").unwrap();
-        assert_eq!(result.to_string(), "77814517325470205911140941194401928579557062014761831930645393041380819009408");
+        let result =
+            u256_from_hex("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
+                .unwrap();
+        assert_eq!(
+            result.to_string(),
+            "77814517325470205911140941194401928579557062014761831930645393041380819009408"
+        );
 
         // Test max value
-        let result = u256_from_hex(
-            "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-        )
-        .unwrap();
+        let result =
+            u256_from_hex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+                .unwrap();
         assert_eq!(
             result.to_string(),
             "115792089237316195423570985008687907853269984665640564039457584007913129639935"

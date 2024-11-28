@@ -1724,6 +1724,7 @@ dependencies = [
  "ruint",
  "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 2.0.3",
+ "tracing",
  "tracing-subscriber 0.3.18",
 ]
 

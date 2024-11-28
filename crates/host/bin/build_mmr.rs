@@ -74,7 +74,7 @@ async fn main() -> Result<()> {
         );
 
         let new_mmr_state = result.new_mmr_state();
-        
+
         match result.proof() {
             Some(ProofType::Stark { .. }) => info!("Generated STARK proof"),
             Some(ProofType::Groth16 { calldata, .. }) => {

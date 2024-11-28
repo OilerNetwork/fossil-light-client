@@ -196,10 +196,12 @@ impl LightClient {
         if latest_mmr_block >= latest_relayed_block {
             error!(
                 latest_mmr_block,
-                latest_relayed_block,
-                "Latest MMR block is greater than the latest relayed block"
+                latest_relayed_block, "Latest MMR block is greater than the latest relayed block"
             );
-            return Err(LightClientError::StateError(latest_mmr_block, latest_relayed_block));
+            return Err(LightClientError::StateError(
+                latest_mmr_block,
+                latest_relayed_block,
+            ));
         }
         info!("Starting proof verification...");
 

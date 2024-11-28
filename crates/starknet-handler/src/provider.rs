@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use starknet::providers::Provider;
+use std::sync::Arc;
 
 use crate::{MmrState, StarknetHandlerError};
 use starknet::macros::selector;
@@ -79,7 +79,6 @@ impl StarknetProvider {
             )
             .await
             .map_err(|e| StarknetHandlerError::TransactionError(e.to_string()))?;
-
 
         let mmr_state = MmrState::decode(&data)?;
 
