@@ -12,3 +12,8 @@ sha2 = { git = 'https://github.com/risc0/RustCrypto-hashes.git', tag = 'sha2-v0.
 num-bigint = "0.4.4"
 num-traits = "0.2.19"
 thiserror = "2.0.3"
+
+[dev-dependencies]
+mmr-utils = { path = "../mmr-utils" }
+
+tokio = { version = "1.39.0", features = ["full"] }
