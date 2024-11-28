@@ -2,7 +2,7 @@ use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
 use eyre::Result;
 use host::{db_access::get_store_path, AccumulatorBuilder, ProofGenerator, ProofType};
-use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
+use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 use tracing::info;
 
@@ -44,7 +44,7 @@ async fn main() -> Result<()> {
 
     info!("Initializing proof generator...");
     // Initialize proof generator
-    let proof_generator = ProofGenerator::new(MMR_GUEST_ELF, MMR_GUEST_ID, args.skip_proof);
+    let proof_generator = ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, args.skip_proof);
 
     info!("Initializing accumulator builder...");
     // Initialize accumulator builder with the batch size
@@ -78,7 +78,8 @@ async fn main() -> Result<()> {
         match result.proof() {
             Some(ProofType::Stark { .. }) => info!("Generated STARK proof"),
             Some(ProofType::Groth16 { calldata, .. }) => {
-                info!("Generated Groth16 proof");
+                if !args.skip_proof {
+                info!("Verifying Groth16 proof on Starknet...");
                 let provider = StarknetProvider::new(&rpc_url)?;
                 let account =
                     StarknetAccount::new(provider.provider(), &private_key, &account_address)?;
@@ -86,7 +87,8 @@ async fn main() -> Result<()> {
                     .verify_mmr_proof(&verifier_address, &new_mmr_state, calldata)
                     .await?;
                 info!("Final proof verified on Starknet, tx hash: {:?}", tx_hash);
-                info!("New MMR state: {:?}", new_mmr_state);
+                    info!("New MMR state: {:?}", new_mmr_state);
+                }
             }
             None => info!("No proof generated"),
         }

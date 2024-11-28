@@ -11,7 +11,7 @@ pub mod proof_generator;
 pub mod types;
 
 pub use accumulator::AccumulatorBuilder;
-use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
+use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
 use mmr_utils::MMRUtilsError;
 pub use proof_generator::{ProofGenerator, ProofType};
 use starknet_crypto::Felt;
@@ -35,7 +35,7 @@ pub async fn prove_mmr_update(
     start_block: u64,
     end_block: u64,
 ) -> Result<(MmrState, Vec<Felt>), HostError> {
-    let proof_generator = ProofGenerator::new(MMR_GUEST_ELF, MMR_GUEST_ID, false);
+    let proof_generator = ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, false);
     let mut builder = AccumulatorBuilder::new(db_file, proof_generator, 1024, false).await?;
 
     tracing::debug!(

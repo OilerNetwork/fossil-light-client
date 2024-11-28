@@ -1,7 +1,6 @@
 // main.rs
 use eth_rlp_verify::are_blocks_and_chain_valid;
 use risc0_zkvm::guest::env;
-mod guest_mmr;
 use guest_mmr::GuestMMR;
 use guest_types::{CombinedInput, GuestOutput};
 
@@ -44,7 +43,7 @@ fn main() {
         }
     }
 
-    let root_hash = mmr.calculate_root_hash(mmr.get_elements_count());
+    let root_hash = mmr.calculate_root_hash(mmr.get_elements_count()).unwrap();
 
     // Create output
     let output = GuestOutput::new(

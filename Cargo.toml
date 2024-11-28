@@ -9,7 +9,8 @@ members = [
     "crates/host",
     "crates/guest-types",
     "crates/ethereum",
-    "crates/mmr-utils",
+    "crates/mmr-utils", 
+    "crates/guest-mmr",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.

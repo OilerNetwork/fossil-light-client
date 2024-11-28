@@ -1,18 +1,24 @@
 use guest_types::AppendResult;
-use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
-use std::collections::{HashMap, VecDeque};
-use thiserror::Error;
 use num_bigint::BigInt;
 use num_traits::Num;
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::{HashMap, VecDeque};
 use std::str::FromStr;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum MMRError {
+    #[error("No hash found for index {0}")]
     NoHashFoundForIndex(usize),
+    #[error("Insufficient peaks for merge")]
     InsufficientPeaksForMerge,
-    // HashError,
+    #[error("From hex error: {0}")]
     FromHexError(#[from] hex::FromHexError),
+    #[error("Parse big int error: {0}")]
+    ParseBigIntError(#[from] num_bigint::ParseBigIntError),
+    #[error("Hash error")]
+    HashError,
 }
 
 pub struct GuestMMR {
@@ -71,8 +77,8 @@ impl GuestMMR {
             last_element_idx += 1;
 
             // Pop the last two peaks to merge
-            let right_hash = peaks.pop().unwrap();
-            let left_hash = peaks.pop().unwrap();
+            let right_hash = peaks.pop().ok_or(MMRError::InsufficientPeaksForMerge)?;
+            let left_hash = peaks.pop().ok_or(MMRError::InsufficientPeaksForMerge)?;
 
             let parent_hash = hash(vec![left_hash, right_hash])?;
             self.hashes.insert(last_element_idx, parent_hash.clone());
@@ -83,14 +89,14 @@ impl GuestMMR {
         self.elements_count = last_element_idx;
         self.leaves_count += 1;
 
-        let root_hash = self.calculate_root_hash(last_element_idx);
+        let root_hash = self.calculate_root_hash(last_element_idx)?;
         self.root_hash = root_hash;
 
         Ok(AppendResult::new(
             self.leaves_count,
             last_element_idx,
             leaf_element_index,
-            value
+            value,
         ))
     }
 
@@ -119,31 +125,28 @@ impl GuestMMR {
             1 => Ok(peaks_hashes[0].clone()),
             _ => {
                 let mut peaks_hashes: VecDeque<String> = peaks_hashes.into();
-                let last = peaks_hashes.pop_back().unwrap();
-                let second_last = peaks_hashes.pop_back().unwrap();
+                let last = peaks_hashes
+                    .pop_back()
+                    .ok_or(MMRError::InsufficientPeaksForMerge)?;
+                let second_last = peaks_hashes
+                    .pop_back()
+                    .ok_or(MMRError::InsufficientPeaksForMerge)?;
                 let root0 = hash(vec![second_last, last])?;
 
-                let final_root = peaks_hashes
+                peaks_hashes
                     .into_iter()
                     .rev()
-                    .fold(root0, |prev: String, cur: String| {
-                        hash(vec![cur, prev]).unwrap()
-                    });
-
-                Ok(final_root)
+                    .try_fold(root0, |prev, cur| hash(vec![cur, prev]))
             }
         }
     }
 
-    pub fn calculate_root_hash(
-        &self,
-        elements_count: usize,
-    ) -> String {
-        let bag = self.bag_the_peaks().unwrap();
+    pub fn calculate_root_hash(&self, elements_count: usize) -> Result<String, MMRError> {
+        let bag = self.bag_the_peaks()?;
 
         match hash(vec![elements_count.to_string(), bag.to_string()]) {
-            Ok(root_hash) => root_hash,
-            Err(_) => "0x0".to_string(),
+            Ok(root_hash) => Ok(root_hash),
+            Err(_) => Err(MMRError::HashError),
         }
     }
 
@@ -162,17 +165,6 @@ pub struct Proof {
     siblings_hashes: Vec<String>,
     peaks_hashes: Vec<String>,
     elements_count: usize,
-}
-
-impl std::fmt::Display for MMRError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            MMRError::NoHashFoundForIndex(idx) => write!(f, "No hash found for index {}", idx),
-            MMRError::InsufficientPeaksForMerge => write!(f, "Insufficient peaks for merge"),
-            // MMRError::HashError => write!(f, "Hash error"),
-            MMRError::FromHexError(e) => write!(f, "From hex error: {}", e),
-        }
-    }
 }
 
 // Add this function at the bottom with other helper functions
@@ -213,7 +205,7 @@ fn hash(data: Vec<String>) -> Result<String, MMRError> {
 
     //? We deliberately don't validate the size of the elements here, because we want to allow hashing of the RLP encoded block to get a block hash
     if data.is_empty() {
-        sha2.update(&[]);
+        sha2.update([]);
     } else if data.len() == 1 {
         let no_prefix = data[0].strip_prefix("0x").unwrap_or(&data[0]);
         sha2.update(&hex::decode(no_prefix)?);
@@ -223,14 +215,14 @@ fn hash(data: Vec<String>) -> Result<String, MMRError> {
         for e in data.iter() {
             let bigint = if e.starts_with("0x") || e.starts_with("0X") {
                 // Parse hexadecimal
-                BigInt::from_str_radix(&e[2..], 16).unwrap()
+                BigInt::from_str_radix(&e[2..], 16)?
             } else {
                 // Parse decimal
-                BigInt::from_str(e).unwrap()
+                BigInt::from_str(e)?
             };
 
             let hex = format!("{:0>64}", bigint.to_str_radix(16));
-            let bytes = hex::decode(hex).unwrap();
+            let bytes = hex::decode(hex)?;
             result.extend(bytes);
         }
 
