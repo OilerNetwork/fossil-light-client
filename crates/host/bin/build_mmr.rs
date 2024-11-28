@@ -1,7 +1,7 @@
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
-use eyre::Result;
-use host::{get_store_path, AccumulatorBuilder, ProofGenerator, ProofType};
+use eyre::{eyre, Result};
+use host::{db_access::get_store_path, AccumulatorBuilder, ProofGenerator, ProofType};
 use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 use tracing::info;

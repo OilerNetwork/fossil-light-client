@@ -1,8 +1,7 @@
 use clap::Parser;
-use common::{get_env_var, initialize_logger_and_env};
-use eyre::Result;
-use host::{get_store_path, prove_mmr_update};
-use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
+use common::get_env_var;
+use eyre::{eyre, Result};
+use host::{db_access::get_store_path, update_mmr_and_verify_onchain};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -22,8 +21,6 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    initialize_logger_and_env()?;
-
     let args = Args::parse();
 
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
