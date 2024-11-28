@@ -9,6 +9,7 @@ use guest_types::CombinedInput;
 use risc0_ethereum_contracts::encode_seal;
 use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, VerifierContext};
 use serde::Deserialize;
+use starknet_crypto::Felt;
 use thiserror::Error;
 use tokio::task;
 use tracing::{debug, info, warn};
@@ -36,13 +37,19 @@ pub enum ProofGeneratorError {
 pub struct ProofGenerator {
     method_elf: &'static [u8],
     method_id: [u32; 8],
+    skip_proof_verification: bool,
 }
 
 impl ProofGenerator {
-    pub fn new(method_elf: &'static [u8], method_id: [u32; 8]) -> Self {
+    pub fn new(
+        method_elf: &'static [u8],
+        method_id: [u32; 8],
+        skip_proof_verification: bool,
+    ) -> Self {
         Self {
             method_elf,
             method_id,
+            skip_proof_verification,
         }
     }
 
@@ -108,6 +115,7 @@ impl ProofGenerator {
 
         let method_elf = self.method_elf;
         let input = input.clone();
+        let skip_proof_verification = self.skip_proof_verification;
 
         let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
             debug!("Building executor environment");
@@ -136,7 +144,7 @@ impl ProofGenerator {
                     ProofGeneratorError::ReceiptError(e.to_string())
                 })?
                 .receipt;
-
+            
             debug!("Encoding seal");
             let encoded_seal = encode_seal(&receipt).map_err(|e| {
                 warn!("Failed to encode seal: {}", e);
@@ -155,11 +163,16 @@ impl ProofGenerator {
                 Groth16Proof::from_risc0(encoded_seal, image_id.as_bytes().to_vec(), journal);
 
             debug!("Generating calldata");
-            let calldata = get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
-                .map_err(|e| {
-                    warn!("Failed to generate calldata: {}", e);
-                    ProofGeneratorError::CalldataError(e.to_string())
-                })?;
+            let calldata = if !skip_proof_verification {
+                get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254).map_err(
+                    |e| {
+                        warn!("Failed to generate calldata: {}", e);
+                        ProofGeneratorError::CalldataError(e.to_string())
+                    },
+                )?
+            } else {
+                vec![Felt::ZERO]
+            };
 
             info!("Successfully generated Groth16 proof");
             Ok(ProofType::Groth16 { receipt, calldata })

@@ -2,7 +2,7 @@
 
 set -e
 
-cd ../crates/relayer
+cd crates/relayer
 
 while true; do
     cargo run --release

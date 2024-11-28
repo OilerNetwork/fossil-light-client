@@ -8,7 +8,7 @@ use guest_types::{BatchProof, CombinedInput, GuestInput, GuestOutput};
 use mmr::{InStoreTableError, MMRError, PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, MMRUtilsError, StoreManager};
 use starknet_crypto::Felt;
-use starknet_handler::MmrState;
+use starknet_handler::{u256_from_hex, MmrState};
 use store::{SqlitePool, StoreError, SubKey};
 use thiserror::Error;
 use tracing::{debug, info, warn};
@@ -37,6 +37,8 @@ pub enum AccumulatorError {
     MMRUtils(#[from] MMRUtilsError),
     #[error("InStoreTable error: {0}")]
     InStoreTable(#[from] InStoreTableError),
+    #[error("StarknetHandler error: {0}")]
+    StarknetHandler(#[from] starknet_handler::StarknetHandlerError),
 }
 
 pub struct AccumulatorBuilder {
@@ -48,6 +50,7 @@ pub struct AccumulatorBuilder {
     total_batches: u64,
     current_batch: u64,
     previous_proofs: Vec<BatchProof>,
+    skip_proof_verification: bool,
 }
 
 impl AccumulatorBuilder {
@@ -55,6 +58,7 @@ impl AccumulatorBuilder {
         store_path: &str,
         proof_generator: ProofGenerator,
         batch_size: u64,
+        skip_proof_verification: bool,
     ) -> Result<Self, AccumulatorError> {
         let (store_manager, mmr, pool) = initialize_mmr(store_path).await?;
         debug!("MMR initialized at {}", store_path);
@@ -68,6 +72,7 @@ impl AccumulatorBuilder {
             total_batches: 0,
             current_batch: 0,
             previous_proofs: Vec::new(),
+            skip_proof_verification,
         })
     }
 
@@ -94,11 +99,8 @@ impl AccumulatorBuilder {
 
         // Get and verify current MMR state
         let current_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
-        println!("Current peaks: {:?}", current_peaks);
         let current_elements_count = self.mmr.elements_count.get().await?;
-        println!("Current elements count: {}", current_elements_count);
         let current_leaves_count = self.mmr.leaves_count.get().await?;
-        println!("Current leaves count: {}", current_leaves_count);
 
         // Prepare guest input
         let mmr_input = GuestInput::new(
@@ -109,7 +111,8 @@ impl AccumulatorBuilder {
             self.previous_proofs.clone(), // Use the stored proofs
         );
 
-        let combined_input = CombinedInput::new(headers.clone(), mmr_input);
+        let combined_input =
+            CombinedInput::new(headers.clone(), mmr_input, self.skip_proof_verification);
 
         // Generate appropriate proof
         let proof = if self.current_batch == self.total_batches - 1 {
@@ -128,7 +131,7 @@ impl AccumulatorBuilder {
         let guest_output: GuestOutput = self.proof_generator.decode_journal(&proof)?;
 
         // TODO: Remove this and update MMR state after the proof is verified onchain
-        let new_mmr_state = self.update_mmr_state(&guest_output).await?;
+        let new_mmr_state = self.update_mmr_state(end_block, &guest_output).await?;
 
         // If this is a STARK proof, add it to previous_proofs for the next batch
         if let ProofType::Stark {
@@ -143,7 +146,7 @@ impl AccumulatorBuilder {
                 method_id,
             ));
         }
-    
+
         self.current_batch += 1;
 
         debug!("Batch processing completed successfully");
@@ -157,9 +160,9 @@ impl AccumulatorBuilder {
 
     async fn update_mmr_state(
         &mut self,
+        latest_block_number: u64,
         guest_output: &GuestOutput,
     ) -> Result<MmrState, AccumulatorError> {
-        println!("Updating MMR state...");
         debug!(
             "Updating MMR state: elements={}, leaves={}",
             guest_output.elements_count(),
@@ -189,12 +192,8 @@ impl AccumulatorBuilder {
 
         // Update all hashes in the store
         for (index, hash) in guest_output.all_hashes() {
-            println!("Appending result: {:?}", (index, hash.clone()));
             // Store the hash in MMR
-            self.mmr
-                .hashes
-                .set(&hash, SubKey::Usize(index))
-                .await?;
+            self.mmr.hashes.set(&hash, SubKey::Usize(index)).await?;
 
             // Update the mapping
             self.store_manager
@@ -212,13 +211,11 @@ impl AccumulatorBuilder {
 
         validate_u256_hex(&new_mmr_root_hash)?;
 
-        let final_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
-
         let new_mmr_state = MmrState::new(
-            felt(&new_mmr_root_hash)?,
+            latest_block_number,
+            u256_from_hex(new_mmr_root_hash.trim_start_matches("0x"))?,
             guest_output.elements_count() as u64,
             guest_output.leaves_count() as u64,
-            string_array_to_felt_array(final_peaks)?,
         );
 
         debug!("MMR state updated successfully");
@@ -305,6 +302,20 @@ impl AccumulatorBuilder {
             }
             .into())
         }
+    }
+
+    pub async fn get_peaks(&self) -> Result<Vec<Felt>, AccumulatorError> {
+        let peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
+        Ok(string_array_to_felt_array(peaks)?)
+    }
+
+    pub async fn get_mmr_root(&self) -> Result<Felt, AccumulatorError> {
+        let bag = self.mmr.bag_the_peaks(None).await?;
+        let root = self
+            .mmr
+            .calculate_root_hash(&bag, self.mmr.elements_count.get().await?)?;
+        validate_u256_hex(&root)?;
+        Ok(felt(&root)?)
     }
 }
 

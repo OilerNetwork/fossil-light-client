@@ -1,12 +1,12 @@
 #[starknet::contract]
 pub mod L1MessageProxy {
+    use fossil_store::{IFossilStoreDispatcher, IFossilStoreDispatcherTrait};
     use starknet::{ContractAddress, EthAddress};
-    use store::{IStoreDispatcher, IStoreDispatcherTrait};
 
     #[storage]
     struct Storage {
         l1_messages_sender: EthAddress,
-        store_dispatcher: IStoreDispatcher,
+        store_dispatcher: IFossilStoreDispatcher,
     }
 
     #[constructor]
@@ -14,7 +14,7 @@ pub mod L1MessageProxy {
         ref self: ContractState, l1_messages_sender: EthAddress, store_address: ContractAddress
     ) {
         self.l1_messages_sender.write(l1_messages_sender);
-        self.store_dispatcher.write(IStoreDispatcher { contract_address: store_address });
+        self.store_dispatcher.write(IFossilStoreDispatcher { contract_address: store_address });
     }
 
     #[l1_handler]

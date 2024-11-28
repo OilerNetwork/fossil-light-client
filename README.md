@@ -115,12 +115,7 @@ Initialize the Light Client service:
 
 Initialize the L1->L2 block hash relay service:
 
-1. Access relayer scripts:
+1. Execute relayer process:
    ```bash
-   cd scripts
-   ```
-
-2. Execute relayer process:
-   ```bash
-   ./run_relayer.sh
+   ./scripts/run_relayer.sh
    ```

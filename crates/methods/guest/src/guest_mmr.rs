@@ -11,7 +11,7 @@ use std::str::FromStr;
 pub enum MMRError {
     NoHashFoundForIndex(usize),
     InsufficientPeaksForMerge,
-    HashError,
+    // HashError,
     FromHexError(#[from] hex::FromHexError),
 }
 
@@ -80,15 +80,10 @@ impl GuestMMR {
             peaks.push(parent_hash);
         }
 
-        for value in self.hashes.values() {
-            println!("{}", value);
-        }
-
         self.elements_count = last_element_idx;
         self.leaves_count += 1;
 
-        let bag = self.bag_the_peaks()?;
-        let root_hash = self.calculate_root_hash(&bag, last_element_idx)?;
+        let root_hash = self.calculate_root_hash(last_element_idx);
         self.root_hash = root_hash;
 
         Ok(AppendResult::new(
@@ -114,7 +109,7 @@ impl GuestMMR {
         Ok(peaks)
     }
 
-    fn bag_the_peaks(&self) -> Result<String, MMRError> {
+    pub fn bag_the_peaks(&self) -> Result<String, MMRError> {
         let peaks_idxs = find_peaks(self.elements_count);
 
         let peaks_hashes = self.retrieve_peaks_hashes(peaks_idxs)?;
@@ -142,12 +137,13 @@ impl GuestMMR {
 
     pub fn calculate_root_hash(
         &self,
-        bag: &str,
         elements_count: usize,
-    ) -> Result<String, MMRError> {
+    ) -> String {
+        let bag = self.bag_the_peaks().unwrap();
+
         match hash(vec![elements_count.to_string(), bag.to_string()]) {
-            Ok(root_hash) => Ok(root_hash),
-            Err(_) => Err(MMRError::HashError),
+            Ok(root_hash) => root_hash,
+            Err(_) => "0x0".to_string(),
         }
     }
 
@@ -173,7 +169,7 @@ impl std::fmt::Display for MMRError {
         match self {
             MMRError::NoHashFoundForIndex(idx) => write!(f, "No hash found for index {}", idx),
             MMRError::InsufficientPeaksForMerge => write!(f, "Insufficient peaks for merge"),
-            MMRError::HashError => write!(f, "Hash error"),
+            // MMRError::HashError => write!(f, "Hash error"),
             MMRError::FromHexError(e) => write!(f, "From hex error: {}", e),
         }
     }

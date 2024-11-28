@@ -15,7 +15,7 @@ use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
 use mmr_utils::{create_database_file, ensure_directory_exists, MMRUtilsError};
 pub use proof_generator::{ProofGenerator, ProofType};
 use starknet_crypto::Felt;
-use starknet_handler::{provider::StarknetProvider, MmrState, StarknetHandlerError};
+use starknet_handler::{MmrState, StarknetHandlerError};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -30,15 +30,13 @@ pub enum HostError {
     MMRUtils(#[from] MMRUtilsError),
 }
 
-pub async fn update_mmr_and_verify_onchain(
+pub async fn prove_mmr_update(
     db_file: &str,
     start_block: u64,
     end_block: u64,
-    rpc_url: &str,
-    verifier_address: &str,
-) -> Result<(bool, MmrState), HostError> {
-    let proof_generator = ProofGenerator::new(MMR_GUEST_ELF, MMR_GUEST_ID);
-    let mut builder = AccumulatorBuilder::new(db_file, proof_generator, 1024).await?;
+) -> Result<(MmrState, Vec<Felt>), HostError> {
+    let proof_generator = ProofGenerator::new(MMR_GUEST_ELF, MMR_GUEST_ID, false);
+    let mut builder = AccumulatorBuilder::new(db_file, proof_generator, 1024, false).await?;
 
     tracing::debug!(
         db_file,
@@ -56,25 +54,7 @@ pub async fn update_mmr_and_verify_onchain(
         "Successfully generated proof for block range"
     );
 
-    let provider = StarknetProvider::new(rpc_url)?;
-    tracing::debug!(verifier_address, "Submitting proof for verification");
-
-    let verification_result = provider
-        .verify_groth16_proof_onchain(verifier_address, &proof_calldata)
-        .await?;
-
-    let verified = *verification_result
-        .first()
-        .ok_or_else(|| HostError::VerificationError)?
-        == Felt::from(1);
-
-    if verified {
-        tracing::info!("Proof verification successful on-chain");
-    } else {
-        tracing::warn!("Proof verification failed on-chain");
-    }
-
-    Ok((verified, new_mmr_state))
+    Ok((new_mmr_state, proof_calldata))
 }
 
 pub fn get_store_path(db_file: Option<String>) -> Result<String, HostError> {

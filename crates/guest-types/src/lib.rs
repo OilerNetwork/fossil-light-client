@@ -58,26 +58,28 @@ impl AppendResult {
     pub fn last_element_idx(&self) -> usize {
         self.elements_count
     }
-
 }
 
 // GuestOutput
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GuestOutput {
-    all_hashes: Vec<(usize, String)>,
+    root_hash: String,
     elements_count: usize,
     leaves_count: usize,
+    all_hashes: Vec<(usize, String)>,
     append_results: Vec<AppendResult>,
 }
 
 impl GuestOutput {
     pub fn new(
-        all_hashes: Vec<(usize, String)>,
+        root_hash: String,
         elements_count: usize,
         leaves_count: usize,
+        all_hashes: Vec<(usize, String)>,
         append_results: Vec<AppendResult>,
     ) -> Self {
         Self {
+            root_hash,
             all_hashes,
             elements_count,
             leaves_count,
@@ -97,7 +99,6 @@ impl GuestOutput {
         self.all_hashes.clone()
     }
 
-
     pub fn leaves_count(&self) -> usize {
         self.leaves_count
     }
@@ -108,11 +109,20 @@ impl GuestOutput {
 pub struct CombinedInput {
     headers: Vec<BlockHeader>,
     mmr_input: GuestInput,
+    skip_proof_verification: bool,
 }
 
 impl CombinedInput {
-    pub fn new(headers: Vec<BlockHeader>, mmr_input: GuestInput) -> Self {
-        Self { headers, mmr_input }
+    pub fn new(
+        headers: Vec<BlockHeader>,
+        mmr_input: GuestInput,
+        skip_proof_verification: bool,
+    ) -> Self {
+        Self {
+            headers,
+            mmr_input,
+            skip_proof_verification,
+        }
     }
 
     pub fn headers(&self) -> &Vec<BlockHeader> {
@@ -121,6 +131,10 @@ impl CombinedInput {
 
     pub fn mmr_input(&self) -> &GuestInput {
         &self.mmr_input
+    }
+
+    pub fn skip_proof_verification(&self) -> bool {
+        self.skip_proof_verification
     }
 }
 

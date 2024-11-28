@@ -3,17 +3,16 @@
 use hasher::sha2::Sha2Hasher;
 use mmr::MMR;
 use sqlx::{Row, SqlitePool};
-use std::fs::File;
-use std::path::Path;
-use std::sync::Arc;
-use std::sync::Mutex;
-use std::{collections::HashMap, path::PathBuf};
-use std::{env, fs};
+use std::{
+    collections::HashMap,
+    env,
+    fs::{self, File},
+    path::{Path, PathBuf},
+    sync::{Arc, Mutex},
+};
 use store::{sqlite::SQLiteStore, StoreError};
-use thiserror::Error;
-use uuid::Uuid;
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum MMRUtilsError {
     #[error("Store error: {0}")]
     Store(#[from] StoreError),
@@ -172,7 +171,7 @@ pub async fn initialize_mmr(
     let mmr_id = if let Some(id) = get_mmr_id(&pool).await? {
         id
     } else {
-        let new_id = Uuid::new_v4().to_string();
+        let new_id = uuid::Uuid::new_v4().to_string();
         save_mmr_id(&pool, &new_id).await?;
         new_id
     };
@@ -265,42 +264,55 @@ mod tests {
     #[tokio::test]
     async fn test_store_manager_initialization() {
         let (_, pool) = setup_test_db().await;
-        
+
         // Verify the tables were created
-        let result = sqlx::query("SELECT name FROM sqlite_master WHERE type='table' AND name='value_index_map'")
-            .fetch_optional(&pool)
-            .await
-            .unwrap();
-        
+        let result = sqlx::query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='value_index_map'",
+        )
+        .fetch_optional(&pool)
+        .await
+        .unwrap();
+
         assert!(result.is_some(), "value_index_map table should exist");
     }
 
     #[tokio::test]
     async fn test_insert_and_get_value_index_mapping() {
         let (manager, pool) = setup_test_db().await;
-        
+
         // Test inserting a mapping
         let test_value = "test_hash";
         let test_index = 42;
-        
-        manager.insert_value_index_mapping(&pool, test_value, test_index)
+
+        manager
+            .insert_value_index_mapping(&pool, test_value, test_index)
             .await
             .unwrap();
-        
+
         // Test retrieving the mapping
-        let result = manager.get_element_index_for_value(&pool, test_value)
+        let result = manager
+            .get_element_index_for_value(&pool, test_value)
             .await
             .unwrap();
-        
+
         assert_eq!(result, Some(test_index));
     }
 
     #[tokio::test]
     async fn test_get_all_elements() {
         let (manager, pool) = setup_test_db().await;
-        manager.insert_value_index_mapping(&pool, "test_hash", 42).await.unwrap();
-        manager.insert_value_index_mapping(&pool, "test_hash2", 43).await.unwrap();
-        manager.insert_value_index_mapping(&pool, "test_hash3", 44).await.unwrap();
+        manager
+            .insert_value_index_mapping(&pool, "test_hash", 42)
+            .await
+            .unwrap();
+        manager
+            .insert_value_index_mapping(&pool, "test_hash2", 43)
+            .await
+            .unwrap();
+        manager
+            .insert_value_index_mapping(&pool, "test_hash3", 44)
+            .await
+            .unwrap();
         let elements = manager.get_all_elements(&pool).await.unwrap();
         assert_eq!(elements.len(), 3);
     }
@@ -308,62 +320,59 @@ mod tests {
     #[tokio::test]
     async fn test_get_nonexistent_value_index() {
         let (manager, pool) = setup_test_db().await;
-        
-        let result = manager.get_element_index_for_value(&pool, "nonexistent")
+
+        let result = manager
+            .get_element_index_for_value(&pool, "nonexistent")
             .await
             .unwrap();
-        
+
         assert_eq!(result, None);
     }
 
     #[tokio::test]
     async fn test_get_value_for_element_index() {
         let (manager, pool) = setup_test_db().await;
-        
+
         // First, create the store table that would normally exist
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        
+        sqlx::query("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            .execute(&pool)
+            .await
+            .unwrap();
+
         // Insert a test value
         let test_index = 123;
         let test_value = "test_stored_value";
-        sqlx::query(
-            "INSERT INTO store (key, value) VALUES (?, ?)"
-        )
-        .bind(format!("test:hashes:{}", test_index))
-        .bind(test_value)
-        .execute(&pool)
-        .await
-        .unwrap();
-        
-        // Test retrieving the value
-        let result = manager.get_value_for_element_index(&pool, test_index)
+        sqlx::query("INSERT INTO store (key, value) VALUES (?, ?)")
+            .bind(format!("test:hashes:{}", test_index))
+            .bind(test_value)
+            .execute(&pool)
             .await
             .unwrap();
-        
+
+        // Test retrieving the value
+        let result = manager
+            .get_value_for_element_index(&pool, test_index)
+            .await
+            .unwrap();
+
         assert_eq!(result, Some(test_value.to_string()));
     }
 
     #[tokio::test]
     async fn test_get_nonexistent_value_for_element_index() {
         let (manager, pool) = setup_test_db().await;
-        
+
         // Create store table
-        sqlx::query(
-            "CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        
-        let result = manager.get_value_for_element_index(&pool, 999)
+        sqlx::query("CREATE TABLE IF NOT EXISTS store (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+            .execute(&pool)
             .await
             .unwrap();
-        
+
+        let result = manager
+            .get_value_for_element_index(&pool, 999)
+            .await
+            .unwrap();
+
         assert_eq!(result, None);
     }
 }
