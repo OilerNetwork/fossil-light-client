@@ -13,7 +13,7 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum StarknetHandlerError {
     #[error("Failed to parse: {0}")]
-    ParseError(String),
+    ParseError(#[from] url::ParseError),
     #[error("Failed to create selector: {0}")]
     SelectorError(String),
     #[error("Failed to execute transaction: {0}")]
@@ -26,6 +26,10 @@ pub enum StarknetHandlerError {
     Utils(#[from] common::UtilsError),
     #[error("Encode error: {0}")]
     Encode(#[from] starknet::core::codec::Error),
+    #[error("Error parsing int: {0}")]
+    ParseIntError(#[from] std::num::ParseIntError),
+    #[error("Provider error: {0}")]
+    Provider(#[from] starknet::providers::ProviderError),
 }
 
 #[derive(Clone, Debug, Encode, Decode)]

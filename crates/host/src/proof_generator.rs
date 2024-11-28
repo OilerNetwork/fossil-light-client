@@ -28,7 +28,7 @@ pub enum ProofGeneratorError {
     CalldataError(String),
     #[error("Failed to spawn blocking task: {0}")]
     SpawnBlocking(String),
-    #[error("Task join error: {0}")]
+    #[error("Tokio task join error: {0}")]
     Join(#[from] tokio::task::JoinError),
     #[error("Risc0 serde error: {0}")]
     Risc0Serde(#[from] risc0_zkvm::serde::Error),

@@ -36,24 +36,23 @@ where
     let var_value = get_env_var(name)?;
     var_value
         .parse()
-        .map_err(|e| UtilsError::ParseStringError(format!("{}: {}", name, e)))
+        .map_err(|e| UtilsError::ParseError(format!("{}: {}", name, e)))
 }
 
 /// Function to initialize logging and environment variables
 pub fn initialize_logger_and_env() -> Result<(), UtilsError> {
     dotenv::dotenv().ok();
 
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| {
-            let directive = match "sqlx=off".parse() {
-                Ok(d) => d,
-                Err(e) => {
-                    tracing::warn!("Failed to parse sqlx filter directive: {}", e);
-                    Default::default()
-                }
-            };
-            tracing_subscriber::EnvFilter::new("info").add_directive(directive)
-        });
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        let directive = match "sqlx=off".parse() {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::warn!("Failed to parse sqlx filter directive: {}", e);
+                Default::default()
+            }
+        };
+        tracing_subscriber::EnvFilter::new("info").add_directive(directive)
+    });
 
     tracing_subscriber::fmt()
         .with_env_filter(filter)

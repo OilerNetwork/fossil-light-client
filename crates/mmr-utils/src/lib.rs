@@ -30,9 +30,7 @@ pub struct StoreFactory;
 #[allow(dead_code)]
 impl StoreFactory {
     pub async fn create_store(path: &str, id: Option<&str>) -> Result<SQLiteStore, StoreError> {
-        SQLiteStore::new(path, Some(true), id)
-            .await
-            .map_err(StoreError::SQLite)
+        Ok(SQLiteStore::new(path, Some(true), id).await?)
     }
 }
 

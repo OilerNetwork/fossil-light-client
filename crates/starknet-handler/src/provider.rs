@@ -19,8 +19,7 @@ pub struct StarknetProvider {
 
 impl StarknetProvider {
     pub fn new(rpc_url: &str) -> Result<Self, StarknetHandlerError> {
-        let parsed_url = Url::parse(rpc_url)
-            .map_err(|_| StarknetHandlerError::ParseError(rpc_url.to_string()))?;
+        let parsed_url = Url::parse(rpc_url)?;
         Ok(Self {
             provider: Arc::new(JsonRpcClient::new(HttpTransport::new(parsed_url))),
             rpc_url: rpc_url.to_string(),
@@ -77,8 +76,7 @@ impl StarknetProvider {
                 },
                 BlockId::Tag(BlockTag::Latest),
             )
-            .await
-            .map_err(|e| StarknetHandlerError::TransactionError(e.to_string()))?;
+            .await?;
 
         let mmr_state = MmrState::decode(&data)?;
 
@@ -101,12 +99,10 @@ impl StarknetProvider {
                 },
                 BlockId::Tag(BlockTag::Latest),
             )
-            .await
-            .map_err(|e| StarknetHandlerError::TransactionError(e.to_string()))?;
+            .await?;
 
         let block_number =
-            u64::from_str_radix(data[0].to_hex_string().trim_start_matches("0x"), 16)
-                .map_err(|_| StarknetHandlerError::ParseError(data[0].to_hex_string()))?;
+            u64::from_str_radix(data[0].to_hex_string().trim_start_matches("0x"), 16)?;
 
         Ok(block_number)
     }
