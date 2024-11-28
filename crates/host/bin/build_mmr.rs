@@ -79,14 +79,14 @@ async fn main() -> Result<()> {
             Some(ProofType::Stark { .. }) => info!("Generated STARK proof"),
             Some(ProofType::Groth16 { calldata, .. }) => {
                 if !args.skip_proof {
-                info!("Verifying Groth16 proof on Starknet...");
-                let provider = StarknetProvider::new(&rpc_url)?;
-                let account =
-                    StarknetAccount::new(provider.provider(), &private_key, &account_address)?;
-                let (tx_hash, new_mmr_state) = account
-                    .verify_mmr_proof(&verifier_address, &new_mmr_state, calldata)
-                    .await?;
-                info!("Final proof verified on Starknet, tx hash: {:?}", tx_hash);
+                    info!("Verifying Groth16 proof on Starknet...");
+                    let provider = StarknetProvider::new(&rpc_url)?;
+                    let account =
+                        StarknetAccount::new(provider.provider(), &private_key, &account_address)?;
+                    let (tx_hash, new_mmr_state) = account
+                        .verify_mmr_proof(&verifier_address, &new_mmr_state, calldata)
+                        .await?;
+                    info!("Final proof verified on Starknet, tx hash: {:?}", tx_hash);
                     info!("New MMR state: {:?}", new_mmr_state);
                 }
             }
