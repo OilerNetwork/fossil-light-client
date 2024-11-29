@@ -1,21 +1,13 @@
 // use mmr::MMR;
+use common::get_db_path;
 use mmr_utils::initialize_mmr;
-use std::path::PathBuf;
 
 #[tokio::test]
 async fn test_mmr_proofs() {
     // Get path to the db-instances directory relative to the test file
-    let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("db-instances");
+    let store_path = get_db_path().unwrap();
 
-    let binding = test_dir.join("0.db");
-    let store_path = binding.to_str().unwrap();
-
-    let (store_manager, mmr, pool) = initialize_mmr(store_path).await.unwrap();
+    let (store_manager, mmr, pool) = initialize_mmr(&store_path).await.unwrap();
 
     let indices = vec![1, 2, 4, 5, 8, 9, 11, 12];
 

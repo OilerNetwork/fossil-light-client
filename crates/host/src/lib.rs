@@ -9,6 +9,7 @@ pub mod accumulator;
 pub mod db_access;
 pub mod proof_generator;
 pub mod types;
+pub mod validator;
 
 pub use accumulator::AccumulatorBuilder;
 use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
@@ -17,6 +18,7 @@ pub use proof_generator::{ProofGenerator, ProofType};
 use starknet_crypto::Felt;
 use starknet_handler::{MmrState, StarknetHandlerError};
 use thiserror::Error;
+pub use validator::{ValidatorBuilder, ValidatorError};
 
 #[derive(Error, Debug)]
 pub enum HostError {
@@ -28,6 +30,8 @@ pub enum HostError {
     StarknetHandler(#[from] StarknetHandlerError),
     #[error("MMRUtils error: {0}")]
     MMRUtils(#[from] MMRUtilsError),
+    #[error("Headers Validator error: {0}")]
+    Validator(#[from] ValidatorError),
 }
 
 pub async fn prove_mmr_update(
@@ -55,4 +59,21 @@ pub async fn prove_mmr_update(
     );
 
     Ok((new_mmr_state, proof_calldata))
+}
+
+pub async fn prove_headers_validity_and_inclusion(
+    headers: &Vec<eth_rlp_types::BlockHeader>,
+    skip_proof_verification: Option<bool>,
+) -> Result<bool, HostError> {
+    let skip_proof = match skip_proof_verification {
+        Some(skip) => skip,
+        None => false,
+    };
+    let validator = ValidatorBuilder::new(skip_proof).await?;
+
+    let result = validator
+        .verify_blocks_validity_and_inclusion(headers)
+        .await?;
+
+    Ok(result)
 }

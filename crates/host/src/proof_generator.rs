@@ -5,7 +5,6 @@ use garaga_rs::{
     },
     definitions::CurveID,
 };
-use guest_types::CombinedInput;
 use risc0_ethereum_contracts::encode_seal;
 use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, VerifierContext};
 use serde::Deserialize;
@@ -34,13 +33,17 @@ pub enum ProofGeneratorError {
     Risc0Serde(#[from] risc0_zkvm::serde::Error),
 }
 
-pub struct ProofGenerator {
+pub struct ProofGenerator<T> {
     method_elf: &'static [u8],
     method_id: [u32; 8],
     skip_proof_verification: bool,
+    _phantom: std::marker::PhantomData<T>,
 }
 
-impl ProofGenerator {
+impl<T> ProofGenerator<T>
+where
+    T: serde::Serialize + Clone + Send + 'static,
+{
     pub fn new(
         method_elf: &'static [u8],
         method_id: [u32; 8],
@@ -50,14 +53,12 @@ impl ProofGenerator {
             method_elf,
             method_id,
             skip_proof_verification,
+            _phantom: std::marker::PhantomData,
         }
     }
 
     /// Generate a standard Stark proof for intermediate batches
-    pub async fn generate_stark_proof(
-        &self,
-        input: &CombinedInput,
-    ) -> Result<ProofType, ProofGeneratorError> {
+    pub async fn generate_stark_proof(&self, input: &T) -> Result<ProofType, ProofGeneratorError> {
         info!("Generating STARK proof for intermediate batch");
         debug!("Input size: {} bytes", std::mem::size_of_val(input));
 
@@ -108,7 +109,7 @@ impl ProofGenerator {
     /// Generate a Groth16 proof for the final batch
     pub async fn generate_groth16_proof(
         &self,
-        input: &CombinedInput,
+        input: &T,
     ) -> Result<ProofType, ProofGeneratorError> {
         info!("Generating Groth16 proof for final batch");
         debug!("Input size: {} bytes", std::mem::size_of_val(input));
@@ -186,10 +187,10 @@ impl ProofGenerator {
         Ok(proof)
     }
 
-    pub fn decode_journal<T: for<'a> Deserialize<'a>>(
+    pub fn decode_journal<U: for<'a> Deserialize<'a>>(
         &self,
         proof: &ProofType,
-    ) -> Result<T, ProofGeneratorError> {
+    ) -> Result<U, ProofGeneratorError> {
         let receipt = match proof {
             ProofType::Groth16 { receipt, .. } | ProofType::Stark { receipt, .. } => receipt,
         };

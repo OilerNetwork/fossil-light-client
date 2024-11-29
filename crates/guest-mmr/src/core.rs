@@ -120,20 +120,12 @@ impl GuestMMR {
         ))
     }
 
-    pub async fn get_proof(
-        &self,
-        element_index: usize,
-        options: Option<ProofOptions>,
-    ) -> Result<Proof, MMRError> {
+    pub fn get_proof(&self, element_index: usize) -> Result<Proof, MMRError> {
         if element_index == 0 {
             return Err(MMRError::InvalidElementIndex);
         }
 
-        let options = options.unwrap_or_default();
-        let tree_size = match options.elements_count {
-            Some(count) => count,
-            None => self.elements_count,
-        };
+        let tree_size = self.elements_count;
 
         if element_index > tree_size {
             return Err(MMRError::InvalidElementIndex);
@@ -142,12 +134,10 @@ impl GuestMMR {
         let peaks = find_peaks(tree_size);
 
         let siblings = find_siblings(element_index, tree_size)?;
-        println!("siblings: {:?}", siblings);
 
         let peaks_hashes = self.retrieve_peaks_hashes(peaks)?;
 
         let siblings_hashes = self.get_many_hashes(&siblings)?;
-        println!("siblings_hashes: {:?}", siblings_hashes);
 
         let element_hash = self
             .hashes
@@ -163,7 +153,7 @@ impl GuestMMR {
         })
     }
 
-    pub async fn verify_proof(
+    pub fn verify_proof(
         &self,
         mut proof: Proof,
         element_value: String,
@@ -344,27 +334,26 @@ mod tests {
         assert_eq!(mmr.get_leaves_count(), 2);
     }
 
-    #[tokio::test]
-    async fn test_get_proof() {
+    #[test]
+    fn test_get_proof() {
         let mut mmr = create_test_mmr();
         mmr.append(APPEND_VALUE.to_string()).unwrap();
 
-        let proof = mmr.get_proof(1, None).await.unwrap();
+        let proof = mmr.get_proof(1).unwrap();
 
         assert_eq!(proof.element_index, 1);
         assert_eq!(proof.elements_count, mmr.get_elements_count());
     }
 
-    #[tokio::test]
-    async fn test_verify_proof() {
+    #[test]
+    fn test_verify_proof() {
         let mut mmr = create_test_mmr();
         mmr.append(APPEND_VALUE.to_string()).unwrap();
 
-        let proof = mmr.get_proof(1, None).await.unwrap();
+        let proof = mmr.get_proof(1).unwrap();
         println!("proof: {:?}", proof);
         let is_valid = mmr
             .verify_proof(proof, INITIAL_PEAK_VALUE.to_string(), None)
-            .await
             .unwrap();
 
         assert!(is_valid);
@@ -374,10 +363,10 @@ mod tests {
     fn test_invalid_element_index() {
         let mmr = create_test_mmr();
 
-        let result = tokio_test::block_on(mmr.get_proof(0, None));
+        let result = mmr.get_proof(0);
         assert!(matches!(result, Err(MMRError::InvalidElementIndex)));
 
-        let result = tokio_test::block_on(mmr.get_proof(999, None));
+        let result = mmr.get_proof(999);
         assert!(matches!(result, Err(MMRError::InvalidElementIndex)));
     }
 

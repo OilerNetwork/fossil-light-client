@@ -1,7 +1,7 @@
 // main.rs
 use eth_rlp_verify::are_blocks_and_chain_valid;
 use risc0_zkvm::guest::env;
-use guest_mmr::GuestMMR;
+use guest_mmr::core::GuestMMR;
 use guest_types::{CombinedInput, GuestOutput};
 
 fn main() {
@@ -10,11 +10,13 @@ fn main() {
 
     // Only verify proofs if skip_proof_verification is false
     if !input.skip_proof_verification() {
-        for proof in input.mmr_input().previous_proofs() {
-            proof
-                .receipt()
-                .verify(proof.method_id())
-                .expect("Invalid previous proof");
+        if let Some(proofs) = input.mmr_input().previous_proofs() {
+            for proof in proofs {
+                proof
+                    .receipt()
+                    .verify(proof.method_id())
+                    .expect("Invalid previous proof");
+            }
         }
     }
 

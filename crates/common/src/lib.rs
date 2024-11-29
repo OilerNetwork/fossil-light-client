@@ -1,7 +1,7 @@
 #![deny(unused_crate_dependencies)]
 
 use starknet_crypto::Felt;
-use std::str::FromStr;
+use std::{path::PathBuf, str::FromStr};
 
 #[derive(thiserror::Error, Debug)]
 pub enum UtilsError {
@@ -67,4 +67,20 @@ pub fn string_array_to_felt_array(string_array: Vec<String>) -> Result<Vec<Felt>
 
 pub fn felt(str: &str) -> Result<Felt, UtilsError> {
     Felt::from_hex(str).map_err(|_| UtilsError::FeltError(format!("Invalid hex string: {}", str)))
+}
+
+pub fn get_db_path() -> Result<String, UtilsError> {
+    // Get path to the db-instances directory relative to the test file
+    let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .ok_or_else(|| UtilsError::ParseError("Missing parent directory".to_string()))?
+        .parent()
+        .ok_or_else(|| UtilsError::ParseError("Missing root directory".to_string()))?
+        .join("db-instances");
+
+    let binding = test_dir.join("0.db");
+    let store_path = binding
+        .to_str()
+        .ok_or_else(|| UtilsError::ParseError("Invalid path".to_string()))?;
+    Ok(store_path.to_string())
 }

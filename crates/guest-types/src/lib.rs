@@ -108,14 +108,14 @@ impl GuestOutput {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CombinedInput {
     headers: Vec<BlockHeader>,
-    mmr_input: GuestInput,
+    mmr_input: MMRInput,
     skip_proof_verification: bool,
 }
 
 impl CombinedInput {
     pub fn new(
         headers: Vec<BlockHeader>,
-        mmr_input: GuestInput,
+        mmr_input: MMRInput,
         skip_proof_verification: bool,
     ) -> Self {
         Self {
@@ -129,7 +129,7 @@ impl CombinedInput {
         &self.headers
     }
 
-    pub fn mmr_input(&self) -> &GuestInput {
+    pub fn mmr_input(&self) -> &MMRInput {
         &self.mmr_input
     }
 
@@ -138,23 +138,22 @@ impl CombinedInput {
     }
 }
 
-// GuestInput
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GuestInput {
+pub struct MMRInput {
     initial_peaks: Vec<String>,
     elements_count: usize,
     leaves_count: usize,
-    new_elements: Vec<String>,
-    previous_proofs: Vec<BatchProof>,
+    new_elements: Option<Vec<String>>,
+    previous_proofs: Option<Vec<BatchProof>>,
 }
 
-impl GuestInput {
+impl MMRInput {
     pub fn new(
         initial_peaks: Vec<String>,
         elements_count: usize,
         leaves_count: usize,
-        new_elements: Vec<String>,
-        previous_proofs: Vec<BatchProof>,
+        new_elements: Option<Vec<String>>,
+        previous_proofs: Option<Vec<BatchProof>>,
     ) -> Self {
         Self {
             initial_peaks,
@@ -165,8 +164,8 @@ impl GuestInput {
         }
     }
 
-    pub fn previous_proofs(&self) -> &Vec<BatchProof> {
-        &self.previous_proofs
+    pub fn previous_proofs(&self) -> Option<&Vec<BatchProof>> {
+        self.previous_proofs.as_ref()
     }
 
     pub fn initial_peaks(&self) -> Vec<String> {
@@ -224,5 +223,33 @@ impl FinalHash {
 
     pub fn index(&self) -> usize {
         self.index
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlocksValidityInput {
+    headers: Vec<BlockHeader>,
+    mmr_input: MMRInput,
+    hash_indexes: Vec<usize>,
+}
+impl BlocksValidityInput {
+    pub fn new(headers: Vec<BlockHeader>, mmr_input: MMRInput, hash_indexes: Vec<usize>) -> Self {
+        Self {
+            headers,
+            mmr_input,
+            hash_indexes,
+        }
+    }
+
+    pub fn headers(&self) -> &Vec<BlockHeader> {
+        &self.headers
+    }
+
+    pub fn hash_indexes(&self) -> &Vec<usize> {
+        &self.hash_indexes
+    }
+
+    pub fn mmr_input(&self) -> &MMRInput {
+        &self.mmr_input
     }
 }

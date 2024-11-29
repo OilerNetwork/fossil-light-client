@@ -15,6 +15,6 @@ thiserror = "2.0.3"
 
 [dev-dependencies]
 mmr-utils = { path = "../mmr-utils" }
+common = { path = "../common" }
 
 tokio = { version = "1.39.0", features = ["full"] }
-tokio-test = "0.4.0"

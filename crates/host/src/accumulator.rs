@@ -2,9 +2,9 @@
 use crate::db_access::{get_block_headers_by_block_range, DbConnection};
 use crate::proof_generator::{ProofGenerator, ProofGeneratorError};
 use crate::types::{BatchResult, ProofType};
-use common::{felt, string_array_to_felt_array, UtilsError};
+use common::UtilsError;
 use ethereum::get_finalized_block_hash;
-use guest_types::{BatchProof, CombinedInput, GuestInput, GuestOutput};
+use guest_types::{BatchProof, CombinedInput, GuestOutput, MMRInput};
 use mmr::{InStoreTableError, MMRError, PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, MMRUtilsError, StoreManager};
 use starknet_crypto::Felt;
@@ -46,7 +46,7 @@ pub struct AccumulatorBuilder {
     store_manager: StoreManager,
     mmr: MMR,
     pool: SqlitePool,
-    proof_generator: ProofGenerator,
+    proof_generator: ProofGenerator<CombinedInput>,
     total_batches: u64,
     current_batch: u64,
     previous_proofs: Vec<BatchProof>,
@@ -56,7 +56,7 @@ pub struct AccumulatorBuilder {
 impl AccumulatorBuilder {
     pub async fn new(
         store_path: &str,
-        proof_generator: ProofGenerator,
+        proof_generator: ProofGenerator<CombinedInput>,
         batch_size: u64,
         skip_proof_verification: bool,
     ) -> Result<Self, AccumulatorError> {
@@ -103,12 +103,12 @@ impl AccumulatorBuilder {
         let current_leaves_count = self.mmr.leaves_count.get().await?;
 
         // Prepare guest input
-        let mmr_input = GuestInput::new(
+        let mmr_input = MMRInput::new(
             current_peaks.clone(),
             current_elements_count,
             current_leaves_count,
-            headers.iter().map(|h| h.block_hash.clone()).collect(),
-            self.previous_proofs.clone(), // Use the stored proofs
+            Some(headers.iter().map(|h| h.block_hash.clone()).collect()),
+            Some(self.previous_proofs.clone()), // Use the stored proofs
         );
 
         let combined_input =
@@ -304,19 +304,19 @@ impl AccumulatorBuilder {
         }
     }
 
-    pub async fn get_peaks(&self) -> Result<Vec<Felt>, AccumulatorError> {
-        let peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
-        Ok(string_array_to_felt_array(peaks)?)
-    }
+    // pub async fn get_peaks(&self) -> Result<Vec<Felt>, AccumulatorError> {
+    //     let peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
+    //     Ok(string_array_to_felt_array(peaks)?)
+    // }
 
-    pub async fn get_mmr_root(&self) -> Result<Felt, AccumulatorError> {
-        let bag = self.mmr.bag_the_peaks(None).await?;
-        let root = self
-            .mmr
-            .calculate_root_hash(&bag, self.mmr.elements_count.get().await?)?;
-        validate_u256_hex(&root)?;
-        Ok(felt(&root)?)
-    }
+    // pub async fn get_mmr_root(&self) -> Result<Felt, AccumulatorError> {
+    //     let bag = self.mmr.bag_the_peaks(None).await?;
+    //     let root = self
+    //         .mmr
+    //         .calculate_root_hash(&bag, self.mmr.elements_count.get().await?)?;
+    //     validate_u256_hex(&root)?;
+    //     Ok(felt(&root)?)
+    // }
 }
 
 /// Validates that a hex string represents a valid U256 (256-bit unsigned integer)
