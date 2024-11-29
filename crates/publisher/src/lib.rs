@@ -21,7 +21,7 @@ use thiserror::Error;
 pub use validator::{ValidatorBuilder, ValidatorError};
 
 #[derive(Error, Debug)]
-pub enum HostError {
+pub enum PublisherError {
     #[error("Verification result is empty")]
     VerificationError,
     #[error("Accumulator error: {0}")]
@@ -38,7 +38,7 @@ pub async fn prove_mmr_update(
     db_file: &str,
     start_block: u64,
     end_block: u64,
-) -> Result<(MmrState, Vec<Felt>), HostError> {
+) -> Result<(MmrState, Vec<Felt>), PublisherError> {
     let proof_generator = ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, false);
     let mut builder = AccumulatorBuilder::new(db_file, proof_generator, 1024, false).await?;
 
@@ -64,7 +64,7 @@ pub async fn prove_mmr_update(
 pub async fn prove_headers_validity_and_inclusion(
     headers: &Vec<eth_rlp_types::BlockHeader>,
     skip_proof_verification: Option<bool>,
-) -> Result<bool, HostError> {
+) -> Result<bool, PublisherError> {
     let skip_proof = match skip_proof_verification {
         Some(skip) => skip,
         None => false,

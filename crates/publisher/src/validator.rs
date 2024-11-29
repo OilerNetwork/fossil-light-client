@@ -79,7 +79,7 @@ impl ValidatorBuilder {
 
         let proof = self
             .proof_generator
-            .generate_groth16_proof(&blocks_validity_input)
+            .generate_groth16_proof(blocks_validity_input)
             .await?;
 
         let guest_output: bool = self.proof_generator.decode_journal(&proof)?;

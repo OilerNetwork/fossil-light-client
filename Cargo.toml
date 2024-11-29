@@ -6,7 +6,7 @@ members = [
     "crates/relayer",
     "crates/common",
     "crates/methods",
-    "crates/host",
+    "crates/publisher",
     "crates/guest-types",
     "crates/ethereum",
     "crates/mmr-utils", 

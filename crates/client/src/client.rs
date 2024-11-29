@@ -17,8 +17,8 @@ pub enum LightClientError {
     UtilsError(#[from] common::UtilsError),
     #[error("MMR utils error: {0}")]
     MmrUtilsError(#[from] mmr_utils::MMRUtilsError),
-    #[error("Host error: {0}")]
-    HostError(#[from] host::HostError),
+    #[error("Publisher error: {0}")]
+    PublisherError(#[from] publisher::PublisherError),
     #[error("Starknet provider error: {0}")]
     StarknetProvider(#[from] starknet::providers::ProviderError),
     #[error("latest_processed_block regression from {0} to {1}")]
@@ -206,7 +206,7 @@ impl LightClient {
         info!("Starting proof verification...");
 
         let (new_mmr_state, proof) =
-            host::prove_mmr_update(&self.db_file, latest_mmr_block + 1, latest_relayed_block)
+            publisher::prove_mmr_update(&self.db_file, latest_mmr_block + 1, latest_relayed_block)
                 .await?;
 
         self.update_mmr_state_on_starknet(latest_relayed_block, new_mmr_state, proof)

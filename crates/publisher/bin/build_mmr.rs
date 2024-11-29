@@ -1,8 +1,8 @@
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
 use eyre::Result;
-use host::{db_access::get_store_path, AccumulatorBuilder, ProofGenerator, ProofType};
 use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
+use publisher::{db_access::get_store_path, AccumulatorBuilder, ProofGenerator, ProofType};
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 use tracing::info;
 
@@ -45,7 +45,6 @@ async fn main() -> Result<()> {
     info!("Initializing proof generator...");
     // Initialize proof generator
     let proof_generator = ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, args.skip_proof);
-
     info!("Initializing accumulator builder...");
     // Initialize accumulator builder with the batch size
     let mut builder = AccumulatorBuilder::new(

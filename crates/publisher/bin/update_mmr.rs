@@ -1,7 +1,7 @@
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
 use eyre::Result;
-use host::{db_access::get_store_path, prove_mmr_update};
+use publisher::{db_access::get_store_path, prove_mmr_update};
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 
 #[derive(Parser, Debug)]

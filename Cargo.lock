@@ -1700,8 +1700,8 @@ dependencies = [
  "clap",
  "common",
  "eyre",
- "host",
  "mmr-utils",
+ "publisher",
  "starknet",
  "starknet-handler",
  "thiserror 2.0.3",
@@ -2765,34 +2765,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3d1354bf6b7235cb4a0576c2619fd4ed18183f689b12b006a0ee7329eeff9a5"
 dependencies = [
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "host"
-version = "0.1.0"
-dependencies = [
- "clap",
- "common",
- "dotenv",
- "eth-rlp-types",
- "ethereum",
- "eyre",
- "garaga_rs",
- "guest-types",
- "methods",
- "mmr",
- "mmr-utils",
- "risc0-ethereum-contracts",
- "risc0-groth16",
- "risc0-zkvm",
- "serde",
- "sqlx",
- "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "starknet-handler",
- "store",
- "thiserror 2.0.3",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -4147,6 +4119,34 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.89",
+]
+
+[[package]]
+name = "publisher"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "common",
+ "dotenv",
+ "eth-rlp-types",
+ "ethereum",
+ "eyre",
+ "garaga_rs",
+ "guest-types",
+ "methods",
+ "mmr",
+ "mmr-utils",
+ "risc0-ethereum-contracts",
+ "risc0-groth16",
+ "risc0-zkvm",
+ "serde",
+ "sqlx",
+ "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "starknet-handler",
+ "store",
+ "thiserror 2.0.3",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

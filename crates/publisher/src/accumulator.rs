@@ -118,12 +118,12 @@ impl AccumulatorBuilder {
         let proof = if self.current_batch == self.total_batches - 1 {
             debug!("Generating final Groth16 proof for batch");
             self.proof_generator
-                .generate_groth16_proof(&combined_input)
+                .generate_groth16_proof(combined_input)
                 .await?
         } else {
             debug!("Generating intermediate STARK proof for batch");
             self.proof_generator
-                .generate_stark_proof(&combined_input)
+                .generate_stark_proof(combined_input)
                 .await?
         };
 

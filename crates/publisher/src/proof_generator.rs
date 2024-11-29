@@ -58,47 +58,49 @@ where
     }
 
     /// Generate a standard Stark proof for intermediate batches
-    pub async fn generate_stark_proof(&self, input: &T) -> Result<ProofType, ProofGeneratorError> {
+    pub async fn generate_stark_proof(&self, input: T) -> Result<ProofType, ProofGeneratorError> {
         info!("Generating STARK proof for intermediate batch");
-        debug!("Input size: {} bytes", std::mem::size_of_val(input));
+        debug!("Input size: {} bytes", std::mem::size_of_val(&input));
 
-        let method_elf = self.method_elf;
-        let method_id = self.method_id;
-        let input = input.clone();
+        let proof = task::spawn_blocking({
+            let method_elf = self.method_elf;
+            let method_id = self.method_id;
+            let input = input.clone();
 
-        let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
-            debug!("Building executor environment");
-            let env = ExecutorEnv::builder()
-                .write(&input)
-                .map_err(|e| {
-                    warn!("Failed to write input to executor env: {}", e);
-                    ProofGeneratorError::ExecutorEnvError(e.to_string())
-                })?
-                .build()
-                .map_err(|e| {
-                    warn!("Failed to build executor env: {}", e);
-                    ProofGeneratorError::ExecutorEnvError(e.to_string())
-                })?;
+            move || -> eyre::Result<ProofType> {
+                debug!("Building executor environment");
+                let env = ExecutorEnv::builder()
+                    .write(&input)
+                    .map_err(|e| {
+                        warn!("Failed to write input to executor env: {}", e);
+                        ProofGeneratorError::ExecutorEnvError(e.to_string())
+                    })?
+                    .build()
+                    .map_err(|e| {
+                        warn!("Failed to build executor env: {}", e);
+                        ProofGeneratorError::ExecutorEnvError(e.to_string())
+                    })?;
 
-            debug!("Generating STARK proof with default prover");
-            let receipt = default_prover()
-                .prove(env, method_elf)
-                .map_err(|e| {
-                    warn!("Failed to generate STARK proof: {}", e);
-                    ProofGeneratorError::ReceiptError(e.to_string())
-                })?
-                .receipt;
+                debug!("Generating STARK proof with default prover");
+                let receipt = default_prover()
+                    .prove(env, method_elf)
+                    .map_err(|e| {
+                        warn!("Failed to generate STARK proof: {}", e);
+                        ProofGeneratorError::ReceiptError(e.to_string())
+                    })?
+                    .receipt;
 
-            debug!("Computing image ID");
-            let image_id = compute_image_id(method_elf)
-                .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
+                debug!("Computing image ID");
+                let image_id = compute_image_id(method_elf)
+                    .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
 
-            info!("Successfully generated STARK proof");
-            Ok(ProofType::Stark {
-                receipt,
-                image_id: image_id.as_bytes().to_vec(),
-                method_id,
-            })
+                info!("Successfully generated STARK proof");
+                Ok(ProofType::Stark {
+                    receipt,
+                    image_id: image_id.as_bytes().to_vec(),
+                    method_id,
+                })
+            }
         })
         .await?
         .map_err(|e| ProofGeneratorError::SpawnBlocking(e.to_string()))?;
@@ -107,12 +109,9 @@ where
     }
 
     /// Generate a Groth16 proof for the final batch
-    pub async fn generate_groth16_proof(
-        &self,
-        input: &T,
-    ) -> Result<ProofType, ProofGeneratorError> {
+    pub async fn generate_groth16_proof(&self, input: T) -> Result<ProofType, ProofGeneratorError> {
         info!("Generating Groth16 proof for final batch");
-        debug!("Input size: {} bytes", std::mem::size_of_val(input));
+        debug!("Input size: {} bytes", std::mem::size_of_val(&input));
 
         let method_elf = self.method_elf;
         let input = input.clone();
