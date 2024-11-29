@@ -2606,11 +2606,14 @@ version = "0.1.0"
 dependencies = [
  "guest-types",
  "hex",
+ "mmr-utils",
  "num-bigint",
  "num-traits",
  "serde",
  "sha2 0.10.8 (git+https://github.com/risc0/RustCrypto-hashes.git?tag=sha2-v0.10.8-risczero.0)",
  "thiserror 2.0.3",
+ "tokio",
+ "tokio-test",
 ]
 
 [[package]]
@@ -6070,6 +6073,19 @@ dependencies = [
  "pin-project-lite",
  "tokio",
  "tokio-util",
+]
+
+[[package]]
+name = "tokio-test"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2468baabc3311435b55dd935f702f42cd1b8abb7e754fb7dfb16bd36aa88f9f7"
+dependencies = [
+ "async-stream",
+ "bytes",
+ "futures-core",
+ "tokio",
+ "tokio-stream",
 ]
 
 [[package]]

@@ -11,10 +11,10 @@ async fn test_mmr_proofs() {
         .parent()
         .unwrap()
         .join("db-instances");
-    
+
     let binding = test_dir.join("0.db");
     let store_path = binding.to_str().unwrap();
-    
+
     let (store_manager, mmr, pool) = initialize_mmr(store_path).await.unwrap();
 
     let indices = vec![1, 2, 4, 5, 8, 9, 11, 12];
@@ -30,6 +30,9 @@ async fn test_mmr_proofs() {
 
     for (i, index) in indices.iter().enumerate() {
         let proof = mmr.get_proof(*index, None).await.unwrap();
-        assert!(mmr.verify_proof(proof, hashes[i].clone(), None).await.unwrap());
+        assert!(mmr
+            .verify_proof(proof, hashes[i].clone(), None)
+            .await
+            .unwrap());
     }
 }

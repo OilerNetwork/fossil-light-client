@@ -17,3 +17,4 @@ thiserror = "2.0.3"
 mmr-utils = { path = "../mmr-utils" }
 
 tokio = { version = "1.39.0", features = ["full"] }
+tokio-test = "0.4.0"
