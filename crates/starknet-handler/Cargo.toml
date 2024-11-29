@@ -7,6 +7,8 @@ edition = "2021"
 common = { path = "../common" }
 
 thiserror = { workspace = true }
-tracing = { workspace = true }
 starknet = { workspace = true }
 starknet-crypto = { workspace = true }
+
+crypto-bigint = "0.5.5"
+url = "2.5.4"

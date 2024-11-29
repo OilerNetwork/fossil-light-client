@@ -2,13 +2,13 @@
 use crate::db_access::{get_block_headers_by_block_range, DbConnection};
 use crate::proof_generator::{ProofGenerator, ProofGeneratorError};
 use crate::types::{BatchResult, ProofType};
-use common::{felt, string_array_to_felt_array, UtilsError};
+use common::UtilsError;
 use ethereum::get_finalized_block_hash;
-use guest_types::{BatchProof, CombinedInput, GuestInput, GuestOutput};
-use mmr::{find_peaks, InStoreTableError, MMRError, PeaksOptions, MMR};
+use guest_types::{BatchProof, CombinedInput, GuestOutput, MMRInput};
+use mmr::{InStoreTableError, MMRError, PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, MMRUtilsError, StoreManager};
 use starknet_crypto::Felt;
-use starknet_handler::MmrState;
+use starknet_handler::{u256_from_hex, MmrState};
 use store::{SqlitePool, StoreError, SubKey};
 use thiserror::Error;
 use tracing::{debug, info, warn};
@@ -22,7 +22,7 @@ pub enum AccumulatorError {
     #[error("Expected Groth16 proof but got {got:?}")]
     ExpectedGroth16Proof { got: ProofType },
     #[error("MMR root is not a valid Starknet field element: {0}")]
-    InvalidFeltHex(String),
+    InvalidU256Hex(String),
     #[error("SQLx error: {0}")]
     Sqlx(#[from] sqlx::Error),
     #[error("Utils error: {0}")]
@@ -37,6 +37,8 @@ pub enum AccumulatorError {
     MMRUtils(#[from] MMRUtilsError),
     #[error("InStoreTable error: {0}")]
     InStoreTable(#[from] InStoreTableError),
+    #[error("StarknetHandler error: {0}")]
+    StarknetHandler(#[from] starknet_handler::StarknetHandlerError),
 }
 
 pub struct AccumulatorBuilder {
@@ -44,17 +46,19 @@ pub struct AccumulatorBuilder {
     store_manager: StoreManager,
     mmr: MMR,
     pool: SqlitePool,
-    proof_generator: ProofGenerator,
+    proof_generator: ProofGenerator<CombinedInput>,
     total_batches: u64,
     current_batch: u64,
     previous_proofs: Vec<BatchProof>,
+    skip_proof_verification: bool,
 }
 
 impl AccumulatorBuilder {
     pub async fn new(
         store_path: &str,
-        proof_generator: ProofGenerator,
+        proof_generator: ProofGenerator<CombinedInput>,
         batch_size: u64,
+        skip_proof_verification: bool,
     ) -> Result<Self, AccumulatorError> {
         let (store_manager, mmr, pool) = initialize_mmr(store_path).await?;
         debug!("MMR initialized at {}", store_path);
@@ -68,6 +72,7 @@ impl AccumulatorBuilder {
             total_batches: 0,
             current_batch: 0,
             previous_proofs: Vec::new(),
+            skip_proof_verification,
         })
     }
 
@@ -98,26 +103,27 @@ impl AccumulatorBuilder {
         let current_leaves_count = self.mmr.leaves_count.get().await?;
 
         // Prepare guest input
-        let mmr_input = GuestInput::new(
+        let mmr_input = MMRInput::new(
             current_peaks.clone(),
             current_elements_count,
             current_leaves_count,
-            headers.iter().map(|h| h.block_hash.clone()).collect(),
-            self.previous_proofs.clone(), // Use the stored proofs
+            Some(headers.iter().map(|h| h.block_hash.clone()).collect()),
+            Some(self.previous_proofs.clone()), // Use the stored proofs
         );
 
-        let combined_input = CombinedInput::new(headers.clone(), mmr_input);
+        let combined_input =
+            CombinedInput::new(headers.clone(), mmr_input, self.skip_proof_verification);
 
         // Generate appropriate proof
         let proof = if self.current_batch == self.total_batches - 1 {
             debug!("Generating final Groth16 proof for batch");
             self.proof_generator
-                .generate_groth16_proof(&combined_input)
+                .generate_groth16_proof(combined_input)
                 .await?
         } else {
             debug!("Generating intermediate STARK proof for batch");
             self.proof_generator
-                .generate_stark_proof(&combined_input)
+                .generate_stark_proof(combined_input)
                 .await?
         };
 
@@ -125,7 +131,7 @@ impl AccumulatorBuilder {
         let guest_output: GuestOutput = self.proof_generator.decode_journal(&proof)?;
 
         // TODO: Remove this and update MMR state after the proof is verified onchain
-        let new_mmr_state = self.update_mmr_state(&guest_output).await?;
+        let new_mmr_state = self.update_mmr_state(end_block, &guest_output).await?;
 
         // If this is a STARK proof, add it to previous_proofs for the next batch
         if let ProofType::Stark {
@@ -141,12 +147,6 @@ impl AccumulatorBuilder {
             ));
         }
 
-        // Verify state after update
-        let final_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
-        if final_peaks != guest_output.final_peaks().to_vec() {
-            return Err(AccumulatorError::PeaksVerificationError.into());
-        }
-
         self.current_batch += 1;
 
         debug!("Batch processing completed successfully");
@@ -160,6 +160,7 @@ impl AccumulatorBuilder {
 
     async fn update_mmr_state(
         &mut self,
+        latest_block_number: u64,
         guest_output: &GuestOutput,
     ) -> Result<MmrState, AccumulatorError> {
         debug!(
@@ -190,34 +191,17 @@ impl AccumulatorBuilder {
             .await?;
 
         // Update all hashes in the store
-        for result in guest_output.append_results() {
+        for (index, hash) in guest_output.all_hashes() {
             // Store the hash in MMR
-            self.mmr
-                .hashes
-                .set(result.root_hash(), SubKey::Usize(result.element_index()))
-                .await?;
+            self.mmr.hashes.set(&hash, SubKey::Usize(index)).await?;
 
             // Update the mapping
             self.store_manager
-                .insert_value_index_mapping(&self.pool, result.root_hash(), result.element_index())
-                .await?;
-        }
-
-        // Update peaks
-        let peaks_indices = find_peaks(guest_output.elements_count());
-        for (peak_hash, &peak_idx) in guest_output.final_peaks().iter().zip(peaks_indices.iter()) {
-            self.mmr
-                .hashes
-                .set(peak_hash, SubKey::Usize(peak_idx))
+                .insert_value_index_mapping(&self.pool, &hash, index)
                 .await?;
         }
 
         // Verify the state was properly updated
-        let stored_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
-
-        if stored_peaks != guest_output.final_peaks() {
-            return Err(AccumulatorError::PeaksVerificationError.into());
-        }
 
         let bag = self.mmr.bag_the_peaks(None).await?;
 
@@ -225,13 +209,13 @@ impl AccumulatorBuilder {
             .mmr
             .calculate_root_hash(&bag, self.mmr.elements_count.get().await?)?;
 
-        validate_felt_hex(&new_mmr_root_hash)?;
+        validate_u256_hex(&new_mmr_root_hash)?;
 
         let new_mmr_state = MmrState::new(
-            felt(&new_mmr_root_hash)?,
+            latest_block_number,
+            u256_from_hex(new_mmr_root_hash.trim_start_matches("0x"))?,
             guest_output.elements_count() as u64,
             guest_output.leaves_count() as u64,
-            string_array_to_felt_array(guest_output.final_peaks().to_vec())?,
         );
 
         debug!("MMR state updated successfully");
@@ -321,23 +305,23 @@ impl AccumulatorBuilder {
     }
 }
 
-/// Validates that a hex string represents a valid Starknet field element (252 bits)
-fn validate_felt_hex(hex_str: &str) -> Result<(), AccumulatorError> {
+/// Validates that a hex string represents a valid U256 (256-bit unsigned integer)
+fn validate_u256_hex(hex_str: &str) -> Result<(), AccumulatorError> {
     // Check if it's a valid hex string with '0x' prefix
     if !hex_str.starts_with("0x") {
-        return Err(AccumulatorError::InvalidFeltHex(hex_str.to_string()).into());
+        return Err(AccumulatorError::InvalidU256Hex(hex_str.to_string()).into());
     }
 
     // Remove '0x' prefix and check if remaining string is valid hex
     let hex_value = &hex_str[2..];
     if !hex_value.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(AccumulatorError::InvalidFeltHex(hex_str.to_string()).into());
+        return Err(AccumulatorError::InvalidU256Hex(hex_str.to_string()).into());
     }
 
-    // Check length - maximum 63 hex chars (252 bits = 63 hex digits)
+    // Check length - maximum 64 hex chars (256 bits = 64 hex digits)
     // Note: we allow shorter values as they're valid smaller numbers
-    if hex_value.len() > 63 {
-        return Err(AccumulatorError::InvalidFeltHex(hex_str.to_string()).into());
+    if hex_value.len() > 64 {
+        return Err(AccumulatorError::InvalidU256Hex(hex_str.to_string()).into());
     }
 
     Ok(())

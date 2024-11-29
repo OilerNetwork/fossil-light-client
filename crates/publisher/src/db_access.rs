@@ -6,7 +6,7 @@ use eth_rlp_types::BlockHeader;
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use sqlx::{postgres::PgPoolOptions, PgPool, Pool, Postgres};
 
-use crate::{accumulator::AccumulatorError, HostError};
+use crate::{accumulator::AccumulatorError, PublisherError};
 
 #[derive(Debug)]
 pub struct DbConnection {
@@ -137,7 +137,7 @@ pub async fn get_block_headers_by_block_range(
     Ok(headers)
 }
 
-pub fn get_store_path(db_file: Option<String>) -> Result<String, HostError> {
+pub fn get_store_path(db_file: Option<String>) -> Result<String, PublisherError> {
     // Load the database file path from the environment or use the provided argument
     let store_path = if let Some(db_file) = db_file {
         db_file

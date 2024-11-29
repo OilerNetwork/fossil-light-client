@@ -25,7 +25,7 @@ pub struct AppendResult {
     leaves_count: usize,
     elements_count: usize,
     element_index: usize,
-    root_hash: String,
+    value: String,
 }
 
 impl AppendResult {
@@ -33,18 +33,18 @@ impl AppendResult {
         leaves_count: usize,
         elements_count: usize,
         element_index: usize,
-        root_hash: String,
+        value: String,
     ) -> Self {
         Self {
             leaves_count,
             elements_count,
             element_index,
-            root_hash,
+            value,
         }
     }
 
-    pub fn root_hash(&self) -> &str {
-        &self.root_hash
+    pub fn value(&self) -> &str {
+        &self.value
     }
 
     pub fn element_index(&self) -> usize {
@@ -63,21 +63,24 @@ impl AppendResult {
 // GuestOutput
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GuestOutput {
-    final_peaks: Vec<String>,
+    root_hash: String,
     elements_count: usize,
     leaves_count: usize,
+    all_hashes: Vec<(usize, String)>,
     append_results: Vec<AppendResult>,
 }
 
 impl GuestOutput {
     pub fn new(
-        final_peaks: Vec<String>,
+        root_hash: String,
         elements_count: usize,
         leaves_count: usize,
+        all_hashes: Vec<(usize, String)>,
         append_results: Vec<AppendResult>,
     ) -> Self {
         Self {
-            final_peaks,
+            root_hash,
+            all_hashes,
             elements_count,
             leaves_count,
             append_results,
@@ -92,8 +95,8 @@ impl GuestOutput {
         &self.append_results
     }
 
-    pub fn final_peaks(&self) -> Vec<String> {
-        self.final_peaks.clone()
+    pub fn all_hashes(&self) -> Vec<(usize, String)> {
+        self.all_hashes.clone()
     }
 
     pub fn leaves_count(&self) -> usize {
@@ -105,40 +108,52 @@ impl GuestOutput {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CombinedInput {
     headers: Vec<BlockHeader>,
-    mmr_input: GuestInput,
+    mmr_input: MMRInput,
+    skip_proof_verification: bool,
 }
 
 impl CombinedInput {
-    pub fn new(headers: Vec<BlockHeader>, mmr_input: GuestInput) -> Self {
-        Self { headers, mmr_input }
+    pub fn new(
+        headers: Vec<BlockHeader>,
+        mmr_input: MMRInput,
+        skip_proof_verification: bool,
+    ) -> Self {
+        Self {
+            headers,
+            mmr_input,
+            skip_proof_verification,
+        }
     }
 
     pub fn headers(&self) -> &Vec<BlockHeader> {
         &self.headers
     }
 
-    pub fn mmr_input(&self) -> &GuestInput {
+    pub fn mmr_input(&self) -> &MMRInput {
         &self.mmr_input
+    }
+
+    pub fn skip_proof_verification(&self) -> bool {
+        self.skip_proof_verification
     }
 }
 
-// GuestInput
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GuestInput {
+pub struct MMRInput {
     initial_peaks: Vec<String>,
     elements_count: usize,
     leaves_count: usize,
-    new_elements: Vec<String>,
-    previous_proofs: Vec<BatchProof>,
+    new_elements: Option<Vec<String>>,
+    previous_proofs: Option<Vec<BatchProof>>,
 }
 
-impl GuestInput {
+impl MMRInput {
     pub fn new(
         initial_peaks: Vec<String>,
         elements_count: usize,
         leaves_count: usize,
-        new_elements: Vec<String>,
-        previous_proofs: Vec<BatchProof>,
+        new_elements: Option<Vec<String>>,
+        previous_proofs: Option<Vec<BatchProof>>,
     ) -> Self {
         Self {
             initial_peaks,
@@ -149,8 +164,8 @@ impl GuestInput {
         }
     }
 
-    pub fn previous_proofs(&self) -> &Vec<BatchProof> {
-        &self.previous_proofs
+    pub fn previous_proofs(&self) -> Option<&Vec<BatchProof>> {
+        self.previous_proofs.as_ref()
     }
 
     pub fn initial_peaks(&self) -> Vec<String> {
@@ -188,5 +203,53 @@ impl BatchProof {
 
     pub fn method_id(&self) -> [u32; 8] {
         self.method_id
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct FinalHash {
+    hash: String,
+    index: usize,
+}
+
+impl FinalHash {
+    pub fn new(hash: String, index: usize) -> Self {
+        Self { hash, index }
+    }
+
+    pub fn hash(&self) -> &str {
+        &self.hash
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BlocksValidityInput {
+    headers: Vec<BlockHeader>,
+    mmr_input: MMRInput,
+    hash_indexes: Vec<usize>,
+}
+impl BlocksValidityInput {
+    pub fn new(headers: Vec<BlockHeader>, mmr_input: MMRInput, hash_indexes: Vec<usize>) -> Self {
+        Self {
+            headers,
+            mmr_input,
+            hash_indexes,
+        }
+    }
+
+    pub fn headers(&self) -> &Vec<BlockHeader> {
+        &self.headers
+    }
+
+    pub fn hash_indexes(&self) -> &Vec<usize> {
+        &self.hash_indexes
+    }
+
+    pub fn mmr_input(&self) -> &MMRInput {
+        &self.mmr_input
     }
 }

@@ -1,6 +1,10 @@
 use alloy::{
-    network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
-    signers::local::PrivateKeySigner, sol_types::sol,
+    network::EthereumWallet,
+    primitives::U256,
+    providers::ProviderBuilder,
+    signers::local::PrivateKeySigner,
+    sol_types::sol,
+    transports::{RpcError, TransportErrorKind},
 };
 use common::{get_env_var, get_var, UtilsError};
 // use eyre::Result;
@@ -9,12 +13,12 @@ use tracing::info;
 
 #[derive(Debug, Error)]
 pub enum RelayerError {
-    #[error("Ethereum provider initialization failed: {0}")]
-    ProviderError(String),
-    #[error("Transaction failed: {0}")]
-    TransactionError(String),
     #[error("Utils error: {0}")]
     Utils(#[from] UtilsError),
+    #[error("RPC error: {0}")]
+    RpcError(#[from] RpcError<TransportErrorKind>),
+    #[error("Alloy contract error: {0}")]
+    AlloyContract(#[from] alloy_contract::Error),
 }
 
 sol!(
@@ -53,8 +57,7 @@ impl Relayer {
             .with_recommended_fillers()
             .wallet(self.wallet.clone())
             .on_builtin(&provider_url)
-            .await
-            .map_err(|e| RelayerError::ProviderError(e.to_string()))?;
+            .await?;
         info!("Connected to Ethereum provider at {}", provider_url);
 
         // Load the contract address and initialize the contract
@@ -76,10 +79,7 @@ impl Relayer {
             self.l2_recipient_addr
         );
 
-        let pending_tx = call_builder
-            .send()
-            .await
-            .map_err(|e| RelayerError::TransactionError(e.to_string()))?;
+        let pending_tx = call_builder.send().await?;
         info!(
             "Transaction sent successfully. Tx hash: {:?}",
             pending_tx.tx_hash()

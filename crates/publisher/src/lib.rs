@@ -9,17 +9,19 @@ pub mod accumulator;
 pub mod db_access;
 pub mod proof_generator;
 pub mod types;
+pub mod validator;
 
 pub use accumulator::AccumulatorBuilder;
-use methods::{MMR_GUEST_ELF, MMR_GUEST_ID};
+use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
 use mmr_utils::MMRUtilsError;
 pub use proof_generator::{ProofGenerator, ProofType};
 use starknet_crypto::Felt;
-use starknet_handler::{provider::StarknetProvider, MmrState, StarknetHandlerError};
+use starknet_handler::{MmrState, StarknetHandlerError};
 use thiserror::Error;
+pub use validator::{ValidatorBuilder, ValidatorError};
 
 #[derive(Error, Debug)]
-pub enum HostError {
+pub enum PublisherError {
     #[error("Verification result is empty")]
     VerificationError,
     #[error("Accumulator error: {0}")]
@@ -28,17 +30,17 @@ pub enum HostError {
     StarknetHandler(#[from] StarknetHandlerError),
     #[error("MMRUtils error: {0}")]
     MMRUtils(#[from] MMRUtilsError),
+    #[error("Headers Validator error: {0}")]
+    Validator(#[from] ValidatorError),
 }
 
-pub async fn update_mmr_and_verify_onchain(
+pub async fn prove_mmr_update(
     db_file: &str,
     start_block: u64,
     end_block: u64,
-    rpc_url: &str,
-    verifier_address: &str,
-) -> Result<(bool, MmrState), HostError> {
-    let proof_generator = ProofGenerator::new(MMR_GUEST_ELF, MMR_GUEST_ID);
-    let mut builder = AccumulatorBuilder::new(db_file, proof_generator, 1024).await?;
+) -> Result<(MmrState, Vec<Felt>), PublisherError> {
+    let proof_generator = ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, false);
+    let mut builder = AccumulatorBuilder::new(db_file, proof_generator, 1024, false).await?;
 
     tracing::debug!(
         db_file,
@@ -56,23 +58,22 @@ pub async fn update_mmr_and_verify_onchain(
         "Successfully generated proof for block range"
     );
 
-    let provider = StarknetProvider::new(rpc_url)?;
-    tracing::debug!(verifier_address, "Submitting proof for verification");
+    Ok((new_mmr_state, proof_calldata))
+}
 
-    let verification_result = provider
-        .verify_groth16_proof_onchain(verifier_address, &proof_calldata)
+pub async fn prove_headers_validity_and_inclusion(
+    headers: &Vec<eth_rlp_types::BlockHeader>,
+    skip_proof_verification: Option<bool>,
+) -> Result<bool, PublisherError> {
+    let skip_proof = match skip_proof_verification {
+        Some(skip) => skip,
+        None => false,
+    };
+    let validator = ValidatorBuilder::new(skip_proof).await?;
+
+    let result = validator
+        .verify_blocks_validity_and_inclusion(headers)
         .await?;
 
-    let verified = *verification_result
-        .first()
-        .ok_or_else(|| HostError::VerificationError)?
-        == Felt::from(1);
-
-    if verified {
-        tracing::info!("Proof verification successful on-chain");
-    } else {
-        tracing::warn!("Proof verification failed on-chain");
-    }
-
-    Ok((verified, new_mmr_state))
+    Ok(result)
 }

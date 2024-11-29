@@ -5,10 +5,10 @@ use garaga_rs::{
     },
     definitions::CurveID,
 };
-use guest_types::CombinedInput;
 use risc0_ethereum_contracts::encode_seal;
 use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, VerifierContext};
 use serde::Deserialize;
+use starknet_crypto::Felt;
 use thiserror::Error;
 use tokio::task;
 use tracing::{debug, info, warn};
@@ -27,70 +27,80 @@ pub enum ProofGeneratorError {
     CalldataError(String),
     #[error("Failed to spawn blocking task: {0}")]
     SpawnBlocking(String),
-    #[error("Task join error: {0}")]
+    #[error("Tokio task join error: {0}")]
     Join(#[from] tokio::task::JoinError),
     #[error("Risc0 serde error: {0}")]
     Risc0Serde(#[from] risc0_zkvm::serde::Error),
 }
 
-pub struct ProofGenerator {
+pub struct ProofGenerator<T> {
     method_elf: &'static [u8],
     method_id: [u32; 8],
+    skip_proof_verification: bool,
+    _phantom: std::marker::PhantomData<T>,
 }
 
-impl ProofGenerator {
-    pub fn new(method_elf: &'static [u8], method_id: [u32; 8]) -> Self {
+impl<T> ProofGenerator<T>
+where
+    T: serde::Serialize + Clone + Send + 'static,
+{
+    pub fn new(
+        method_elf: &'static [u8],
+        method_id: [u32; 8],
+        skip_proof_verification: bool,
+    ) -> Self {
         Self {
             method_elf,
             method_id,
+            skip_proof_verification,
+            _phantom: std::marker::PhantomData,
         }
     }
 
     /// Generate a standard Stark proof for intermediate batches
-    pub async fn generate_stark_proof(
-        &self,
-        input: &CombinedInput,
-    ) -> Result<ProofType, ProofGeneratorError> {
+    pub async fn generate_stark_proof(&self, input: T) -> Result<ProofType, ProofGeneratorError> {
         info!("Generating STARK proof for intermediate batch");
-        debug!("Input size: {} bytes", std::mem::size_of_val(input));
+        debug!("Input size: {} bytes", std::mem::size_of_val(&input));
 
-        let method_elf = self.method_elf;
-        let method_id = self.method_id;
-        let input = input.clone();
+        let proof = task::spawn_blocking({
+            let method_elf = self.method_elf;
+            let method_id = self.method_id;
+            let input = input.clone();
 
-        let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
-            debug!("Building executor environment");
-            let env = ExecutorEnv::builder()
-                .write(&input)
-                .map_err(|e| {
-                    warn!("Failed to write input to executor env: {}", e);
-                    ProofGeneratorError::ExecutorEnvError(e.to_string())
-                })?
-                .build()
-                .map_err(|e| {
-                    warn!("Failed to build executor env: {}", e);
-                    ProofGeneratorError::ExecutorEnvError(e.to_string())
-                })?;
+            move || -> eyre::Result<ProofType> {
+                debug!("Building executor environment");
+                let env = ExecutorEnv::builder()
+                    .write(&input)
+                    .map_err(|e| {
+                        warn!("Failed to write input to executor env: {}", e);
+                        ProofGeneratorError::ExecutorEnvError(e.to_string())
+                    })?
+                    .build()
+                    .map_err(|e| {
+                        warn!("Failed to build executor env: {}", e);
+                        ProofGeneratorError::ExecutorEnvError(e.to_string())
+                    })?;
 
-            debug!("Generating STARK proof with default prover");
-            let receipt = default_prover()
-                .prove(env, method_elf)
-                .map_err(|e| {
-                    warn!("Failed to generate STARK proof: {}", e);
-                    ProofGeneratorError::ReceiptError(e.to_string())
-                })?
-                .receipt;
+                debug!("Generating STARK proof with default prover");
+                let receipt = default_prover()
+                    .prove(env, method_elf)
+                    .map_err(|e| {
+                        warn!("Failed to generate STARK proof: {}", e);
+                        ProofGeneratorError::ReceiptError(e.to_string())
+                    })?
+                    .receipt;
 
-            debug!("Computing image ID");
-            let image_id = compute_image_id(method_elf)
-                .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
+                debug!("Computing image ID");
+                let image_id = compute_image_id(method_elf)
+                    .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
 
-            info!("Successfully generated STARK proof");
-            Ok(ProofType::Stark {
-                receipt,
-                image_id: image_id.as_bytes().to_vec(),
-                method_id,
-            })
+                info!("Successfully generated STARK proof");
+                Ok(ProofType::Stark {
+                    receipt,
+                    image_id: image_id.as_bytes().to_vec(),
+                    method_id,
+                })
+            }
         })
         .await?
         .map_err(|e| ProofGeneratorError::SpawnBlocking(e.to_string()))?;
@@ -99,15 +109,13 @@ impl ProofGenerator {
     }
 
     /// Generate a Groth16 proof for the final batch
-    pub async fn generate_groth16_proof(
-        &self,
-        input: &CombinedInput,
-    ) -> Result<ProofType, ProofGeneratorError> {
+    pub async fn generate_groth16_proof(&self, input: T) -> Result<ProofType, ProofGeneratorError> {
         info!("Generating Groth16 proof for final batch");
-        debug!("Input size: {} bytes", std::mem::size_of_val(input));
+        debug!("Input size: {} bytes", std::mem::size_of_val(&input));
 
         let method_elf = self.method_elf;
         let input = input.clone();
+        let skip_proof_verification = self.skip_proof_verification;
 
         let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
             debug!("Building executor environment");
@@ -151,15 +159,23 @@ impl ProofGenerator {
             debug!("Journal size: {} bytes", journal.len());
 
             debug!("Converting to Groth16 proof");
-            let groth16_proof =
-                Groth16Proof::from_risc0(encoded_seal, image_id.as_bytes().to_vec(), journal);
+            let groth16_proof = if !skip_proof_verification {
+                Groth16Proof::from_risc0(encoded_seal, image_id.as_bytes().to_vec(), journal)
+            } else {
+                Default::default()
+            };
 
             debug!("Generating calldata");
-            let calldata = get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
-                .map_err(|e| {
-                    warn!("Failed to generate calldata: {}", e);
-                    ProofGeneratorError::CalldataError(e.to_string())
-                })?;
+            let calldata = if !skip_proof_verification {
+                get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254).map_err(
+                    |e| {
+                        warn!("Failed to generate calldata: {}", e);
+                        ProofGeneratorError::CalldataError(e.to_string())
+                    },
+                )?
+            } else {
+                vec![Felt::ZERO]
+            };
 
             info!("Successfully generated Groth16 proof");
             Ok(ProofType::Groth16 { receipt, calldata })
@@ -170,10 +186,10 @@ impl ProofGenerator {
         Ok(proof)
     }
 
-    pub fn decode_journal<T: for<'a> Deserialize<'a>>(
+    pub fn decode_journal<U: for<'a> Deserialize<'a>>(
         &self,
         proof: &ProofType,
-    ) -> Result<T, ProofGeneratorError> {
+    ) -> Result<U, ProofGeneratorError> {
         let receipt = match proof {
             ProofType::Groth16 { receipt, .. } | ProofType::Stark { receipt, .. } => receipt,
         };

@@ -1,27 +1,33 @@
 #[starknet::interface]
-pub trait IStore<TContractState> {
+pub trait IFossilStore<TContractState> {
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_mmr_state(
         ref self: TContractState,
         latest_mmr_block: u64,
-        mmr_root: felt252,
+        mmr_root: u256,
         elements_count: u64,
         leaves_count: u64,
-        peaks: Array<felt252>
     );
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
-    fn get_mmr_state(self: @TContractState) -> (u64, felt252, u64, u64, Array<felt252>);
+    fn get_mmr_state(self: @TContractState) -> Store::MMRSnapshot;
 }
 
 #[starknet::contract]
 mod Store {
-    use core::starknet::storage::{
-        StoragePointerReadAccess, StoragePointerWriteAccess, Vec, VecTrait, MutableVecTrait
-    };
+    use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess,};
 
     #[starknet::storage_node]
     pub(crate) struct MMRState {
-        root_hash: felt252,
+        latest_block_number: u64,
+        root_hash: u256,
+        elements_count: u64,
+        leaves_count: u64,
+    }
+
+    #[derive(Copy, Drop, Serde, Debug)]
+    pub struct MMRSnapshot {
+        latest_block_number: u64,
+        root_hash: u256,
         elements_count: u64,
         leaves_count: u64,
     }
@@ -29,9 +35,7 @@ mod Store {
     #[storage]
     struct Storage {
         latest_blockhash_from_l1: (u64, u256),
-        latest_mmr_block: u64,
         mmr_state: MMRState,
-        peaks_store: Vec<felt252>,
     }
 
     #[event]
@@ -50,14 +54,13 @@ mod Store {
     #[derive(Drop, starknet::Event)]
     struct MmrStateUpdated {
         latest_mmr_block: u64,
-        root_hash: felt252,
+        root_hash: u256,
         elements_count: u64,
         leaves_count: u64,
-        peaks: Array<felt252>,
     }
 
     #[abi(embed_v0)]
-    impl StoreImpl of super::IStore<ContractState> {
+    impl FossilStoreImpl of super::IFossilStore<ContractState> {
         fn store_latest_blockhash_from_l1(
             ref self: ContractState, block_number: u64, blockhash: u256
         ) {
@@ -72,55 +75,32 @@ mod Store {
         fn update_mmr_state(
             ref self: ContractState,
             latest_mmr_block: u64,
-            mmr_root: felt252,
+            mmr_root: u256,
             elements_count: u64,
             leaves_count: u64,
-            peaks: Array<felt252>
         ) {
-            self.latest_mmr_block.write(latest_mmr_block);
-
             let mut curr_state = self.mmr_state;
+            curr_state.latest_block_number.write(latest_mmr_block);
             curr_state.root_hash.write(mmr_root);
             curr_state.elements_count.write(elements_count);
             curr_state.leaves_count.write(leaves_count);
 
-            let curr_peaks_len = self.peaks_store.len();
-            let mut i = 0;
-            for peak in peaks
-                .clone() {
-                    if i >= curr_peaks_len {
-                        self.peaks_store.append().write(peak);
-                    } else {
-                        let mut peak_ptr = self.peaks_store.at(i);
-                        peak_ptr.write(peak);
-                    }
-                    i += 1;
-                };
-
             self
                 .emit(
                     MmrStateUpdated {
-                        latest_mmr_block, root_hash: mmr_root, elements_count, leaves_count, peaks
+                        latest_mmr_block, root_hash: mmr_root, elements_count, leaves_count
                     }
                 );
         }
 
-        fn get_mmr_state(self: @ContractState) -> (u64, felt252, u64, u64, Array<felt252>) {
-            let latest_mmr_block = self.latest_mmr_block.read();
-
+        fn get_mmr_state(self: @ContractState) -> MMRSnapshot {
             let curr_state = self.mmr_state;
-            let (mmr_root, elements_count, leaves_count) = (
-                curr_state.root_hash.read(),
-                curr_state.elements_count.read(),
-                curr_state.leaves_count.read(),
-            );
-
-            let mut peaks = array![];
-            for i in 0..self.peaks_store.len() {
-                peaks.append(self.peaks_store.at(i).read());
-            };
-
-            (latest_mmr_block, mmr_root, elements_count, leaves_count, peaks)
+            MMRSnapshot {
+                latest_block_number: curr_state.latest_block_number.read(),
+                root_hash: curr_state.root_hash.read(),
+                elements_count: curr_state.elements_count.read(),
+                leaves_count: curr_state.leaves_count.read(),
+            }
         }
     }
 }

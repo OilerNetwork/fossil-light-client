@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-host = { path = "../host" }
+publisher = { path = "../publisher" }
 starknet-handler = { path = "../starknet-handler" }
 common = { path = "../common" }
 mmr-utils = { path = "../mmr-utils" }

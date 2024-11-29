@@ -7,7 +7,7 @@ edition = "2023_11"
 
 [dependencies]
 starknet = { workspace = true }
-store = { path = "../store" }
+fossil_store = { path = "../store" }
 
 [dev-dependencies]
 assert_macros.workspace = true

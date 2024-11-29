@@ -1,17 +1,15 @@
 use common::{felt, get_env_var};
-use host::update_mmr_and_verify_onchain;
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
-    core::types::{BlockId, BlockTag, EventFilter, Felt},
+    core::types::{BlockId, BlockTag, EventFilter, Felt, U256},
     macros::selector,
     providers::Provider as EventProvider,
 };
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider, MmrState};
-use thiserror::Error;
 use tokio::time::{self, Duration};
 use tracing::{error, info, instrument};
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum LightClientError {
     #[error("Starknet handler error: {0}")]
     StarknetHandler(#[from] starknet_handler::StarknetHandlerError),
@@ -19,14 +17,12 @@ pub enum LightClientError {
     UtilsError(#[from] common::UtilsError),
     #[error("MMR utils error: {0}")]
     MmrUtilsError(#[from] mmr_utils::MMRUtilsError),
-    #[error("Host error: {0}")]
-    HostError(#[from] host::HostError),
+    #[error("Publisher error: {0}")]
+    PublisherError(#[from] publisher::PublisherError),
     #[error("Starknet provider error: {0}")]
     StarknetProvider(#[from] starknet::providers::ProviderError),
     #[error("latest_processed_block regression from {0} to {1}")]
     StateError(u64, u64),
-    #[error("Proof verification failed from {0} to {1}")]
-    ProofVerificationFailed(u64, u64),
     #[error("New MMR root hash cannot be zero")]
     StateRootError,
     #[error("Database file does not exist at path: {0}")]
@@ -56,7 +52,7 @@ impl LightClient {
         // Load environment variables
         let starknet_rpc_url = get_env_var("STARKNET_RPC_URL")?;
         let l2_store_addr = felt(&get_env_var("FOSSIL_STORE")?)?;
-        let verifier_addr = get_env_var("STARKNET_VERIFIER")?;
+        let verifier_addr = get_env_var("FOSSIL_VERIFIER")?;
         let starknet_private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
         let starknet_account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
 
@@ -64,7 +60,7 @@ impl LightClient {
         let starknet_provider = StarknetProvider::new(&starknet_rpc_url)?;
 
         // Set up the database file path
-        let current_dir = ensure_directory_exists("db-store")?;
+        let current_dir = ensure_directory_exists("../../db-instances")?;
         let db_file = create_database_file(&current_dir, 0)?;
 
         if !std::path::Path::new(&db_file).exists() {
@@ -172,18 +168,19 @@ impl LightClient {
             .await?;
 
         // Fetch latest MMR state from L2
-        let (latest_mmr_block, _latest_mmr_state) = self
+        let latest_mmr_state = self
             .starknet_provider
             .get_latest_mmr_state(&self.l2_store_addr)
             .await?;
 
         info!(
             latest_relayed_block,
-            latest_mmr_block, "State fetched from Starknet"
+            latest_mmr_block = latest_mmr_state.latest_block_number(),
+            "State fetched from Starknet"
         );
 
         // Update MMR and verify proofs
-        self.update_mmr(latest_mmr_block, latest_relayed_block)
+        self.update_mmr(latest_mmr_state.latest_block_number(), latest_relayed_block)
             .await?;
 
         Ok(())
@@ -196,32 +193,24 @@ impl LightClient {
         latest_mmr_block: u64,
         latest_relayed_block: u64,
     ) -> Result<(), LightClientError> {
-        info!("Starting proof verification...");
-
-        let (proof_verified, new_mmr_state) = update_mmr_and_verify_onchain(
-            &self.db_file,
-            latest_mmr_block + 1,
-            latest_relayed_block,
-            &self.starknet_provider.rpc_url(),
-            &self.verifier_addr,
-        )
-        .await?;
-
-        if proof_verified {
-            self.update_mmr_state_on_starknet(latest_relayed_block, new_mmr_state)
-                .await?;
-        } else {
+        if latest_mmr_block >= latest_relayed_block {
             error!(
-                from_block = latest_mmr_block + 1,
-                to_block = latest_relayed_block,
-                "Proof verification failed"
+                latest_mmr_block,
+                latest_relayed_block, "Latest MMR block is greater than the latest relayed block"
             );
-            // Return an error instead of proceeding
-            return Err(LightClientError::ProofVerificationFailed(
-                latest_mmr_block + 1,
+            return Err(LightClientError::StateError(
+                latest_mmr_block,
                 latest_relayed_block,
             ));
         }
+        info!("Starting proof verification...");
+
+        let (new_mmr_state, proof) =
+            publisher::prove_mmr_update(&self.db_file, latest_mmr_block + 1, latest_relayed_block)
+                .await?;
+
+        self.update_mmr_state_on_starknet(latest_relayed_block, new_mmr_state, proof)
+            .await?;
 
         Ok(())
     }
@@ -231,8 +220,9 @@ impl LightClient {
         &self,
         latest_relayed_block: u64,
         new_mmr_state: MmrState,
+        proof: Vec<Felt>,
     ) -> Result<(), LightClientError> {
-        if new_mmr_state.root_hash() == Felt::ZERO {
+        if new_mmr_state.root_hash() == U256::from(0_u8) {
             error!("New MMR root hash cannot be zero");
             return Err(LightClientError::StateRootError);
         }
@@ -244,7 +234,7 @@ impl LightClient {
         )?;
 
         starknet_account
-            .update_mmr_state(self.l2_store_addr, latest_relayed_block, &new_mmr_state)
+            .verify_mmr_proof(&self.verifier_addr, &new_mmr_state, proof)
             .await?;
 
         info!(

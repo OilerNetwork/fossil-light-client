@@ -43,28 +43,28 @@ impl StarknetAccount {
         self.account.clone()
     }
 
-    pub async fn update_mmr_state(
+    pub async fn verify_mmr_proof(
         &self,
-        store_address: Felt,
-        latest_mmr_block: u64,
+        verifier_address: &str,
         new_mmr_state: &MmrState,
-    ) -> Result<Felt, StarknetHandlerError> {
-        let selector = selector!("update_mmr_state");
+        proof: Vec<Felt>,
+    ) -> Result<(Felt, MmrState), StarknetHandlerError> {
+        let selector = selector!("verify_mmr_proof");
 
         let mut calldata = vec![];
-        calldata.push(Felt::from(latest_mmr_block));
         new_mmr_state.encode(&mut calldata)?;
+        calldata.extend(proof.iter().cloned());
 
         let tx = self
             .account
             .execute_v1(vec![starknet::core::types::Call {
                 selector,
                 calldata,
-                to: store_address,
+                to: felt(verifier_address)?,
             }])
             .send()
             .await?;
 
-        Ok(tx.transaction_hash)
+        Ok((tx.transaction_hash, new_mmr_state.clone()))
     }
 }

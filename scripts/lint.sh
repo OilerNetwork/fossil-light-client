@@ -7,6 +7,7 @@ cargo clippy \
     -p mmr-utils \
     -p relayer \
     -p starknet-handler \
+    -p guest-mmr \
     -- \
     -W clippy::single_match \
     -W clippy::single_match_else \
