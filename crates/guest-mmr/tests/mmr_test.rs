@@ -3,6 +3,7 @@ use common::get_db_path;
 use mmr_utils::initialize_mmr;
 
 #[tokio::test]
+#[ignore = "TODO: add .db file to test"]
 async fn test_mmr_proofs() {
     // Get path to the db-instances directory relative to the test file
     let store_path = get_db_path().unwrap();

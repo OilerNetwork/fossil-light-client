@@ -303,20 +303,6 @@ impl AccumulatorBuilder {
             .into())
         }
     }
-
-    // pub async fn get_peaks(&self) -> Result<Vec<Felt>, AccumulatorError> {
-    //     let peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
-    //     Ok(string_array_to_felt_array(peaks)?)
-    // }
-
-    // pub async fn get_mmr_root(&self) -> Result<Felt, AccumulatorError> {
-    //     let bag = self.mmr.bag_the_peaks(None).await?;
-    //     let root = self
-    //         .mmr
-    //         .calculate_root_hash(&bag, self.mmr.elements_count.get().await?)?;
-    //     validate_u256_hex(&root)?;
-    //     Ok(felt(&root)?)
-    // }
 }
 
 /// Validates that a hex string represents a valid U256 (256-bit unsigned integer)
