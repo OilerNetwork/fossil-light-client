@@ -3,39 +3,37 @@ pub trait IFossilStore<TContractState> {
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_mmr_state(
         ref self: TContractState,
-        latest_mmr_block: u64,
+        batch_index: u64,
+        leaves_count: u16,
         mmr_root: u256,
-        elements_count: u64,
-        leaves_count: u64,
     );
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
-    fn get_mmr_state(self: @TContractState) -> Store::MMRSnapshot;
+    fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
 }
 
 #[starknet::contract]
 mod Store {
-    use core::starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess,};
+    use core::starknet::storage::{
+        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess
+    };
 
     #[starknet::storage_node]
-    pub(crate) struct MMRState {
-        latest_block_number: u64,
+    pub(crate) struct MMRBatch {
+        leaves_count: u16,
         root_hash: u256,
-        elements_count: u64,
-        leaves_count: u64,
     }
 
     #[derive(Copy, Drop, Serde, Debug)]
     pub struct MMRSnapshot {
-        latest_block_number: u64,
+        batch_index: u64,
         root_hash: u256,
-        elements_count: u64,
-        leaves_count: u64,
+        leaves_count: u16,
     }
 
     #[storage]
     struct Storage {
         latest_blockhash_from_l1: (u64, u256),
-        mmr_state: MMRState,
+        mmr_batches: Map<u64, MMRBatch>,
     }
 
     #[event]
@@ -53,10 +51,9 @@ mod Store {
 
     #[derive(Drop, starknet::Event)]
     struct MmrStateUpdated {
-        latest_mmr_block: u64,
+        batch_index: u64,
+        leaves_count: u16,
         root_hash: u256,
-        elements_count: u64,
-        leaves_count: u64,
     }
 
     #[abi(embed_v0)]
@@ -74,32 +71,28 @@ mod Store {
 
         fn update_mmr_state(
             ref self: ContractState,
-            latest_mmr_block: u64,
+            batch_index: u64,
+            leaves_count: u16,
             mmr_root: u256,
-            elements_count: u64,
-            leaves_count: u64,
         ) {
-            let mut curr_state = self.mmr_state;
-            curr_state.latest_block_number.write(latest_mmr_block);
-            curr_state.root_hash.write(mmr_root);
-            curr_state.elements_count.write(elements_count);
-            curr_state.leaves_count.write(leaves_count);
+            let mut curr_state = self.mmr_batches.entry(batch_index);
 
+            curr_state.leaves_count.write(leaves_count);
+            curr_state.root_hash.write(mmr_root);
             self
                 .emit(
                     MmrStateUpdated {
-                        latest_mmr_block, root_hash: mmr_root, elements_count, leaves_count
+                        batch_index, leaves_count, root_hash: mmr_root
                     }
                 );
         }
 
-        fn get_mmr_state(self: @ContractState) -> MMRSnapshot {
-            let curr_state = self.mmr_state;
+        fn get_mmr_state(self: @ContractState, batch_index: u64) -> MMRSnapshot {
+            let curr_state = self.mmr_batches.entry(batch_index);
             MMRSnapshot {
-                latest_block_number: curr_state.latest_block_number.read(),
-                root_hash: curr_state.root_hash.read(),
-                elements_count: curr_state.elements_count.read(),
+                batch_index,
                 leaves_count: curr_state.leaves_count.read(),
+                root_hash: curr_state.root_hash.read(),
             }
         }
     }

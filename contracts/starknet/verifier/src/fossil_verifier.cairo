@@ -33,10 +33,9 @@ mod FossilVerifier {
 
     #[derive(Drop, starknet::Event)]
     struct MmrProofVerified {
-        latest_mmr_block: u64,
+        batch_index: u64,
+        new_leaves_count: u16,
         new_mmr_root: u256,
-        new_elements_count: u64,
-        new_leaves_count: u64,
     }
 
     #[constructor]
@@ -54,25 +53,23 @@ mod FossilVerifier {
     #[external(v0)]
     fn verify_mmr_proof(
         ref self: ContractState,
-        latest_mmr_block: u64,
+        batch_index: u64,
+        new_leaves_count: u16,
         new_mmr_root: u256,
-        new_elements_count: u64,
-        new_leaves_count: u64,
         proof: Span<felt252>,
     ) -> bool {
         let verified = self.bn254_verifier.read().verify_groth16_proof_bn254(proof);
 
         if verified {
             self.fossil_store.read().update_mmr_state(
-                latest_mmr_block, new_mmr_root, new_elements_count, new_leaves_count
+                batch_index, new_leaves_count, new_mmr_root
             );
         }
 
         self.emit(MmrProofVerified {
-            latest_mmr_block,
-            new_mmr_root,
-            new_elements_count,
+            batch_index,
             new_leaves_count,
+            new_mmr_root,
         });
 
         verified
