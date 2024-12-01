@@ -1,47 +1,67 @@
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
 use eyre::Result;
-use publisher::{db_access::get_store_path, prove_mmr_update};
-use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
+use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
+use publisher::{AccumulatorBuilder, ProofGenerator};
+use tracing::info;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Path to the SQLite database file.
-    #[arg(short, long)]
-    db_file: Option<String>,
+    /// Batch size for processing blocks
+    #[arg(short, long, default_value_t = 1024)]
+    batch_size: u64,
 
-    /// Start block
+    /// Number of batches to process. If not specified, processes until block #0.
     #[arg(short, long)]
-    start: u64,
+    num_batches: Option<u64>,
 
-    /// End block
-    #[arg(short, long)]
-    end: u64,
+    /// Skip proof verification
+    #[arg(short, long, default_value_t = false)]
+    skip_proof: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     initialize_logger_and_env()?;
 
-    let args = Args::parse();
-
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
+    let verifier_address = get_env_var("FOSSIL_VERIFIER")?;
     let private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
     let account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
-    let verifier = get_env_var("FOSSIL_VERIFIER")?;
 
-    let store_path = get_store_path(args.db_file)?;
+    info!("Starting Publisher...");
 
-    let (new_mmr_state, proof) = prove_mmr_update(&store_path, args.start, args.end).await?;
+    // Parse CLI arguments
+    let args = Args::parse();
 
-    let provider = StarknetProvider::new(&rpc_url)?;
+    info!("Initializing proof generator...");
+    // Initialize proof generator
+    let proof_generator = ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, args.skip_proof);
 
-    let account = StarknetAccount::new(provider.provider(), &private_key, &account_address)?;
+    info!("Initializing accumulator builder...");
+    // Initialize accumulator builder with the batch size
+    let mut builder = AccumulatorBuilder::new(
+        &rpc_url,
+        &verifier_address,
+        &private_key,
+        &account_address,
+        proof_generator,
+        args.batch_size,
+        args.skip_proof,
+    )
+    .await?;
 
-    account
-        .verify_mmr_proof(&verifier, &new_mmr_state, proof)
-        .await?;
+    info!("Building MMR...");
+    // Build MMR from finalized block to block #0 or up to the specified number of batches
+    if let Some(num_batches) = args.num_batches {
+        builder.build_with_num_batches(num_batches).await?;
+    } else {
+        builder.build_from_finalized().await?;
+    }
+
+    info!("MMR building completed");
+    info!("Host finished");
 
     Ok(())
 }

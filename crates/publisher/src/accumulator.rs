@@ -1,13 +1,15 @@
 // host/src/accumulator.rs
 use crate::db_access::{get_block_headers_by_block_range, DbConnection};
 use crate::proof_generator::{ProofGenerator, ProofGeneratorError};
-use crate::types::{BatchResult, ProofType};
-use common::UtilsError;
+use crate::types::BatchResult;
+use common::{get_or_create_db_path, UtilsError};
 use ethereum::get_finalized_block_hash;
-use guest_types::{BatchProof, CombinedInput, GuestOutput, MMRInput};
+use guest_types::{CombinedInput, GuestOutput, MMRInput};
 use mmr::{InStoreTableError, MMRError, PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, MMRUtilsError, StoreManager};
 use starknet_crypto::Felt;
+use starknet_handler::account::StarknetAccount;
+use starknet_handler::provider::StarknetProvider;
 use starknet_handler::{u256_from_hex, MmrState};
 use store::{SqlitePool, StoreError, SubKey};
 use thiserror::Error;
@@ -19,8 +21,6 @@ pub enum AccumulatorError {
     InvalidStateTransition,
     #[error("Failed to verify stored peaks after update")]
     PeaksVerificationError,
-    #[error("Expected Groth16 proof but got {got:?}")]
-    ExpectedGroth16Proof { got: ProofType },
     #[error("MMR root is not a valid Starknet field element: {0}")]
     InvalidU256Hex(String),
     #[error("SQLx error: {0}")]
@@ -41,37 +41,37 @@ pub enum AccumulatorError {
     StarknetHandler(#[from] starknet_handler::StarknetHandlerError),
 }
 
-pub struct AccumulatorBuilder {
+pub struct AccumulatorBuilder<'a> {
+    rpc_url: &'a String,
+    verifier_address: &'a String,
+    account_private_key: &'a String,
+    account_address: &'a String,
     batch_size: u64,
-    store_manager: StoreManager,
-    mmr: MMR,
-    pool: SqlitePool,
-    proof_generator: ProofGenerator<CombinedInput>,
-    total_batches: u64,
     current_batch: u64,
-    previous_proofs: Vec<BatchProof>,
+    total_batches: u64,
+    proof_generator: ProofGenerator<CombinedInput>,
     skip_proof_verification: bool,
 }
 
-impl AccumulatorBuilder {
+impl<'a> AccumulatorBuilder<'a> {
     pub async fn new(
-        store_path: &str,
+        rpc_url: &'a String,
+        verifier_address: &'a String,
+        account_private_key: &'a String,
+        account_address: &'a String,
         proof_generator: ProofGenerator<CombinedInput>,
         batch_size: u64,
         skip_proof_verification: bool,
     ) -> Result<Self, AccumulatorError> {
-        let (store_manager, mmr, pool) = initialize_mmr(store_path).await?;
-        debug!("MMR initialized at {}", store_path);
-
         Ok(Self {
+            rpc_url,
+            verifier_address,
+            account_private_key,
+            account_address,
             batch_size,
-            store_manager,
-            mmr,
-            pool,
-            proof_generator,
-            total_batches: 0,
             current_batch: 0,
-            previous_proofs: Vec::new(),
+            total_batches: 0,
+            proof_generator,
             skip_proof_verification,
         })
     }
@@ -80,161 +80,106 @@ impl AccumulatorBuilder {
         &mut self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<BatchResult, AccumulatorError> {
+    ) -> Result<Option<BatchResult>, AccumulatorError> {
+        // Calculate batch index based on the lowest block number of the batch
+        let batch_index = start_block / self.batch_size;
+
+        // Determine batch start and end blocks
+        let batch_start = batch_index * self.batch_size;
+        let batch_end = batch_start + self.batch_size - 1;
+
+        // Adjust end_block if it exceeds batch_end
+        let adjusted_end_block = std::cmp::min(end_block, batch_end);
+
         info!(
-            "Processing batch {}/{} (blocks {} to {})",
-            self.current_batch + 1,
-            self.total_batches,
-            start_block,
-            end_block
+            "Processing batch {} (blocks {} to {})",
+            batch_index, start_block, adjusted_end_block
         );
 
+        // Determine batch file name
+        let batch_file_name = get_or_create_db_path(&format!("batch_{}.db", batch_index))?;
+        println!("Batch-file-name: {}", batch_file_name);
+
+        // Initialize MMR
+        let (store_manager, mmr, pool) = initialize_mmr(&batch_file_name).await?;
+
+        // Get MMR state
+        let current_leaves_count = mmr.leaves_count.get().await?;
+        let batch_is_complete = current_leaves_count as u64 >= self.batch_size;
+
+        if batch_is_complete {
+            // Batch is complete, no need to process
+            debug!("Batch {} is already complete", batch_index);
+            return Ok(None);
+        }
+
+        // Fetch headers for the block range
         let db_connection = DbConnection::new().await?;
-        debug!(
-            "Fetching headers for blocks {} to {}",
-            start_block, end_block
-        );
         let headers =
-            get_block_headers_by_block_range(&db_connection.pool, start_block, end_block).await?;
-
-        // Get and verify current MMR state
-        let current_peaks = self.mmr.get_peaks(PeaksOptions::default()).await?;
-        let current_elements_count = self.mmr.elements_count.get().await?;
-        let current_leaves_count = self.mmr.leaves_count.get().await?;
+            get_block_headers_by_block_range(&db_connection.pool, start_block, adjusted_end_block)
+                .await?;
 
         // Prepare guest input
+        let current_peaks = mmr.get_peaks(PeaksOptions::default()).await?;
+        let current_elements_count = mmr.elements_count.get().await?;
+        let current_leaves_count = mmr.leaves_count.get().await?;
+
         let mmr_input = MMRInput::new(
-            current_peaks.clone(),
+            current_peaks,
             current_elements_count,
             current_leaves_count,
-            Some(headers.iter().map(|h| h.block_hash.clone()).collect()),
-            Some(self.previous_proofs.clone()), // Use the stored proofs
+            headers.iter().map(|h| h.block_hash.clone()).collect(),
         );
 
         let combined_input =
             CombinedInput::new(headers.clone(), mmr_input, self.skip_proof_verification);
 
-        // Generate appropriate proof
-        let proof = if self.current_batch == self.total_batches - 1 {
-            debug!("Generating final Groth16 proof for batch");
-            self.proof_generator
-                .generate_groth16_proof(combined_input)
-                .await?
-        } else {
-            debug!("Generating intermediate STARK proof for batch");
-            self.proof_generator
-                .generate_stark_proof(combined_input)
-                .await?
-        };
+        // Generate proof
+        let proof = self
+            .proof_generator
+            .generate_groth16_proof(combined_input)
+            .await?;
 
         // Decode and update state
         let guest_output: GuestOutput = self.proof_generator.decode_journal(&proof)?;
 
-        // TODO: Remove this and update MMR state after the proof is verified onchain
-        let new_mmr_state = self.update_mmr_state(end_block, &guest_output).await?;
+        let new_mmr_state = update_mmr_state(
+            store_manager,
+            &mmr,
+            &pool,
+            adjusted_end_block,
+            &guest_output,
+        )
+        .await?;
 
-        // If this is a STARK proof, add it to previous_proofs for the next batch
-        if let ProofType::Stark {
-            ref receipt,
-            ref image_id,
-            method_id,
-        } = proof
-        {
-            self.previous_proofs.push(BatchProof::new(
-                receipt.clone(),
-                image_id.clone(),
-                method_id,
-            ));
+        // Check if batch is now complete
+        let new_leaves_count = mmr.leaves_count.get().await?;
+        let batch_is_complete = new_leaves_count as u64 >= self.batch_size;
+
+        if batch_is_complete {
+            debug!("Batch {} is now complete", batch_index);
+            // Optionally pad the MMR if necessary
+            // Finalize batch
         }
 
-        self.current_batch += 1;
-
-        debug!("Batch processing completed successfully");
-        Ok(BatchResult::new(
+        Ok(Some(BatchResult::new(
             start_block,
-            end_block,
+            adjusted_end_block,
             new_mmr_state,
-            Some(proof),
-        ))
-    }
-
-    async fn update_mmr_state(
-        &mut self,
-        latest_block_number: u64,
-        guest_output: &GuestOutput,
-    ) -> Result<MmrState, AccumulatorError> {
-        debug!(
-            "Updating MMR state: elements={}, leaves={}",
-            guest_output.elements_count(),
-            guest_output.leaves_count()
-        );
-
-        // Verify state transition
-        let current_elements_count = self.mmr.elements_count.get().await?;
-        if guest_output.elements_count() < current_elements_count {
-            warn!(
-                "Invalid state transition detected: new count {} < current count {}",
-                guest_output.elements_count(),
-                current_elements_count
-            );
-            return Err(AccumulatorError::InvalidStateTransition.into());
-        }
-
-        // First update the MMR counters
-        self.mmr
-            .elements_count
-            .set(guest_output.elements_count())
-            .await?;
-        self.mmr
-            .leaves_count
-            .set(guest_output.leaves_count())
-            .await?;
-
-        // Update all hashes in the store
-        for (index, hash) in guest_output.all_hashes() {
-            // Store the hash in MMR
-            self.mmr.hashes.set(&hash, SubKey::Usize(index)).await?;
-
-            // Update the mapping
-            self.store_manager
-                .insert_value_index_mapping(&self.pool, &hash, index)
-                .await?;
-        }
-
-        // Verify the state was properly updated
-
-        let bag = self.mmr.bag_the_peaks(None).await?;
-
-        let new_mmr_root_hash = self
-            .mmr
-            .calculate_root_hash(&bag, self.mmr.elements_count.get().await?)?;
-
-        validate_u256_hex(&new_mmr_root_hash)?;
-
-        let new_mmr_state = MmrState::new(
-            latest_block_number,
-            u256_from_hex(new_mmr_root_hash.trim_start_matches("0x"))?,
-            guest_output.elements_count() as u64,
-            guest_output.leaves_count() as u64,
-        );
-
-        debug!("MMR state updated successfully");
-        Ok(new_mmr_state)
+            proof,
+        )))
     }
 
     /// Build the MMR using a specified number of batches
     pub async fn build_with_num_batches(
         &mut self,
         num_batches: u64,
-    ) -> Result<Vec<BatchResult>, AccumulatorError> {
+    ) -> Result<(), AccumulatorError> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
         info!("Building MMR...",);
 
         self.total_batches = num_batches;
-        self.current_batch = 0;
-        self.previous_proofs.clear();
-
-        let mut batch_results = Vec::new();
+        self.current_batch = num_batches;
 
         let mut current_end = finalized_block_number;
 
@@ -243,44 +188,63 @@ impl AccumulatorBuilder {
                 break;
             }
 
-            let start_block = current_end.saturating_sub(self.batch_size - 1);
+            let start_block = current_end.saturating_sub(current_end % self.batch_size);
 
             let result = self.process_batch(start_block, current_end).await?;
 
-            batch_results.push(result);
+            if let Some(batch_result) = result {
+                if !self.skip_proof_verification {
+                    self.verify_proof(
+                        batch_result.new_mmr_state(),
+                        batch_result.proof().calldata(),
+                    )
+                    .await?;
+                }
+            }
 
             current_end = start_block.saturating_sub(1);
         }
 
-        Ok(batch_results)
+        Ok(())
     }
 
-    pub async fn build_from_finalized(&mut self) -> Result<Vec<BatchResult>, AccumulatorError> {
+    pub async fn build_from_finalized(&mut self) -> Result<(), AccumulatorError> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
         debug!(
             "Building MMR from finalized block {} with batch size {}",
             finalized_block_number, self.batch_size
         );
 
-        self.total_batches = (finalized_block_number / self.batch_size) + 1;
-        self.current_batch = 0;
-        self.previous_proofs.clear(); // Clear any existing proofs
-
-        let mut batch_results = Vec::new();
-
         let mut current_end = finalized_block_number;
 
         while current_end > 0 {
-            let start_block = current_end.saturating_sub(self.batch_size - 1);
+            // Calculate batch index
+            let batch_index = current_end / self.batch_size;
 
-            let result = self.process_batch(start_block, current_end).await?;
+            // Determine batch start block
+            let batch_start = batch_index * self.batch_size;
 
-            batch_results.push(result);
+            // Adjust start_block to batch_start or 0 if negative
+            let start_block = if batch_start > 0 { batch_start } else { 0 };
 
+            // Process the batch
+            let batch_result = self.process_batch(start_block, current_end).await?;
+
+            if let Some(batch_result) = batch_result {
+                if !self.skip_proof_verification {
+                    self.verify_proof(
+                        batch_result.new_mmr_state(),
+                        batch_result.proof().calldata(),
+                    )
+                    .await?;
+                }
+            }
+
+            // Move to the previous batch
             current_end = start_block.saturating_sub(1);
         }
 
-        Ok(batch_results)
+        Ok(())
     }
 
     /// Update the MMR with new block headers
@@ -289,20 +253,118 @@ impl AccumulatorBuilder {
         start_block: u64,
         end_block: u64,
     ) -> Result<(Vec<Felt>, MmrState), AccumulatorError> {
-        self.total_batches = ((end_block - start_block) / self.batch_size) + 1;
+        let mut current_end = end_block;
+        let mut final_result = None;
 
-        let result = self.process_batch(start_block, end_block).await?;
+        while current_end >= start_block {
+            // Calculate the batch start (nearest lower block number divisible by batch_size)
+            let batch_start = current_end - (current_end % self.batch_size);
 
-        // Extract the `calldata` from the `Groth16` proof
-        if let Some(ProofType::Groth16 { calldata, .. }) = result.proof() {
-            Ok((calldata, result.new_mmr_state()))
-        } else {
-            Err(AccumulatorError::ExpectedGroth16Proof {
-                got: result.proof().unwrap(),
+            // Don't go below the requested start_block
+            let effective_start = batch_start.max(start_block);
+
+            let result = self.process_batch(effective_start, current_end).await?;
+
+            // Store the result of the most recent (highest) batch
+            if final_result.is_none() {
+                final_result = Some(result);
             }
-            .into())
+
+            // Move to the previous batch
+            current_end = effective_start.saturating_sub(1);
+        }
+
+        // Extract the final result (guaranteed to exist since we process at least one batch)
+        let final_result = final_result.unwrap();
+
+        if let Some(batch_result) = final_result {
+            Ok((
+                batch_result.proof().calldata(),
+                batch_result.new_mmr_state(),
+            ))
+        } else {
+            Err(AccumulatorError::InvalidStateTransition.into())
         }
     }
+
+    pub async fn verify_proof(
+        &mut self,
+        new_mmr_state: MmrState,
+        calldata: Vec<Felt>,
+    ) -> Result<(), AccumulatorError> {
+        let starknet_provider = StarknetProvider::new(&self.rpc_url)?;
+        let starknet_account = StarknetAccount::new(
+            starknet_provider.provider(),
+            &self.account_private_key,
+            &self.account_address,
+        )?;
+
+        starknet_account
+            .verify_mmr_proof(&self.verifier_address, &new_mmr_state, calldata)
+            .await?;
+
+        Ok(())
+    }
+}
+
+async fn update_mmr_state(
+    store_manager: StoreManager,
+    mmr: &MMR,
+    pool: &SqlitePool,
+    latest_block_number: u64,
+    guest_output: &GuestOutput,
+) -> Result<MmrState, AccumulatorError> {
+    debug!(
+        "Updating MMR state: elements={}, leaves={}",
+        guest_output.elements_count(),
+        guest_output.leaves_count()
+    );
+
+    // Verify state transition
+    let current_elements_count = mmr.elements_count.get().await?;
+    if guest_output.elements_count() < current_elements_count {
+        warn!(
+            "Invalid state transition detected: new count {} < current count {}",
+            guest_output.elements_count(),
+            current_elements_count
+        );
+        return Err(AccumulatorError::InvalidStateTransition.into());
+    }
+
+    // First update the MMR counters
+    mmr.elements_count
+        .set(guest_output.elements_count())
+        .await?;
+    mmr.leaves_count.set(guest_output.leaves_count()).await?;
+
+    // Update all hashes in the store
+    for (index, hash) in guest_output.all_hashes() {
+        // Store the hash in MMR
+        mmr.hashes.set(&hash, SubKey::Usize(index)).await?;
+
+        // Update the mapping
+        store_manager
+            .insert_value_index_mapping(&pool, &hash, index)
+            .await?;
+    }
+
+    // Verify the state was properly updated
+
+    let bag = mmr.bag_the_peaks(None).await?;
+
+    let new_mmr_root_hash = mmr.calculate_root_hash(&bag, mmr.elements_count.get().await?)?;
+
+    validate_u256_hex(&new_mmr_root_hash)?;
+
+    let new_mmr_state = MmrState::new(
+        latest_block_number,
+        u256_from_hex(new_mmr_root_hash.trim_start_matches("0x"))?,
+        guest_output.elements_count() as u64,
+        guest_output.leaves_count() as u64,
+    );
+
+    debug!("MMR state updated successfully");
+    Ok(new_mmr_state)
 }
 
 /// Validates that a hex string represents a valid U256 (256-bit unsigned integer)

@@ -143,8 +143,7 @@ pub struct MMRInput {
     initial_peaks: Vec<String>,
     elements_count: usize,
     leaves_count: usize,
-    new_elements: Option<Vec<String>>,
-    previous_proofs: Option<Vec<BatchProof>>,
+    new_elements: Vec<String>,
 }
 
 impl MMRInput {
@@ -152,20 +151,14 @@ impl MMRInput {
         initial_peaks: Vec<String>,
         elements_count: usize,
         leaves_count: usize,
-        new_elements: Option<Vec<String>>,
-        previous_proofs: Option<Vec<BatchProof>>,
+        new_elements: Vec<String>,
     ) -> Self {
         Self {
             initial_peaks,
             elements_count,
             leaves_count,
             new_elements,
-            previous_proofs,
         }
-    }
-
-    pub fn previous_proofs(&self) -> Option<&Vec<BatchProof>> {
-        self.previous_proofs.as_ref()
     }
 
     pub fn initial_peaks(&self) -> Vec<String> {

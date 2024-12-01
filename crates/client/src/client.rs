@@ -9,6 +9,8 @@ use starknet_handler::{account::StarknetAccount, provider::StarknetProvider, Mmr
 use tokio::time::{self, Duration};
 use tracing::{error, info, instrument};
 
+const BATCH_SIZE: u64 = 1024;
+
 #[derive(thiserror::Error, Debug)]
 pub enum LightClientError {
     #[error("Starknet handler error: {0}")]
@@ -36,7 +38,6 @@ pub struct LightClient {
     l2_store_addr: Felt,
     verifier_addr: String,
     latest_processed_block: u64,
-    db_file: String,
     starknet_private_key: String,
     starknet_account_address: String,
     polling_interval: Duration,
@@ -73,7 +74,6 @@ impl LightClient {
             l2_store_addr,
             verifier_addr,
             latest_processed_block: 0,
-            db_file,
             starknet_private_key,
             starknet_account_address,
             polling_interval: Duration::from_secs(polling_interval),
@@ -205,9 +205,17 @@ impl LightClient {
         }
         info!("Starting proof verification...");
 
-        let (new_mmr_state, proof) =
-            publisher::prove_mmr_update(&self.db_file, latest_mmr_block + 1, latest_relayed_block)
-                .await?;
+        let (new_mmr_state, proof) = publisher::prove_mmr_update(
+            &self.starknet_provider.rpc_url().to_string(),
+            &self.verifier_addr,
+            &self.starknet_private_key,
+            &self.starknet_account_address,
+            BATCH_SIZE,
+            latest_mmr_block + 1,
+            latest_relayed_block,
+            false,
+        )
+        .await?;
 
         self.update_mmr_state_on_starknet(latest_relayed_block, new_mmr_state, proof)
             .await?;

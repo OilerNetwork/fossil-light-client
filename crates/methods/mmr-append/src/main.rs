@@ -7,19 +7,6 @@ use guest_types::{CombinedInput, GuestOutput};
 fn main() {
     // Read combined input
     let input: CombinedInput = env::read();
-
-    // Only verify proofs if skip_proof_verification is false
-    if !input.skip_proof_verification() {
-        if let Some(proofs) = input.mmr_input().previous_proofs() {
-            for proof in proofs {
-                proof
-                    .receipt()
-                    .verify(proof.method_id())
-                    .expect("Invalid previous proof");
-            }
-        }
-    }
-
     // Verify block headers
     assert!(
         are_blocks_and_chain_valid(&input.headers()),

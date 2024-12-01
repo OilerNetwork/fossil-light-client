@@ -14,11 +14,14 @@ pub mod validator;
 pub use accumulator::AccumulatorBuilder;
 use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
 use mmr_utils::MMRUtilsError;
-pub use proof_generator::{ProofGenerator, ProofType};
+pub use proof_generator::ProofGenerator;
 use starknet_crypto::Felt;
 use starknet_handler::{MmrState, StarknetHandlerError};
 use thiserror::Error;
 pub use validator::{ValidatorBuilder, ValidatorError};
+
+// Import CombinedInput for ProofGenerator
+use guest_types::CombinedInput;
 
 #[derive(Error, Debug)]
 pub enum PublisherError {
@@ -35,15 +38,35 @@ pub enum PublisherError {
 }
 
 pub async fn prove_mmr_update(
-    db_file: &str,
+    rpc_url: &String,
+    verifier_address: &String,
+    account_private_key: &String,
+    account_address: &String,
+    batch_size: u64,
     start_block: u64,
     end_block: u64,
+    skip_proof_verification: bool,
 ) -> Result<(MmrState, Vec<Felt>), PublisherError> {
-    let proof_generator = ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, false);
-    let mut builder = AccumulatorBuilder::new(db_file, proof_generator, 1024, false).await?;
+    // Initialize ProofGenerator with the correct type parameter and arguments
+    let proof_generator = ProofGenerator::<CombinedInput>::new(
+        MMR_APPEND_ELF,
+        MMR_APPEND_ID,
+        false, // skip_seal_verification
+    );
+
+    // Update AccumulatorBuilder::new call with new parameters
+    let mut builder = AccumulatorBuilder::new(
+        rpc_url,
+        verifier_address,
+        account_private_key,
+        account_address,
+        proof_generator,
+        batch_size,
+        skip_proof_verification,
+    )
+    .await?;
 
     tracing::debug!(
-        db_file,
         start_block,
         end_block,
         "Starting MMR update and proof generation"
@@ -63,13 +86,11 @@ pub async fn prove_mmr_update(
 
 pub async fn prove_headers_validity_and_inclusion(
     headers: &Vec<eth_rlp_types::BlockHeader>,
+    batch_size: u64,
     skip_proof_verification: Option<bool>,
 ) -> Result<bool, PublisherError> {
-    let skip_proof = match skip_proof_verification {
-        Some(skip) => skip,
-        None => false,
-    };
-    let validator = ValidatorBuilder::new(skip_proof).await?;
+    let skip_proof = skip_proof_verification.unwrap_or(false);
+    let validator = ValidatorBuilder::new(batch_size, skip_proof).await?;
 
     let result = validator
         .verify_blocks_validity_and_inclusion(headers)
