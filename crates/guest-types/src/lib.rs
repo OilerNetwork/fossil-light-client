@@ -1,5 +1,3 @@
-// mod.rs
-
 #![deny(unused_crate_dependencies)]
 
 use eth_rlp_types::BlockHeader;
@@ -64,26 +62,23 @@ impl AppendResult {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GuestOutput {
     root_hash: String,
-    // elements_count: usize,
     leaves_count: usize,
-    // all_hashes: Vec<(usize, String)>,
-    // append_results: Vec<AppendResult>,
+    batch_index: u64,
+    latest_mmr_block: u64,
 }
 
 impl GuestOutput {
     pub fn new(
         root_hash: String,
-        // elements_count: usize,
         leaves_count: usize,
-        // all_hashes: Vec<(usize, String)>,
-        // append_results: Vec<AppendResult>,
+        batch_index: u64,
+        latest_mmr_block: u64,
     ) -> Self {
         Self {
             root_hash,
-            // all_hashes,
-            // elements_count,
             leaves_count,
-            // append_results,
+            batch_index,
+            latest_mmr_block,
         }
     }
 
@@ -91,13 +86,13 @@ impl GuestOutput {
         &self.root_hash
     }
 
-    // pub fn elements_count(&self) -> usize {
-    //     self.elements_count
-    // }
+    pub fn batch_index(&self) -> u64 {
+        self.batch_index
+    }
 
-    // pub fn append_results(&self) -> &Vec<AppendResult> {
-    //     &self.append_results
-    // }
+    pub fn latest_mmr_block(&self) -> u64 {
+        self.latest_mmr_block
+    }
 
     pub fn leaves_count(&self) -> usize {
         self.leaves_count

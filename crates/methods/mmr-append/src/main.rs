@@ -4,6 +4,8 @@ use risc0_zkvm::guest::env;
 use guest_mmr::core::GuestMMR;
 use guest_types::{CombinedInput, GuestOutput};
 
+const BATCH_SIZE: u64 = 1024;
+
 fn main() {
     // Read combined input
     let input: CombinedInput = env::read();
@@ -32,12 +34,28 @@ fn main() {
 
     let root_hash = mmr.calculate_root_hash(mmr.get_elements_count()).unwrap();
 
+    let first_header = input.headers().first().unwrap();
+    let last_header = input.headers().last().unwrap();
+
+    let first_block_number = first_header.number as u64;
+    let last_block_number = last_header.number as u64;
+
+    let first_batch_index = first_block_number / BATCH_SIZE;
+    let last_batch_index = last_block_number / BATCH_SIZE;
+
+    assert!(first_batch_index == last_batch_index, "Batch index mismatch");
+
+    eprintln!("root hash: {:?}", root_hash);
+    eprintln!("leaves count: {:?}", mmr.get_leaves_count());
+    eprintln!("batch index: {:?}", first_batch_index);
+    eprintln!("latest mmr block: {:?}", last_block_number);
+
     // Create output
     let output = GuestOutput::new(
         root_hash,
-        // mmr.get_elements_count(),
         mmr.get_leaves_count(),
-        // mmr.get_all_hashes(),
+        first_batch_index,
+        last_block_number,
     );
     // Commit the output
     env::commit(&output);

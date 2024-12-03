@@ -4,7 +4,7 @@ mod groth16_verifier_constants;
 pub mod universal_ecip;
 use core::num::traits::{WideMul, Bounded};
 
-pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> (u256, u64) {
+pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> (u256, u64, u64, u64) {
     let mut root_hash_start = 4;
 
     let mut i = root_hash_start + 2;
@@ -28,8 +28,6 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> (u256, u64) {
     };
 
     let leaves_count_offset = root_hash_start + 68;
-    assert!(leaves_count_offset + 8 <= journal_bytes.len(), "Invalid journal length");
-
     let mut leaves_count: u64 = 0;
     let mut j = 0;
     while j < 8 {
@@ -39,7 +37,27 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> (u256, u64) {
         j += 1;
     };
 
-    (root_hash, leaves_count)
+    let batch_index_offset = leaves_count_offset + 8;
+    let mut batch_index: u64 = 0;
+    let mut k = 0;
+    while k < 8 {
+        let f0: u128 = (*journal_bytes.at(batch_index_offset + k)).into();
+        let f1: u128 = BitShift::shl(f0.into(), 8 * k.into());
+        batch_index += f1.try_into().unwrap();
+        k += 1;
+    };
+
+    let latest_mmr_block_offset = batch_index_offset + 8;
+    let mut latest_mmr_block: u64 = 0;
+    let mut l = 0;
+    while l < 8 {
+        let f0: u128 = (*journal_bytes.at(latest_mmr_block_offset + l)).into();
+        let f1: u128 = BitShift::shl(f0.into(), 8 * l.into());
+        latest_mmr_block += f1.try_into().unwrap();
+        l += 1;
+    };
+
+    (root_hash, leaves_count, batch_index, latest_mmr_block)
 }
 
 trait BitShift<T> {
@@ -68,6 +86,17 @@ impl U64BitShift of BitShift<u64> {
     }
 }
 
+impl U128BitShift of BitShift<u128> {
+    fn shl(x: u128, n: u128) -> u128 {
+        let res = WideMul::wide_mul(x, pow(2, n));
+        res.low
+    }
+
+    fn shr(x: u128, n: u128) -> u128 {
+        x / pow(2, n)
+    }
+}
+
 fn pow<T, +Sub<T>, +Mul<T>, +Div<T>, +Rem<T>, +PartialEq<T>, +Into<u8, T>, +Drop<T>, +Copy<T>>(
     base: T, exp: T
 ) -> T {
@@ -90,97 +119,18 @@ mod tests {
     fn decode_journal_test() {
         let journal_bytes = get_journal_bytes();
 
-        let (root_hash, leaves_count) = decode_journal(journal_bytes);
+        let (root_hash, leaves_count, batch_index, latest_mmr_block) = decode_journal(journal_bytes);
         assert_eq!(
             root_hash,
-            107280012852884767793665731955398724025869444191778930550273500320771511566933
+            29702900245875837452673332994207853201723234670058705475440356238131929011662
         );
-        assert_eq!(leaves_count, 305);
+        assert_eq!(leaves_count, 437);
+        assert_eq!(batch_index, 20819);
+        assert_eq!(latest_mmr_block, 21319092);
     }
 
     fn get_journal_bytes() -> Span<u8> {
-        array![
-            66,
-            0,
-            0,
-            0,
-            48,
-            120,
-            101,
-            100,
-            50,
-            101,
-            53,
-            53,
-            101,
-            51,
-            51,
-            50,
-            56,
-            99,
-            57,
-            98,
-            98,
-            48,
-            101,
-            99,
-            101,
-            57,
-            51,
-            97,
-            48,
-            97,
-            49,
-            48,
-            57,
-            100,
-            49,
-            56,
-            101,
-            53,
-            99,
-            101,
-            100,
-            102,
-            51,
-            48,
-            55,
-            53,
-            57,
-            100,
-            102,
-            48,
-            99,
-            50,
-            102,
-            102,
-            49,
-            52,
-            51,
-            97,
-            51,
-            55,
-            49,
-            50,
-            99,
-            51,
-            49,
-            54,
-            52,
-            50,
-            53,
-            53,
-            0,
-            0,
-            49,
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0
-        ]
+        array![66, 0, 0, 0, 48, 120, 52, 49, 97, 98, 51, 101, 101, 97, 100, 97, 52, 50, 54, 55, 101, 52, 100, 48, 51, 50, 53, 49, 101, 98, 54, 48, 99, 100, 102, 51, 99, 50, 49, 100, 51, 54, 50, 53, 56, 55, 101, 53, 97, 100, 99, 98, 49, 102, 54, 100, 56, 100, 57, 50, 98, 57, 99, 52, 100, 51, 100, 53, 99, 101, 0, 0, 181, 1, 0, 0, 0, 0, 0, 0, 83, 81, 0, 0, 0, 0, 0, 0, 180, 77, 69, 1, 0, 0, 0, 0]
             .span()
     }
 }

@@ -2,7 +2,6 @@
 pub trait IFossilVerifier<TContractState> {
     fn verify_mmr_proof(
         ref self: TContractState,
-        latest_mmr_block: u64,
         proof: Span<felt252>,
     ) -> bool;
     fn get_verifier_address(self: @TContractState) -> starknet::ContractAddress;
@@ -51,13 +50,11 @@ mod FossilVerifier {
     #[external(v0)]
     fn verify_mmr_proof(
         ref self: ContractState,
-        batch_index: u64,
-        latest_mmr_block: u64,
         proof: Span<felt252>,
     ) -> bool {
         let (verified, journal) = self.bn254_verifier.read().verify_groth16_proof_bn254(proof);
 
-        let (new_mmr_root, new_leaves_count) = decode_journal(journal);
+        let (new_mmr_root, new_leaves_count, batch_index, latest_mmr_block) = decode_journal(journal);
 
         if verified {
             self
