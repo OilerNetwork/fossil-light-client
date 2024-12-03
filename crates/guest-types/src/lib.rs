@@ -1,5 +1,3 @@
-// mod.rs
-
 #![deny(unused_crate_dependencies)]
 
 use eth_rlp_types::BlockHeader;
@@ -64,39 +62,36 @@ impl AppendResult {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GuestOutput {
     root_hash: String,
-    elements_count: usize,
     leaves_count: usize,
-    all_hashes: Vec<(usize, String)>,
-    append_results: Vec<AppendResult>,
+    batch_index: u64,
+    latest_mmr_block: u64,
 }
 
 impl GuestOutput {
     pub fn new(
         root_hash: String,
-        elements_count: usize,
         leaves_count: usize,
-        all_hashes: Vec<(usize, String)>,
-        append_results: Vec<AppendResult>,
+        batch_index: u64,
+        latest_mmr_block: u64,
     ) -> Self {
         Self {
             root_hash,
-            all_hashes,
-            elements_count,
             leaves_count,
-            append_results,
+            batch_index,
+            latest_mmr_block,
         }
     }
 
-    pub fn elements_count(&self) -> usize {
-        self.elements_count
+    pub fn root_hash(&self) -> &str {
+        &self.root_hash
     }
 
-    pub fn append_results(&self) -> &Vec<AppendResult> {
-        &self.append_results
+    pub fn batch_index(&self) -> u64 {
+        self.batch_index
     }
 
-    pub fn all_hashes(&self) -> Vec<(usize, String)> {
-        self.all_hashes.clone()
+    pub fn latest_mmr_block(&self) -> u64 {
+        self.latest_mmr_block
     }
 
     pub fn leaves_count(&self) -> usize {
@@ -143,8 +138,7 @@ pub struct MMRInput {
     initial_peaks: Vec<String>,
     elements_count: usize,
     leaves_count: usize,
-    new_elements: Option<Vec<String>>,
-    previous_proofs: Option<Vec<BatchProof>>,
+    new_elements: Vec<String>,
 }
 
 impl MMRInput {
@@ -152,20 +146,14 @@ impl MMRInput {
         initial_peaks: Vec<String>,
         elements_count: usize,
         leaves_count: usize,
-        new_elements: Option<Vec<String>>,
-        previous_proofs: Option<Vec<BatchProof>>,
+        new_elements: Vec<String>,
     ) -> Self {
         Self {
             initial_peaks,
             elements_count,
             leaves_count,
             new_elements,
-            previous_proofs,
         }
-    }
-
-    pub fn previous_proofs(&self) -> Option<&Vec<BatchProof>> {
-        self.previous_proofs.as_ref()
     }
 
     pub fn initial_peaks(&self) -> Vec<String> {

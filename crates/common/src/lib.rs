@@ -1,7 +1,11 @@
 #![deny(unused_crate_dependencies)]
 
 use starknet_crypto::Felt;
-use std::{path::PathBuf, str::FromStr};
+use std::{
+    fs::{self, OpenOptions},
+    path::PathBuf,
+    str::FromStr,
+};
 
 #[derive(thiserror::Error, Debug)]
 pub enum UtilsError {
@@ -21,6 +25,8 @@ pub enum UtilsError {
     ParseStringError(String),
     #[error("Felt conversion error: {0}")]
     FeltError(String),
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 /// Retrieves an environment variable or returns an error if not set.
@@ -69,7 +75,7 @@ pub fn felt(str: &str) -> Result<Felt, UtilsError> {
     Felt::from_hex(str).map_err(|_| UtilsError::FeltError(format!("Invalid hex string: {}", str)))
 }
 
-pub fn get_db_path() -> Result<String, UtilsError> {
+pub fn get_or_create_db_path(db_name: &str) -> Result<String, UtilsError> {
     // Get path to the db-instances directory relative to the test file
     let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
@@ -78,9 +84,27 @@ pub fn get_db_path() -> Result<String, UtilsError> {
         .ok_or_else(|| UtilsError::ParseError("Missing root directory".to_string()))?
         .join("db-instances");
 
-    let binding = test_dir.join("0.db");
-    let store_path = binding
+    // Ensure the directory exists
+    if !test_dir.exists() {
+        fs::create_dir_all(&test_dir)?;
+    }
+
+    // Construct the full path to the database file
+    let db_file_path = test_dir.join(db_name);
+
+    // Ensure the file exists
+    if !db_file_path.exists() {
+        OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&db_file_path)?;
+    }
+
+    // Convert to string
+    let db_path_str = db_file_path
         .to_str()
         .ok_or_else(|| UtilsError::ParseError("Invalid path".to_string()))?;
-    Ok(store_path.to_string())
+
+    Ok(db_path_str.to_string())
 }

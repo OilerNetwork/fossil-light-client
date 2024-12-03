@@ -101,14 +101,9 @@ Deploy the messaging infrastructure contracts:
 
 Initialize the Light Client service:
 
-1. Navigate to client implementation:
+1. Execute client binary:
    ```bash
-   cd crates/client
-   ```
-
-2. Execute client binary:
-   ```bash
-   cargo run --release
+   cargo run --bin client --release
    ```
 
 ## Terminal 5: Block Hash Relayer Process

@@ -1,13 +1,15 @@
 use common::{felt, get_env_var};
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
-    core::types::{BlockId, BlockTag, EventFilter, Felt, U256},
+    core::types::{BlockId, BlockTag, EventFilter, Felt},
     macros::selector,
     providers::Provider as EventProvider,
 };
-use starknet_handler::{account::StarknetAccount, provider::StarknetProvider, MmrState};
+use starknet_handler::provider::StarknetProvider;
 use tokio::time::{self, Duration};
 use tracing::{error, info, instrument};
+
+const BATCH_SIZE: u64 = 1024;
 
 #[derive(thiserror::Error, Debug)]
 pub enum LightClientError {
@@ -23,8 +25,6 @@ pub enum LightClientError {
     StarknetProvider(#[from] starknet::providers::ProviderError),
     #[error("latest_processed_block regression from {0} to {1}")]
     StateError(u64, u64),
-    #[error("New MMR root hash cannot be zero")]
-    StateRootError,
     #[error("Database file does not exist at path: {0}")]
     ConfigError(String),
     #[error("Polling interval must be greater than zero")]
@@ -36,7 +36,6 @@ pub struct LightClient {
     l2_store_addr: Felt,
     verifier_addr: String,
     latest_processed_block: u64,
-    db_file: String,
     starknet_private_key: String,
     starknet_account_address: String,
     polling_interval: Duration,
@@ -73,7 +72,6 @@ impl LightClient {
             l2_store_addr,
             verifier_addr,
             latest_processed_block: 0,
-            db_file,
             starknet_private_key,
             starknet_account_address,
             polling_interval: Duration::from_secs(polling_interval),
@@ -168,19 +166,18 @@ impl LightClient {
             .await?;
 
         // Fetch latest MMR state from L2
-        let latest_mmr_state = self
+        let latest_mmr_block = self
             .starknet_provider
-            .get_latest_mmr_state(&self.l2_store_addr)
+            .get_latest_mmr_block(&self.l2_store_addr)
             .await?;
 
         info!(
             latest_relayed_block,
-            latest_mmr_block = latest_mmr_state.latest_block_number(),
-            "State fetched from Starknet"
+            latest_mmr_block, "State fetched from Starknet"
         );
 
         // Update MMR and verify proofs
-        self.update_mmr(latest_mmr_state.latest_block_number(), latest_relayed_block)
+        self.update_mmr(latest_mmr_block, latest_relayed_block)
             .await?;
 
         Ok(())
@@ -205,44 +202,52 @@ impl LightClient {
         }
         info!("Starting proof verification...");
 
-        let (new_mmr_state, proof) =
-            publisher::prove_mmr_update(&self.db_file, latest_mmr_block + 1, latest_relayed_block)
-                .await?;
-
-        self.update_mmr_state_on_starknet(latest_relayed_block, new_mmr_state, proof)
-            .await?;
-
-        Ok(())
-    }
-
-    /// Updates the MMR state on Starknet.
-    pub async fn update_mmr_state_on_starknet(
-        &self,
-        latest_relayed_block: u64,
-        new_mmr_state: MmrState,
-        proof: Vec<Felt>,
-    ) -> Result<(), LightClientError> {
-        if new_mmr_state.root_hash() == U256::from(0_u8) {
-            error!("New MMR root hash cannot be zero");
-            return Err(LightClientError::StateRootError);
-        }
-
-        let starknet_account = StarknetAccount::new(
-            self.starknet_provider.provider(),
+        publisher::prove_mmr_update(
+            &self.starknet_provider.rpc_url().to_string(),
+            &self.verifier_addr,
             &self.starknet_private_key,
             &self.starknet_account_address,
-        )?;
+            BATCH_SIZE,
+            latest_mmr_block + 1,
+            latest_relayed_block,
+            false,
+        )
+        .await?;
 
-        starknet_account
-            .verify_mmr_proof(&self.verifier_addr, &new_mmr_state, proof)
-            .await?;
-
-        info!(
-            latest_block = latest_relayed_block,
-            mmr_root = %new_mmr_state.root_hash(),
-            "MMR state updated on Starknet"
-        );
+        // self.update_mmr_state_on_starknet(latest_relayed_block, new_mmr_state, proof)
+        //     .await?;
 
         Ok(())
     }
+
+    // /// Updates the MMR state on Starknet.
+    // pub async fn update_mmr_state_on_starknet(
+    //     &self,
+    //     latest_relayed_block: u64,
+    //     new_mmr_state: MmrState,
+    //     proof: Vec<Felt>,
+    // ) -> Result<(), LightClientError> {
+    //     if new_mmr_state.root_hash() == U256::from(0_u8) {
+    //         error!("New MMR root hash cannot be zero");
+    //         return Err(LightClientError::StateRootError);
+    //     }
+
+    //     let starknet_account = StarknetAccount::new(
+    //         self.starknet_provider.provider(),
+    //         &self.starknet_private_key,
+    //         &self.starknet_account_address,
+    //     )?;
+
+    //     starknet_account
+    //         .verify_mmr_proof(&self.verifier_addr, &new_mmr_state, proof)
+    //         .await?;
+
+    //     info!(
+    //         latest_block = latest_relayed_block,
+    //         mmr_root = %new_mmr_state.root_hash(),
+    //         "MMR state updated on Starknet"
+    //     );
+
+    //     Ok(())
+    // }
 }

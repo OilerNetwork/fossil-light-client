@@ -36,7 +36,7 @@ pub enum StarknetHandlerError {
 pub struct MmrState {
     latest_block_number: u64,
     root_hash: U256,
-    elements_count: u64,
+    // elements_count: u64,
     leaves_count: u64,
 }
 
@@ -44,13 +44,13 @@ impl MmrState {
     pub fn new(
         latest_block_number: u64,
         root_hash: U256,
-        elements_count: u64,
+        // elements_count: u64,
         leaves_count: u64,
     ) -> Self {
         Self {
             latest_block_number,
             root_hash,
-            elements_count,
+            // elements_count,
             leaves_count,
         }
     }
@@ -63,9 +63,9 @@ impl MmrState {
         self.root_hash
     }
 
-    pub fn elements_count(&self) -> u64 {
-        self.elements_count
-    }
+    // pub fn elements_count(&self) -> u64 {
+    //     self.elements_count
+    // }
 
     pub fn leaves_count(&self) -> u64 {
         self.leaves_count

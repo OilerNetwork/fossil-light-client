@@ -1,4 +1,3 @@
-pub use crate::types::ProofType;
 use garaga_rs::{
     calldata::full_proof_with_hints::groth16::{
         get_groth16_calldata, risc0_utils::get_risc0_vk, Groth16Proof,
@@ -12,6 +11,8 @@ use starknet_crypto::Felt;
 use thiserror::Error;
 use tokio::task;
 use tracing::{debug, info, warn};
+
+use crate::utils::{Groth16, Stark};
 
 #[derive(Error, Debug)]
 pub enum ProofGeneratorError {
@@ -58,7 +59,7 @@ where
     }
 
     /// Generate a standard Stark proof for intermediate batches
-    pub async fn generate_stark_proof(&self, input: T) -> Result<ProofType, ProofGeneratorError> {
+    pub async fn generate_stark_proof(&self, input: T) -> Result<Stark, ProofGeneratorError> {
         info!("Generating STARK proof for intermediate batch");
         debug!("Input size: {} bytes", std::mem::size_of_val(&input));
 
@@ -67,7 +68,7 @@ where
             let method_id = self.method_id;
             let input = input.clone();
 
-            move || -> eyre::Result<ProofType> {
+            move || -> eyre::Result<Stark> {
                 debug!("Building executor environment");
                 let env = ExecutorEnv::builder()
                     .write(&input)
@@ -95,11 +96,7 @@ where
                     .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
 
                 info!("Successfully generated STARK proof");
-                Ok(ProofType::Stark {
-                    receipt,
-                    image_id: image_id.as_bytes().to_vec(),
-                    method_id,
-                })
+                Ok(Stark::new(receipt, image_id.as_bytes().to_vec(), method_id))
             }
         })
         .await?
@@ -109,7 +106,7 @@ where
     }
 
     /// Generate a Groth16 proof for the final batch
-    pub async fn generate_groth16_proof(&self, input: T) -> Result<ProofType, ProofGeneratorError> {
+    pub async fn generate_groth16_proof(&self, input: T) -> Result<Groth16, ProofGeneratorError> {
         info!("Generating Groth16 proof for final batch");
         debug!("Input size: {} bytes", std::mem::size_of_val(&input));
 
@@ -117,7 +114,7 @@ where
         let input = input.clone();
         let skip_proof_verification = self.skip_proof_verification;
 
-        let proof = task::spawn_blocking(move || -> eyre::Result<ProofType> {
+        let proof = task::spawn_blocking(move || -> eyre::Result<Groth16> {
             debug!("Building executor environment");
             let env = ExecutorEnv::builder()
                 .write(&input)
@@ -156,14 +153,19 @@ where
                 .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
 
             let journal = receipt.journal.bytes.clone();
-            debug!("Journal size: {} bytes", journal.len());
 
             debug!("Converting to Groth16 proof");
             let groth16_proof = if !skip_proof_verification {
-                Groth16Proof::from_risc0(encoded_seal, image_id.as_bytes().to_vec(), journal)
+                Groth16Proof::from_risc0(
+                    encoded_seal,
+                    image_id.as_bytes().to_vec(),
+                    journal.clone(),
+                )
             } else {
                 Default::default()
             };
+
+            println!("journal: {:?}", journal);
 
             debug!("Generating calldata");
             let calldata = if !skip_proof_verification {
@@ -177,8 +179,10 @@ where
                 vec![Felt::ZERO]
             };
 
+            println!("calldata len: {:?}", calldata.len());
+
             info!("Successfully generated Groth16 proof");
-            Ok(ProofType::Groth16 { receipt, calldata })
+            Ok(Groth16::new(receipt, calldata))
         })
         .await?
         .map_err(|e| ProofGeneratorError::SpawnBlocking(e.to_string()))?;
@@ -188,11 +192,9 @@ where
 
     pub fn decode_journal<U: for<'a> Deserialize<'a>>(
         &self,
-        proof: &ProofType,
+        proof: &Groth16,
     ) -> Result<U, ProofGeneratorError> {
-        let receipt = match proof {
-            ProofType::Groth16 { receipt, .. } | ProofType::Stark { receipt, .. } => receipt,
-        };
+        let receipt = proof.receipt();
         Ok(receipt.journal.decode()?)
     }
 }

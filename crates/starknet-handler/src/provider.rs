@@ -60,9 +60,33 @@ impl StarknetProvider {
     //     Ok(result)
     // }
 
-    pub async fn get_latest_mmr_state(
+    pub async fn get_latest_mmr_block(
         &self,
         l2_store_address: &Felt,
+    ) -> Result<u64, StarknetHandlerError> {
+        let entry_point_selector = selector!("get_latest_mmr_block");
+
+        let data = self
+            .provider
+            .call(
+                FunctionCall {
+                    contract_address: *l2_store_address,
+                    entry_point_selector,
+                    calldata: vec![],
+                },
+                BlockId::Tag(BlockTag::Latest),
+            )
+            .await?;
+
+        let mmr_block = u64::decode(&data)?;
+
+        Ok(mmr_block)
+    }
+
+    pub async fn get_mmr_state(
+        &self,
+        l2_store_address: &Felt,
+        batch_index: u64,
     ) -> Result<MmrState, StarknetHandlerError> {
         let entry_point_selector = selector!("get_mmr_state");
 
@@ -72,7 +96,7 @@ impl StarknetProvider {
                 FunctionCall {
                     contract_address: *l2_store_address,
                     entry_point_selector,
-                    calldata: vec![],
+                    calldata: vec![Felt::from(batch_index)],
                 },
                 BlockId::Tag(BlockTag::Latest),
             )

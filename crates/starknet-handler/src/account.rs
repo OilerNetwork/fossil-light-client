@@ -1,8 +1,7 @@
-use crate::MmrState;
 use starknet::macros::selector;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
-    core::{chain_id, codec::Encode},
+    core::chain_id,
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
     signers::{LocalWallet, SigningKey},
 };
@@ -46,25 +45,20 @@ impl StarknetAccount {
     pub async fn verify_mmr_proof(
         &self,
         verifier_address: &str,
-        new_mmr_state: &MmrState,
         proof: Vec<Felt>,
-    ) -> Result<(Felt, MmrState), StarknetHandlerError> {
+    ) -> Result<Felt, StarknetHandlerError> {
         let selector = selector!("verify_mmr_proof");
-
-        let mut calldata = vec![];
-        new_mmr_state.encode(&mut calldata)?;
-        calldata.extend(proof.iter().cloned());
 
         let tx = self
             .account
             .execute_v1(vec![starknet::core::types::Call {
                 selector,
-                calldata,
+                calldata: proof,
                 to: felt(verifier_address)?,
             }])
             .send()
             .await?;
 
-        Ok((tx.transaction_hash, new_mmr_state.clone()))
+        Ok(tx.transaction_hash)
     }
 }

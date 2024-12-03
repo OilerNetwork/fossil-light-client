@@ -4,10 +4,12 @@ members = ["l1_message_proxy", "store", "verifier"]
 [workspace.dependencies]
 starknet = "2.8.5"
 assert_macros = "2.8.5"
-snforge_std = "0.33.0"
+snforge_std = "0.34.0"
+cairo_test = "2.8.5"
 
 [dev-dependencies]
 snforge_std.workspace = true
+cairo_test.workspace = true
 
 [[target.starknet-contract]]
 casm = true

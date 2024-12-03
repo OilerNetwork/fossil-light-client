@@ -4,9 +4,9 @@ use common::get_env_var;
 use dotenv::dotenv;
 use eth_rlp_types::BlockHeader;
 use mmr_utils::{create_database_file, ensure_directory_exists};
-use sqlx::{postgres::PgPoolOptions, PgPool, Pool, Postgres};
+use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 
-use crate::{accumulator::AccumulatorError, PublisherError};
+use crate::errors::{AccumulatorError, PublisherError};
 
 #[derive(Debug)]
 pub struct DbConnection {
@@ -30,6 +30,37 @@ impl DbConnection {
             .await?;
 
         Ok(Arc::new(Self { pool }))
+    }
+
+    pub async fn get_block_headers_by_block_range(
+        &self,
+        start_block: u64,
+        end_block: u64,
+    ) -> Result<Vec<BlockHeader>, AccumulatorError> {
+        let temp_headers = sqlx::query_as!(
+            TempBlockHeader,
+            r#"
+            SELECT block_hash, number, gas_limit, gas_used, nonce, 
+                   transaction_root, receipts_root, state_root, 
+                   base_fee_per_gas, parent_hash, miner, logs_bloom, 
+                   difficulty, totaldifficulty, sha3_uncles, "timestamp", 
+                   extra_data, mix_hash, withdrawals_root, 
+                   blob_gas_used, excess_blob_gas, parent_beacon_block_root
+            FROM blockheaders
+            WHERE number BETWEEN $1 AND $2
+            ORDER BY number ASC
+            "#,
+            start_block as i64,
+            end_block as i64
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        // Convert TempBlockHeader to BlockHeader
+        let headers: Vec<BlockHeader> =
+            temp_headers.into_iter().map(temp_to_block_header).collect();
+
+        Ok(headers)
     }
 }
 
@@ -105,36 +136,6 @@ fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
         excess_blob_gas: Some(temp.excess_blob_gas.unwrap_or_default()),
         parent_beacon_block_root: Some(temp.parent_beacon_block_root.unwrap_or_default()),
     }
-}
-
-pub async fn get_block_headers_by_block_range(
-    pool: &PgPool,
-    start_block: u64,
-    end_block: u64,
-) -> Result<Vec<BlockHeader>, AccumulatorError> {
-    let temp_headers = sqlx::query_as!(
-        TempBlockHeader,
-        r#"
-        SELECT block_hash, number, gas_limit, gas_used, nonce, 
-               transaction_root, receipts_root, state_root, 
-               base_fee_per_gas, parent_hash, miner, logs_bloom, 
-               difficulty, totaldifficulty, sha3_uncles, "timestamp", 
-               extra_data, mix_hash, withdrawals_root, 
-               blob_gas_used, excess_blob_gas, parent_beacon_block_root
-        FROM blockheaders
-        WHERE number BETWEEN $1 AND $2
-        ORDER BY number ASC
-        "#,
-        start_block as i64,
-        end_block as i64
-    )
-    .fetch_all(pool)
-    .await?;
-
-    // Convert TempBlockHeader to BlockHeader
-    let headers: Vec<BlockHeader> = temp_headers.into_iter().map(temp_to_block_header).collect();
-
-    Ok(headers)
 }
 
 pub fn get_store_path(db_file: Option<String>) -> Result<String, PublisherError> {
