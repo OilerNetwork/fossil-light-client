@@ -4,7 +4,7 @@ use super::groth16_verifier_constants::{N_FREE_PUBLIC_INPUTS, vk, ic, precompute
 pub trait IRisc0Groth16VerifierBN254<TContractState> {
     fn verify_groth16_proof_bn254(
         self: @TContractState, full_proof_with_hints: Span<felt252>,
-    ) -> bool;
+    ) -> (bool, Span<u8>);
 }
 
 #[starknet::contract]
@@ -32,7 +32,7 @@ mod Risc0Groth16VerifierBN254 {
     impl IRisc0Groth16VerifierBN254 of super::IRisc0Groth16VerifierBN254<ContractState> {
         fn verify_groth16_proof_bn254(
             self: @ContractState, full_proof_with_hints: Span<felt252>,
-        ) -> bool {
+        ) -> (bool, Span<u8>) {
             // DO NOT EDIT THIS FUNCTION UNLESS YOU KNOW WHAT YOU ARE DOING.
             // This function returns an Option for the public inputs if the proof is valid.
             // If the proof is invalid, the execution will either fail or return None.
@@ -93,7 +93,7 @@ mod Risc0Groth16VerifierBN254 {
                 small_Q
             );
 
-            result
+            (result, journal)
         }
     }
 }

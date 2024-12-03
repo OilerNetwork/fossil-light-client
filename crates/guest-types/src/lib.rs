@@ -64,40 +64,40 @@ impl AppendResult {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GuestOutput {
     root_hash: String,
-    elements_count: usize,
+    // elements_count: usize,
     leaves_count: usize,
-    all_hashes: Vec<(usize, String)>,
-    append_results: Vec<AppendResult>,
+    // all_hashes: Vec<(usize, String)>,
+    // append_results: Vec<AppendResult>,
 }
 
 impl GuestOutput {
     pub fn new(
         root_hash: String,
-        elements_count: usize,
+        // elements_count: usize,
         leaves_count: usize,
-        all_hashes: Vec<(usize, String)>,
-        append_results: Vec<AppendResult>,
+        // all_hashes: Vec<(usize, String)>,
+        // append_results: Vec<AppendResult>,
     ) -> Self {
         Self {
             root_hash,
-            all_hashes,
-            elements_count,
+            // all_hashes,
+            // elements_count,
             leaves_count,
-            append_results,
+            // append_results,
         }
     }
 
-    pub fn elements_count(&self) -> usize {
-        self.elements_count
+    pub fn root_hash(&self) -> &str {
+        &self.root_hash
     }
 
-    pub fn append_results(&self) -> &Vec<AppendResult> {
-        &self.append_results
-    }
+    // pub fn elements_count(&self) -> usize {
+    //     self.elements_count
+    // }
 
-    pub fn all_hashes(&self) -> Vec<(usize, String)> {
-        self.all_hashes.clone()
-    }
+    // pub fn append_results(&self) -> &Vec<AppendResult> {
+    //     &self.append_results
+    // }
 
     pub fn leaves_count(&self) -> usize {
         self.leaves_count

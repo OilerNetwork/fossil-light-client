@@ -12,7 +12,7 @@ use thiserror::Error;
 use tokio::task;
 use tracing::{debug, info, warn};
 
-use crate::types::{Groth16, Stark};
+use crate::utils::{Groth16, Stark};
 
 #[derive(Error, Debug)]
 pub enum ProofGeneratorError {
@@ -153,14 +153,19 @@ where
                 .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
 
             let journal = receipt.journal.bytes.clone();
-            debug!("Journal size: {} bytes", journal.len());
 
             debug!("Converting to Groth16 proof");
             let groth16_proof = if !skip_proof_verification {
-                Groth16Proof::from_risc0(encoded_seal, image_id.as_bytes().to_vec(), journal)
+                Groth16Proof::from_risc0(
+                    encoded_seal,
+                    image_id.as_bytes().to_vec(),
+                    journal.clone(),
+                )
             } else {
                 Default::default()
             };
+
+            println!("journal: {:?}", journal);
 
             debug!("Generating calldata");
             let calldata = if !skip_proof_verification {

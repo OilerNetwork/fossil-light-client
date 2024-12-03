@@ -1,26 +1,11 @@
-use crate::proof_generator::{ProofGenerator, ProofGeneratorError};
+use crate::errors::ValidatorError;
+use crate::core::ProofGenerator;
 use guest_types::{BlocksValidityInput, MMRInput};
 use methods::{BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID};
-use mmr::{MMRError, PeaksOptions, MMR};
+use mmr::{PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, StoreManager};
 use std::collections::HashMap;
 use store::SqlitePool;
-
-#[derive(thiserror::Error, Debug)]
-pub enum ValidatorError {
-    #[error("Utils error: {0}")]
-    Utils(#[from] common::UtilsError),
-    #[error("MMR error: {0}")]
-    MMRUtils(#[from] mmr_utils::MMRUtilsError),
-    #[error("Store error: {0}")]
-    Sqlx(#[from] sqlx::Error),
-    #[error("Store error: {0}")]
-    Store(#[from] store::StoreError),
-    #[error("MMR error: {0}")]
-    MMRError(#[from] MMRError),
-    #[error("ProofGenerator error: {0}")]
-    ProofGenerator(#[from] ProofGeneratorError),
-}
 
 pub struct ValidatorBuilder {
     proof_generator: ProofGenerator<BlocksValidityInput>,

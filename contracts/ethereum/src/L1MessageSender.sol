@@ -1,8 +1,7 @@
-
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {Uint256Splitter} from "lib/U256Splitter.sol";
+import {Uint256Splitter} from "../lib/U256Splitter.sol";
 
 import {IStarknetMessaging} from "../src/StarknetMessagingLocal.sol";
 
@@ -22,7 +21,7 @@ contract L1MessageSender {
     }
 
     function sendFinalizedBlockHashToL2(uint256 l2RecipientAddr) external payable {
-        uint256 finalizedBlockNumber = block.number - 192;
+        uint256 finalizedBlockNumber = block.number - 96;
         bytes32 parentHash = blockhash(finalizedBlockNumber);
         uint256 blockNumber = uint256(finalizedBlockNumber);
         _sendBlockHashToL2(parentHash, blockNumber, l2RecipientAddr);

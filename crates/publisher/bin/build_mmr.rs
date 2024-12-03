@@ -1,8 +1,7 @@
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
 use eyre::Result;
-use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
-use publisher::{AccumulatorBuilder, ProofGenerator};
+use publisher::core::AccumulatorBuilder;
 use tracing::info;
 
 #[derive(Parser, Debug)]
@@ -35,10 +34,6 @@ async fn main() -> Result<()> {
     // Parse CLI arguments
     let args = Args::parse();
 
-    info!("Initializing proof generator...");
-    // Initialize proof generator
-    let proof_generator = ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, args.skip_proof);
-
     info!("Initializing accumulator builder...");
     // Initialize accumulator builder with the batch size
     let mut builder = AccumulatorBuilder::new(
@@ -46,7 +41,6 @@ async fn main() -> Result<()> {
         &verifier_address,
         &private_key,
         &account_address,
-        proof_generator,
         args.batch_size,
         args.skip_proof,
     )

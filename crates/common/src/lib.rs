@@ -97,6 +97,7 @@ pub fn get_or_create_db_path(db_name: &str) -> Result<String, UtilsError> {
         OpenOptions::new()
             .write(true)
             .create(true)
+            .truncate(false)
             .open(&db_file_path)?;
     }
 

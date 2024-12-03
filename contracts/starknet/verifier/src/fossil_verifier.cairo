@@ -3,9 +3,6 @@ pub trait IFossilVerifier<TContractState> {
     fn verify_mmr_proof(
         ref self: TContractState,
         latest_mmr_block: u64,
-        new_mmr_root: u256,
-        new_elements_count: u64,
-        new_leaves_count: u64,
         proof: Span<felt252>,
     ) -> bool;
     fn get_verifier_address(self: @TContractState) -> starknet::ContractAddress;
@@ -18,6 +15,7 @@ mod FossilVerifier {
     use verifier::groth16_verifier::{
         IRisc0Groth16VerifierBN254Dispatcher, IRisc0Groth16VerifierBN254DispatcherTrait
     };
+    use verifier::decode_journal;
 
     #[storage]
     struct Storage {
@@ -34,7 +32,7 @@ mod FossilVerifier {
     #[derive(Drop, starknet::Event)]
     struct MmrProofVerified {
         batch_index: u64,
-        new_leaves_count: u16,
+        new_leaves_count: u64,
         new_mmr_root: u256,
     }
 
@@ -54,23 +52,21 @@ mod FossilVerifier {
     fn verify_mmr_proof(
         ref self: ContractState,
         batch_index: u64,
-        new_leaves_count: u16,
-        new_mmr_root: u256,
+        latest_mmr_block: u64,
         proof: Span<felt252>,
     ) -> bool {
-        let verified = self.bn254_verifier.read().verify_groth16_proof_bn254(proof);
+        let (verified, journal) = self.bn254_verifier.read().verify_groth16_proof_bn254(proof);
+
+        let (new_mmr_root, new_leaves_count) = decode_journal(journal);
 
         if verified {
-            self.fossil_store.read().update_mmr_state(
-                batch_index, new_leaves_count, new_mmr_root
-            );
+            self
+                .fossil_store
+                .read()
+                .update_mmr_state(batch_index, latest_mmr_block, new_leaves_count, new_mmr_root);
         }
 
-        self.emit(MmrProofVerified {
-            batch_index,
-            new_leaves_count,
-            new_mmr_root,
-        });
+        self.emit(MmrProofVerified { batch_index, new_leaves_count, new_mmr_root, });
 
         verified
     }
