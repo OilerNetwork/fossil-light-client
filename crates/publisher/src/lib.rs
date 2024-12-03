@@ -11,8 +11,5 @@ pub mod errors;
 pub mod utils;
 pub mod validator;
 
-pub use errors::{PublisherError, ValidatorError};
 pub use api::operations::{prove_headers_validity_and_inclusion, prove_mmr_update};
-
-
-
+pub use errors::{PublisherError, ValidatorError};

@@ -23,6 +23,4 @@ scripts/katana/deploy.log
 
 scripts/katana/katana.log
 
-.cargo/
-
 *.pb

@@ -1,5 +1,5 @@
-use crate::errors::ValidatorError;
 use crate::core::ProofGenerator;
+use crate::errors::ValidatorError;
 use guest_types::{BlocksValidityInput, MMRInput};
 use methods::{BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID};
 use mmr::{PeaksOptions, MMR};

@@ -6,6 +6,9 @@ cd crates/relayer
 
 while true; do
     cargo run --release
-    echo "Waiting 180 seconds before next run..."
-    sleep 180
+    echo "Waiting 10 minutes before next run..."
+    for ((i=10; i>0; i--)); do
+        echo "Next run in $i minutes..."
+        sleep 60
+    done
 done

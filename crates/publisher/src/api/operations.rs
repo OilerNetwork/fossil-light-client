@@ -1,8 +1,4 @@
-use crate::{
-    core::AccumulatorBuilder,
-    errors::PublisherError,
-    validator::ValidatorBuilder,
-};
+use crate::{core::AccumulatorBuilder, errors::PublisherError, validator::ValidatorBuilder};
 
 pub async fn prove_mmr_update(
     rpc_url: &String,

@@ -4,7 +4,7 @@ use crate::utils::BatchResult;
 use ethereum::get_finalized_block_hash;
 use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
 use starknet_crypto::Felt;
-use starknet_handler::{account::StarknetAccount, provider::StarknetProvider, MmrState};
+use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 use tracing::{debug, info};
 
 pub struct AccumulatorBuilder<'a> {
@@ -148,20 +148,12 @@ impl<'a> AccumulatorBuilder<'a> {
         batch_result: &BatchResult,
     ) -> Result<(), AccumulatorError> {
         if !self.batch_processor.skip_proof_verification() {
-            self.verify_proof(
-                batch_result.new_mmr_state(),
-                batch_result.proof().calldata(),
-            )
-            .await?;
+            self.verify_proof(batch_result.proof().calldata()).await?;
         }
         Ok(())
     }
 
-    async fn verify_proof(
-        &self,
-        new_mmr_state: MmrState,
-        calldata: Vec<Felt>,
-    ) -> Result<(), AccumulatorError> {
+    async fn verify_proof(&self, calldata: Vec<Felt>) -> Result<(), AccumulatorError> {
         let starknet_provider = StarknetProvider::new(&self.rpc_url)?;
         let starknet_account = StarknetAccount::new(
             starknet_provider.provider(),
@@ -170,7 +162,7 @@ impl<'a> AccumulatorBuilder<'a> {
         )?;
 
         starknet_account
-            .verify_mmr_proof(&self.verifier_address, &new_mmr_state, calldata)
+            .verify_mmr_proof(&self.verifier_address, calldata)
             .await?;
 
         Ok(())

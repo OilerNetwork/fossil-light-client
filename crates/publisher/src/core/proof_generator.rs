@@ -179,6 +179,8 @@ where
                 vec![Felt::ZERO]
             };
 
+            println!("calldata len: {:?}", calldata.len());
+
             info!("Successfully generated Groth16 proof");
             Ok(Groth16::new(receipt, calldata))
         })

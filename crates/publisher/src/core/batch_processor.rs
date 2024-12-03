@@ -1,6 +1,6 @@
+use crate::core::{MMRStateManager, ProofGenerator};
 use crate::db::DbConnection;
 use crate::errors::AccumulatorError;
-use crate::core::{MMRStateManager, ProofGenerator};
 use crate::utils::BatchResult;
 use common::get_or_create_db_path;
 use guest_types::{CombinedInput, GuestOutput, MMRInput};

@@ -1,4 +1,3 @@
-use crate::MmrState;
 use starknet::macros::selector;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
@@ -46,25 +45,15 @@ impl StarknetAccount {
     pub async fn verify_mmr_proof(
         &self,
         verifier_address: &str,
-        new_mmr_state: &MmrState,
         proof: Vec<Felt>,
     ) -> Result<Felt, StarknetHandlerError> {
         let selector = selector!("verify_mmr_proof");
-
-        println!("new_mmr_state: {:?}", new_mmr_state);
-
-        let batch_index = new_mmr_state.latest_block_number() / 1024;
-        let latest_mmr_block = new_mmr_state.latest_block_number();
-
-        let mut calldata = vec![Felt::from(batch_index), Felt::from(latest_mmr_block)];
-
-        calldata.extend(proof.iter().cloned());
 
         let tx = self
             .account
             .execute_v1(vec![starknet::core::types::Call {
                 selector,
-                calldata,
+                calldata: proof,
                 to: felt(verifier_address)?,
             }])
             .send()
