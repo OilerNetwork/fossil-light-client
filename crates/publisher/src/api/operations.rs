@@ -1,6 +1,7 @@
 use crate::{
     core::AccumulatorBuilder, errors::PublisherError, utils::Stark, validator::ValidatorBuilder,
 };
+use tracing::{span, Level};
 
 const DEFAULT_BATCH_SIZE: u64 = 1024;
 
@@ -14,6 +15,9 @@ pub async fn prove_mmr_update(
     end_block: u64,
     skip_proof_verification: bool,
 ) -> Result<(), PublisherError> {
+    let span = span!(Level::INFO, "prove_mmr_update", start_block, end_block);
+    let _enter = span.enter();
+
     let mut builder = AccumulatorBuilder::new(
         rpc_url,
         verifier_address,
@@ -22,22 +26,23 @@ pub async fn prove_mmr_update(
         batch_size,
         skip_proof_verification,
     )
-    .await?;
+    .await
+    .map_err(|e| {
+        tracing::error!(error = %e, "Failed to create AccumulatorBuilder");
+        e
+    })?;
 
-    tracing::debug!(
-        start_block,
-        end_block,
-        "Starting MMR update and proof generation"
-    );
+    tracing::info!("Starting MMR update and proof generation");
 
     builder
         .update_mmr_with_new_headers(start_block, end_block)
-        .await?;
-    tracing::debug!(
-        start_block,
-        end_block,
-        "Successfully generated proof for block range"
-    );
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "Failed to update MMR with new headers");
+            e
+        })?;
+
+    tracing::info!("Successfully generated proof for block range");
 
     Ok(())
 }
@@ -46,12 +51,26 @@ pub async fn prove_headers_validity_and_inclusion(
     headers: &Vec<eth_rlp_types::BlockHeader>,
     skip_proof_verification: Option<bool>,
 ) -> Result<Vec<Stark>, PublisherError> {
+    let span = span!(Level::INFO, "prove_headers_validity_and_inclusion");
+    let _enter = span.enter();
+
     let skip_proof = skip_proof_verification.unwrap_or(false);
-    let validator = ValidatorBuilder::new(DEFAULT_BATCH_SIZE, skip_proof).await?;
+    let validator = ValidatorBuilder::new(DEFAULT_BATCH_SIZE, skip_proof)
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "Failed to create ValidatorBuilder");
+            e
+        })?;
 
     let result = validator
         .verify_blocks_validity_and_inclusion(headers)
-        .await?;
+        .await
+        .map_err(|e| {
+            tracing::error!(error = %e, "Failed to verify blocks validity and inclusion");
+            e
+        })?;
+
+    tracing::info!("Successfully verified blocks validity and inclusion");
 
     Ok(result)
 }

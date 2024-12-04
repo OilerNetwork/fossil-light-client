@@ -10,7 +10,7 @@ use serde::Deserialize;
 use starknet_crypto::Felt;
 use thiserror::Error;
 use tokio::task;
-use tracing::{debug, info, warn};
+use tracing::{debug, error, info, span, Level};
 
 use crate::utils::{Groth16, Stark};
 
@@ -60,6 +60,9 @@ where
 
     /// Generate a standard Stark proof for intermediate batches
     pub async fn generate_stark_proof(&self, input: T) -> Result<Stark, ProofGeneratorError> {
+        let span = span!(Level::INFO, "generate_stark_proof");
+        let _enter = span.enter();
+
         info!("Generating STARK proof for intermediate batch");
         debug!("Input size: {} bytes", std::mem::size_of_val(&input));
 
@@ -73,12 +76,12 @@ where
                 let env = ExecutorEnv::builder()
                     .write(&input)
                     .map_err(|e| {
-                        warn!("Failed to write input to executor env: {}", e);
+                        error!("Failed to write input to executor env: {}", e);
                         ProofGeneratorError::ExecutorEnvError(e.to_string())
                     })?
                     .build()
                     .map_err(|e| {
-                        warn!("Failed to build executor env: {}", e);
+                        error!("Failed to build executor env: {}", e);
                         ProofGeneratorError::ExecutorEnvError(e.to_string())
                     })?;
 
@@ -86,27 +89,35 @@ where
                 let receipt = default_prover()
                     .prove(env, method_elf)
                     .map_err(|e| {
-                        warn!("Failed to generate STARK proof: {}", e);
+                        error!("Failed to generate STARK proof: {}", e);
                         ProofGeneratorError::ReceiptError(e.to_string())
                     })?
                     .receipt;
 
                 debug!("Computing image ID");
-                let image_id = compute_image_id(method_elf)
-                    .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
+                let image_id = compute_image_id(method_elf).map_err(|e| {
+                    error!("Failed to compute image ID: {}", e);
+                    ProofGeneratorError::ImageIdError(e.to_string())
+                })?;
 
                 info!("Successfully generated STARK proof");
                 Ok(Stark::new(receipt, image_id.as_bytes().to_vec(), method_id))
             }
         })
         .await?
-        .map_err(|e| ProofGeneratorError::SpawnBlocking(e.to_string()))?;
+        .map_err(|e| {
+            error!("Failed to spawn blocking task: {}", e);
+            ProofGeneratorError::SpawnBlocking(e.to_string())
+        })?;
 
         Ok(proof)
     }
 
     /// Generate a Groth16 proof for the final batch
     pub async fn generate_groth16_proof(&self, input: T) -> Result<Groth16, ProofGeneratorError> {
+        let span = span!(Level::INFO, "generate_groth16_proof");
+        let _enter = span.enter();
+
         info!("Generating Groth16 proof for final batch");
         debug!("Input size: {} bytes", std::mem::size_of_val(&input));
 
@@ -119,12 +130,12 @@ where
             let env = ExecutorEnv::builder()
                 .write(&input)
                 .map_err(|e| {
-                    warn!("Failed to write input to executor env: {}", e);
+                    error!("Failed to write input to executor env: {}", e);
                     ProofGeneratorError::ExecutorEnvError(e.to_string())
                 })?
                 .build()
                 .map_err(|e| {
-                    warn!("Failed to build executor env: {}", e);
+                    error!("Failed to build executor env: {}", e);
                     ProofGeneratorError::ExecutorEnvError(e.to_string())
                 })?;
 
@@ -137,20 +148,22 @@ where
                     &ProverOpts::groth16(),
                 )
                 .map_err(|e| {
-                    warn!("Failed to generate Groth16 proof: {}", e);
+                    error!("Failed to generate Groth16 proof: {}", e);
                     ProofGeneratorError::ReceiptError(e.to_string())
                 })?
                 .receipt;
 
             debug!("Encoding seal");
             let encoded_seal = encode_seal(&receipt).map_err(|e| {
-                warn!("Failed to encode seal: {}", e);
+                error!("Failed to encode seal: {}", e);
                 ProofGeneratorError::SealError(e.to_string())
             })?;
 
             debug!("Computing image ID");
-            let image_id = compute_image_id(method_elf)
-                .map_err(|e| ProofGeneratorError::ImageIdError(e.to_string()))?;
+            let image_id = compute_image_id(method_elf).map_err(|e| {
+                error!("Failed to compute image ID: {}", e);
+                ProofGeneratorError::ImageIdError(e.to_string())
+            })?;
 
             let journal = receipt.journal.bytes.clone();
 
@@ -169,7 +182,7 @@ where
             let calldata = if !skip_proof_verification {
                 get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254).map_err(
                     |e| {
-                        warn!("Failed to generate calldata: {}", e);
+                        error!("Failed to generate calldata: {}", e);
                         ProofGeneratorError::CalldataError(e.to_string())
                     },
                 )?
@@ -181,7 +194,10 @@ where
             Ok(Groth16::new(receipt, calldata))
         })
         .await?
-        .map_err(|e| ProofGeneratorError::SpawnBlocking(e.to_string()))?;
+        .map_err(|e| {
+            error!("Failed to spawn blocking task: {}", e);
+            ProofGeneratorError::SpawnBlocking(e.to_string())
+        })?;
 
         Ok(proof)
     }
