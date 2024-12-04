@@ -5644,6 +5644,7 @@ dependencies = [
  "starknet",
  "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 2.0.4",
+ "tracing",
  "url",
 ]
 

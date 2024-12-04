@@ -7,6 +7,7 @@ use starknet::{
 };
 use starknet_crypto::Felt;
 use std::sync::Arc;
+use tracing::{debug, info, instrument, warn};
 
 use common::felt;
 
@@ -17,38 +18,53 @@ pub struct StarknetAccount {
 }
 
 impl StarknetAccount {
+    #[instrument(skip(provider, account_private_key), fields(address = %account_address), level = "debug")]
     pub fn new(
         provider: Arc<JsonRpcClient<HttpTransport>>,
         account_private_key: &str,
         account_address: &str,
     ) -> Result<Self, StarknetHandlerError> {
+        debug!("Creating new Starknet account");
+        
         let private_key = felt(account_private_key)?;
+        debug!("Private key converted to felt");
+        
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(private_key));
-
         let address = felt(account_address)?;
+        
+        debug!(
+            chain_id = ?chain_id::SEPOLIA,
+            encoding = ?ExecutionEncoding::New,
+            "Initializing SingleOwnerAccount"
+        );
 
         let account = SingleOwnerAccount::new(
-            provider, // Use `Arc` directly
+            provider,
             signer,
             address,
             chain_id::SEPOLIA,
             ExecutionEncoding::New,
         );
 
+        info!("Starknet account successfully created");
         Ok(Self { account })
     }
 
-    pub fn account(&self) -> SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet> {
-        self.account.clone()
-    }
-
+    #[instrument(skip(self), level = "debug")]
     pub async fn verify_mmr_proof(
         &self,
         verifier_address: &str,
         proof: Vec<Felt>,
     ) -> Result<Felt, StarknetHandlerError> {
-        let selector = selector!("verify_mmr_proof");
+        debug!(
+            verifier_address = %verifier_address,
+            proof_length = proof.len(),
+            "Verifying MMR proof"
+        );
 
+        let selector = selector!("verify_mmr_proof");
+        
+        debug!("Executing verification transaction");
         let tx = self
             .account
             .execute_v1(vec![starknet::core::types::Call {
@@ -59,6 +75,10 @@ impl StarknetAccount {
             .send()
             .await?;
 
+        info!(
+            tx_hash = ?tx.transaction_hash,
+            "MMR proof verification transaction sent"
+        );
         Ok(tx.transaction_hash)
     }
 }
