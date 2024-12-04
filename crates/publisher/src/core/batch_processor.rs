@@ -6,7 +6,7 @@ use common::get_or_create_db_path;
 use guest_types::{CombinedInput, GuestOutput, MMRInput};
 use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 
 pub struct BatchProcessor {
     batch_size: u64,
@@ -67,6 +67,18 @@ impl BatchProcessor {
         let headers = db_connection
             .get_block_headers_by_block_range(start_block, adjusted_end_block)
             .await?;
+
+        // Check if headers array is empty
+        if headers.is_empty() {
+            error!(
+                "No headers found for block range {} to {}",
+                start_block, adjusted_end_block
+            );
+            return Err(AccumulatorError::EmptyHeaders {
+                start_block,
+                end_block: adjusted_end_block,
+            });
+        }
 
         // Prepare MMR input
         let current_peaks = mmr.get_peaks(PeaksOptions::default()).await?;

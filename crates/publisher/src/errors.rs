@@ -43,6 +43,8 @@ pub enum AccumulatorError {
     InStoreTable(#[from] InStoreTableError),
     #[error("StarknetHandler error: {0}")]
     StarknetHandler(#[from] starknet_handler::StarknetHandlerError),
+    #[error("No headers found for block range {start_block} to {end_block}")]
+    EmptyHeaders { start_block: u64, end_block: u64 },
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -59,4 +61,6 @@ pub enum ValidatorError {
     MMRError(#[from] MMRError),
     #[error("ProofGenerator error: {0}")]
     ProofGenerator(#[from] ProofGeneratorError),
+    #[error("Invalid proofs count {expected} != {actual}")]
+    InvalidProofsCount { expected: usize, actual: usize },
 }

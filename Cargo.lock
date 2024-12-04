@@ -2610,7 +2610,6 @@ dependencies = [
  "mmr-utils",
  "num-bigint",
  "num-traits",
- "serde",
  "sha2 0.10.8 (git+https://github.com/risc0/RustCrypto-hashes.git?tag=sha2-v0.10.8-risczero.0)",
  "thiserror 2.0.3",
  "tokio",

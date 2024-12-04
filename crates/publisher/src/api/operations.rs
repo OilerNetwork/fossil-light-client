@@ -1,5 +1,7 @@
 use crate::{core::AccumulatorBuilder, errors::PublisherError, validator::ValidatorBuilder};
 
+const DEFAULT_BATCH_SIZE: u64 = 1024;
+
 pub async fn prove_mmr_update(
     rpc_url: &String,
     verifier_address: &String,
@@ -40,11 +42,10 @@ pub async fn prove_mmr_update(
 
 pub async fn prove_headers_validity_and_inclusion(
     headers: &Vec<eth_rlp_types::BlockHeader>,
-    batch_size: u64,
     skip_proof_verification: Option<bool>,
 ) -> Result<bool, PublisherError> {
     let skip_proof = skip_proof_verification.unwrap_or(false);
-    let validator = ValidatorBuilder::new(batch_size, skip_proof).await?;
+    let validator = ValidatorBuilder::new(DEFAULT_BATCH_SIZE, skip_proof).await?;
 
     let result = validator
         .verify_blocks_validity_and_inclusion(headers)

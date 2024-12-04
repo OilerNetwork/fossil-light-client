@@ -1,5 +1,4 @@
-use guest_types::AppendResult;
-use serde::{Deserialize, Serialize};
+use guest_types::{AppendResult, GuestProof};
 use std::collections::{HashMap, VecDeque};
 use thiserror::Error;
 
@@ -29,15 +28,6 @@ pub enum MMRError {
     FormattingError(#[from] FormattingError),
     #[error("Invalid peaks count")]
     InvalidPeaksCount,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Proof {
-    element_index: usize,
-    element_hash: String,
-    siblings_hashes: Vec<String>,
-    peaks_hashes: Vec<String>,
-    elements_count: usize,
 }
 
 #[derive(Debug)]
@@ -120,7 +110,7 @@ impl GuestMMR {
         ))
     }
 
-    pub fn get_proof(&self, element_index: usize) -> Result<Proof, MMRError> {
+    pub fn get_proof(&self, element_index: usize) -> Result<GuestProof, MMRError> {
         if element_index == 0 {
             return Err(MMRError::InvalidElementIndex);
         }
@@ -144,7 +134,7 @@ impl GuestMMR {
             .get(&element_index)
             .ok_or(MMRError::NoHashFoundForIndex(element_index))?;
 
-        Ok(Proof {
+        Ok(GuestProof {
             element_index,
             element_hash: element_hash.clone(),
             siblings_hashes,
@@ -155,7 +145,7 @@ impl GuestMMR {
 
     pub fn verify_proof(
         &self,
-        mut proof: Proof,
+        mut proof: GuestProof,
         element_value: String,
         options: Option<ProofOptions>,
     ) -> Result<bool, MMRError> {

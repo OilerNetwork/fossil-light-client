@@ -215,17 +215,26 @@ impl FinalHash {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuestProof {
+    pub element_index: usize,
+    pub element_hash: String,
+    pub siblings_hashes: Vec<String>,
+    pub peaks_hashes: Vec<String>,
+    pub elements_count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlocksValidityInput {
     headers: Vec<BlockHeader>,
     mmr_input: MMRInput,
-    hash_indexes: Vec<usize>,
+    proofs: Vec<GuestProof>,
 }
 impl BlocksValidityInput {
-    pub fn new(headers: Vec<BlockHeader>, mmr_input: MMRInput, hash_indexes: Vec<usize>) -> Self {
+    pub fn new(headers: Vec<BlockHeader>, mmr_input: MMRInput, proofs: Vec<GuestProof>) -> Self {
         Self {
             headers,
             mmr_input,
-            hash_indexes,
+            proofs,
         }
     }
 
@@ -233,8 +242,8 @@ impl BlocksValidityInput {
         &self.headers
     }
 
-    pub fn hash_indexes(&self) -> &Vec<usize> {
-        &self.hash_indexes
+    pub fn proofs(&self) -> &Vec<GuestProof> {
+        &self.proofs
     }
 
     pub fn mmr_input(&self) -> &MMRInput {

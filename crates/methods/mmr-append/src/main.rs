@@ -34,6 +34,8 @@ fn main() {
 
     let root_hash = mmr.calculate_root_hash(mmr.get_elements_count()).unwrap();
 
+    eprintln!("input size: {:?}", input.headers().len());
+
     let first_header = input.headers().first().unwrap();
     let last_header = input.headers().last().unwrap();
 

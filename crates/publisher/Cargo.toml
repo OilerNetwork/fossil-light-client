@@ -4,12 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "update_mmr"
+name = "update-mmr"
 path = "bin/update_mmr.rs"
 
 [[bin]]
-name = "build_mmr"
+name = "build-mmr"
 path = "bin/build_mmr.rs"
+
+[[bin]]
+name = "verify-blocks"
+path = "bin/verify_blocks.rs"
 
 [dependencies]
 guest-types = { path = "../guest-types" }

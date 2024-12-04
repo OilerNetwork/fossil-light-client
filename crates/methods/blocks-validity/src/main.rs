@@ -21,7 +21,8 @@ fn main() {
     // Append block hashes to MMR
     for (i, header) in input.headers().iter().enumerate() {
         let block_hash = header.block_hash.clone();
-        let proof = mmr.get_proof(input.hash_indexes()[i]).unwrap();
+        let proof = input.proofs()[i].clone();
+        
         if !mmr.verify_proof(proof, block_hash, None).unwrap() {
             env::commit(&false);
         }
