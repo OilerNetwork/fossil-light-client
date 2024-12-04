@@ -37,6 +37,12 @@ impl DbConnection {
         start_block: u64,
         end_block: u64,
     ) -> Result<Vec<BlockHeader>, AccumulatorError> {
+        if start_block > end_block {
+            return Err(AccumulatorError::InvalidBlockRange {
+                start_block,
+                end_block,
+            });
+        }
         let temp_headers = sqlx::query_as!(
             TempBlockHeader,
             r#"

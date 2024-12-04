@@ -54,6 +54,8 @@ pub enum AccumulatorError {
     InvalidInput(&'static str),
     #[error("Blockchain operation failed: {0}")]
     BlockchainError(String),
+    #[error("Invalid block range: start block {start_block} is greater than end block {end_block}")]
+    InvalidBlockRange { start_block: u64, end_block: u64 },
 }
 
 #[derive(thiserror::Error, Debug)]
