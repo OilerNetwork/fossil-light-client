@@ -1,6 +1,7 @@
 use common::UtilsError;
 use mmr::{InStoreTableError, MMRError, StoreError};
 use mmr_utils::MMRUtilsError;
+use starknet_types_core::felt::FromStrError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -73,6 +74,12 @@ pub enum ValidatorError {
     InvalidProofsCount { expected: usize, actual: usize },
     #[error("Invalid input: {0}")]
     InvalidInput(&'static str),
+    #[error("Starknet provider error: {0}")]
+    StarknetProvider(#[from] starknet_handler::StarknetHandlerError),
+    #[error("Invalid MMR root: expected {expected} but found {actual}")]
+    InvalidMmrRoot { expected: String, actual: String },
+    #[error("Failed to parse Felt value: {0}")]
+    FeltParsing(#[from] FromStrError),
 }
 
 #[derive(Error, Debug)]

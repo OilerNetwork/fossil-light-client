@@ -4139,6 +4139,7 @@ dependencies = [
  "sqlx",
  "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "starknet-handler",
+ "starknet-types-core",
  "store",
  "thiserror 2.0.4",
  "tokio",

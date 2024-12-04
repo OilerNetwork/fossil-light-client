@@ -1,5 +1,5 @@
 use clap::Parser;
-use common::initialize_logger_and_env;
+use common::{get_env_var, initialize_logger_and_env};
 use publisher::{db::DbConnection, prove_headers_integrity_and_inclusion};
 use tokio;
 
@@ -22,6 +22,8 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     initialize_logger_and_env()?;
+    let rpc_url = get_env_var("STARKNET_RPC_URL")?;
+    let l2_store_address = get_env_var("FOSSIL_STORE")?;
 
     let args = Args::parse();
 
@@ -32,7 +34,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     // Verify blocks
-    match prove_headers_integrity_and_inclusion(&headers, Some(args.skip_proof)).await {
+    match prove_headers_integrity_and_inclusion(
+        &rpc_url,
+        &l2_store_address,
+        &headers,
+        Some(args.skip_proof),
+    )
+    .await
+    {
         Ok(result) => {
             for proof in result {
                 proof.receipt().verify(proof.image_id()?)?;

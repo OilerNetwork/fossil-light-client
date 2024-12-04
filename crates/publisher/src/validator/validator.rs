@@ -5,17 +5,27 @@ use guest_types::{BlocksValidityInput, GuestProof, MMRInput};
 use methods::{BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID};
 use mmr::{PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, StoreManager};
+use starknet_crypto::Felt;
+use starknet_handler::provider::StarknetProvider;
 use std::collections::HashMap;
 use store::SqlitePool;
 use tracing::{error, span, Level};
 
 pub struct ValidatorBuilder {
+    rpc_url: String,
+    l2_store_address: Felt,
     proof_generator: ProofGenerator<BlocksValidityInput>,
     batch_size: u64,
+    skip_proof: bool,
 }
 
 impl ValidatorBuilder {
-    pub async fn new(batch_size: u64, skip_proof: bool) -> Result<Self, ValidatorError> {
+    pub async fn new(
+        rpc_url: &String,
+        l2_store_address: &String,
+        batch_size: u64,
+        skip_proof: bool,
+    ) -> Result<Self, ValidatorError> {
         if batch_size == 0 {
             return Err(ValidatorError::InvalidInput(
                 "Batch size must be greater than 0",
@@ -26,8 +36,11 @@ impl ValidatorBuilder {
             ProofGenerator::new(BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID, skip_proof)?;
 
         Ok(Self {
+            rpc_url: rpc_url.clone(),
+            l2_store_address: Felt::from_hex(l2_store_address)?,
             proof_generator,
             batch_size,
+            skip_proof,
         })
     }
 
@@ -35,17 +48,174 @@ impl ValidatorBuilder {
         &self,
         headers: &Vec<eth_rlp_types::BlockHeader>,
     ) -> Result<Vec<Stark>, ValidatorError> {
-        if headers.is_empty() {
-            return Err(ValidatorError::InvalidInput("Headers list cannot be empty"));
-        }
-
-        let span = span!(Level::INFO, "verify_blocks_integrity_and_inclusion");
-        let _enter = span.enter();
+        self.validate_headers(headers)?;
+        let _span = span!(Level::INFO, "verify_blocks_integrity_and_inclusion").entered();
 
         let mmrs = self.initialize_mmrs_for_headers(headers).await?;
+
+        if self.skip_proof {
+            tracing::info!("Skipping MMR root verification as skip_proof is enabled");
+        } else {
+            tracing::info!("Verifying MMR roots against onchain state...");
+            self.verify_mmr_roots(&mmrs).await?;
+        }
+
         let block_indexes = self.collect_block_indexes(headers, &mmrs).await?;
         self.generate_proofs_for_batches(headers, &mmrs, &block_indexes)
             .await
+    }
+
+    fn validate_headers(
+        &self,
+        headers: &[eth_rlp_types::BlockHeader],
+    ) -> Result<(), ValidatorError> {
+        if headers.is_empty() {
+            return Err(ValidatorError::InvalidInput("Headers list cannot be empty"));
+        }
+        Ok(())
+    }
+
+    async fn verify_mmr_roots(
+        &self,
+        mmrs: &HashMap<u64, (StoreManager, MMR, SqlitePool)>,
+    ) -> Result<(), ValidatorError> {
+        let batch_indexes: Vec<u64> = mmrs.keys().cloned().collect();
+        let onchain_mmr_roots = self.get_onchain_mmr_root(&batch_indexes).await?;
+
+        let onchain_roots_map: HashMap<u64, &String> = batch_indexes
+            .iter()
+            .map(|&index| (index, &onchain_mmr_roots[index as usize]))
+            .collect();
+
+        for (batch_index, (_, mmr, _)) in mmrs.iter() {
+            self.verify_single_mmr_root(batch_index, mmr, &onchain_roots_map)
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    async fn verify_single_mmr_root(
+        &self,
+        batch_index: &u64,
+        mmr: &MMR,
+        onchain_roots_map: &HashMap<u64, &String>,
+    ) -> Result<(), ValidatorError> {
+        let mmr_elements_count = mmr.elements_count.get().await?;
+        let bag = mmr.bag_the_peaks(Some(mmr_elements_count)).await?;
+        let mmr_root = mmr.calculate_root_hash(&bag, mmr_elements_count)?;
+
+        let onchain_root = onchain_roots_map
+            .get(batch_index)
+            .ok_or_else(|| ValidatorError::InvalidInput("Missing onchain MMR root for batch"))?;
+
+        if mmr_root != **onchain_root {
+            return Err(ValidatorError::InvalidMmrRoot {
+                expected: mmr_root,
+                actual: (*onchain_root).clone(),
+            });
+        }
+
+        Ok(())
+    }
+
+    async fn generate_proofs_for_batches(
+        &self,
+        headers: &[eth_rlp_types::BlockHeader],
+        mmrs: &HashMap<u64, (StoreManager, MMR, SqlitePool)>,
+        block_indexes: &[(usize, u64)],
+    ) -> Result<Vec<Stark>, ValidatorError> {
+        let _span = span!(Level::INFO, "generate_proofs_for_batches").entered();
+        let mut proofs = Vec::new();
+
+        for (batch_index, (_, mmr, _)) in mmrs {
+            let proof = self
+                .generate_batch_proof(headers, mmr, block_indexes, *batch_index)
+                .await?;
+            proofs.push(proof);
+        }
+
+        Ok(proofs)
+    }
+
+    async fn generate_batch_proof(
+        &self,
+        headers: &[eth_rlp_types::BlockHeader],
+        mmr: &MMR,
+        block_indexes: &[(usize, u64)],
+        batch_index: u64,
+    ) -> Result<Stark, ValidatorError> {
+        let batch_block_indexes = self.get_batch_block_indexes(block_indexes, batch_index);
+        let batch_headers = self.get_batch_headers(headers, batch_index);
+
+        let batch_proofs = self
+            .get_batch_proofs(mmr, &batch_block_indexes, batch_index)
+            .await?;
+        let guest_proofs = self.convert_to_guest_proofs(batch_proofs);
+
+        self.validate_proofs_count(&batch_headers, &guest_proofs, batch_index)?;
+
+        let mmr_input = self.prepare_mmr_input(mmr).await?;
+        let blocks_validity_input =
+            BlocksValidityInput::new(batch_headers, mmr_input, guest_proofs);
+
+        Ok(self
+            .proof_generator
+            .generate_stark_proof(blocks_validity_input)
+            .await?)
+    }
+
+    async fn get_batch_proofs(
+        &self,
+        mmr: &MMR,
+        batch_block_indexes: &Vec<usize>,
+        batch_index: u64,
+    ) -> Result<Vec<mmr::Proof>, ValidatorError> {
+        mmr.get_proofs(batch_block_indexes, None)
+            .await
+            .map_err(|e| {
+                error!(error = %e, "Failed to get proofs for batch index: {}", batch_index);
+                ValidatorError::Store(store::StoreError::GetError)
+            })
+    }
+
+    fn validate_proofs_count(
+        &self,
+        batch_headers: &[eth_rlp_types::BlockHeader],
+        guest_proofs: &[GuestProof],
+        batch_index: u64,
+    ) -> Result<(), ValidatorError> {
+        if batch_headers.len() != guest_proofs.len() {
+            error!(
+                "Proofs count mismatch for batch index: {}. Expected: {}, Actual: {}",
+                batch_index,
+                batch_headers.len(),
+                guest_proofs.len()
+            );
+            return Err(ValidatorError::InvalidProofsCount {
+                expected: batch_headers.len(),
+                actual: guest_proofs.len(),
+            });
+        }
+        Ok(())
+    }
+
+    async fn get_onchain_mmr_root(
+        &self,
+        batch_indexs: &Vec<u64>,
+    ) -> Result<Vec<String>, ValidatorError> {
+        let provider = StarknetProvider::new(&self.rpc_url)?;
+
+        let mut mmr_roots = Vec::new();
+
+        for batch_index in batch_indexs {
+            let mmr_state = provider
+                .get_mmr_state(&self.l2_store_address, *batch_index)
+                .await?;
+            mmr_roots.push(mmr_state.root_hash().to_string());
+        }
+
+        Ok(mmr_roots)
     }
 
     async fn initialize_mmrs_for_headers(
@@ -113,58 +283,6 @@ impl ValidatorBuilder {
         }
 
         Ok(block_indexes)
-    }
-
-    async fn generate_proofs_for_batches(
-        &self,
-        headers: &[eth_rlp_types::BlockHeader],
-        mmrs: &HashMap<u64, (StoreManager, MMR, SqlitePool)>,
-        block_indexes: &[(usize, u64)],
-    ) -> Result<Vec<Stark>, ValidatorError> {
-        let span = span!(Level::INFO, "generate_proofs_for_batches");
-        let _enter = span.enter();
-
-        let mut proofs = Vec::new();
-
-        for (batch_index, (_, mmr, _)) in mmrs {
-            let batch_block_indexes = self.get_batch_block_indexes(block_indexes, *batch_index);
-            let batch_headers = self.get_batch_headers(headers, *batch_index);
-
-            let batch_proofs = mmr
-                .get_proofs(&batch_block_indexes, None)
-                .await
-                .map_err(|e| {
-                    error!(error = %e, "Failed to get proofs for batch index: {}", batch_index);
-                    ValidatorError::Store(store::StoreError::GetError)
-                })?;
-            let guest_proofs = self.convert_to_guest_proofs(batch_proofs);
-
-            if batch_headers.len() != guest_proofs.len() {
-                error!(
-                    "Proofs count mismatch for batch index: {}. Expected: {}, Actual: {}",
-                    batch_index,
-                    batch_headers.len(),
-                    guest_proofs.len()
-                );
-                return Err(ValidatorError::InvalidProofsCount {
-                    expected: batch_headers.len(),
-                    actual: guest_proofs.len(),
-                });
-            }
-
-            let mmr_input = self.prepare_mmr_input(mmr).await?;
-            let blocks_validity_input =
-                BlocksValidityInput::new(batch_headers, mmr_input, guest_proofs);
-
-            let proof = self
-                .proof_generator
-                .generate_stark_proof(blocks_validity_input)
-                .await?;
-
-            proofs.push(proof);
-        }
-
-        Ok(proofs)
     }
 
     fn get_batch_block_indexes(
