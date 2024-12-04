@@ -22,7 +22,7 @@ impl StarknetProvider {
     #[instrument(level = "debug", fields(rpc_url = %rpc_url))]
     pub fn new(rpc_url: &str) -> Result<Self, StarknetHandlerError> {
         debug!("Initializing StarknetProvider");
-        
+
         let parsed_url = Url::parse(rpc_url)?;
         info!("Parsed RPC URL successfully");
 
@@ -46,7 +46,7 @@ impl StarknetProvider {
         l2_store_address: &Felt,
     ) -> Result<u64, StarknetHandlerError> {
         debug!("Fetching latest MMR block");
-        
+
         let entry_point_selector = selector!("get_latest_mmr_block");
 
         let data = self

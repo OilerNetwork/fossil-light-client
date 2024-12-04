@@ -25,13 +25,13 @@ impl StarknetAccount {
         account_address: &str,
     ) -> Result<Self, StarknetHandlerError> {
         debug!("Creating new Starknet account");
-        
+
         let private_key = felt(account_private_key)?;
         debug!("Private key converted to felt");
-        
+
         let signer = LocalWallet::from(SigningKey::from_secret_scalar(private_key));
         let address = felt(account_address)?;
-        
+
         debug!(
             chain_id = ?chain_id::SEPOLIA,
             encoding = ?ExecutionEncoding::New,
@@ -63,7 +63,7 @@ impl StarknetAccount {
         );
 
         let selector = selector!("verify_mmr_proof");
-        
+
         debug!("Executing verification transaction");
         let tx = self
             .account

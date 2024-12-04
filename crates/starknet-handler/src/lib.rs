@@ -31,6 +31,8 @@ pub enum StarknetHandlerError {
     ParseIntError(#[from] std::num::ParseIntError),
     #[error("Provider error: {0}")]
     Provider(#[from] starknet::providers::ProviderError),
+    #[error("Felt conversion error: {0}")]
+    FeltConversion(#[from] starknet::core::types::FromStrError),
 }
 
 #[derive(Clone, Debug, Encode, Decode)]
@@ -49,11 +51,7 @@ impl MmrState {
         // elements_count: u64,
         leaves_count: u64,
     ) -> Self {
-        debug!(
-            latest_block_number,
-            leaves_count,
-            "Creating new MMR state"
-        );
+        debug!(latest_block_number, leaves_count, "Creating new MMR state");
         Self {
             latest_block_number,
             root_hash,
@@ -83,10 +81,10 @@ impl MmrState {
 pub fn u256_from_hex(hex: &str) -> Result<U256, StarknetHandlerError> {
     let _span = span!(Level::DEBUG, "hex_conversion").entered();
     debug!(input_hex = hex, "Converting hex to U256");
-    
+
     let crypto_bigint = CryptoBigIntU256::from_be_hex(hex);
     let result = U256::from(crypto_bigint);
-    
+
     debug!(result = ?result, "Hex conversion completed");
     Ok(result)
 }
