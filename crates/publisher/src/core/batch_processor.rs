@@ -19,12 +19,18 @@ impl BatchProcessor {
         batch_size: u64,
         proof_generator: ProofGenerator<CombinedInput>,
         skip_proof_verification: bool,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, AccumulatorError> {
+        if batch_size == 0 {
+            return Err(AccumulatorError::InvalidInput(
+                "Batch size must be greater than 0",
+            ));
+        }
+
+        Ok(Self {
             batch_size,
             proof_generator,
             skip_proof_verification,
-        }
+        })
     }
 
     pub fn batch_size(&self) -> u64 {
@@ -40,11 +46,24 @@ impl BatchProcessor {
         start_block: u64,
         end_block: u64,
     ) -> Result<Option<BatchResult>, AccumulatorError> {
+        if end_block < start_block {
+            return Err(AccumulatorError::InvalidInput(
+                "End block cannot be less than start block",
+            ));
+        }
+
         let span = span!(Level::INFO, "process_batch", start_block, end_block);
         let _enter = span.enter();
 
         let batch_index = start_block / self.batch_size;
-        let (_, batch_end) = self.calculate_batch_bounds(batch_index);
+        let (batch_start, batch_end) = self.calculate_batch_bounds(batch_index)?;
+
+        if start_block < batch_start {
+            return Err(AccumulatorError::InvalidInput(
+                "Start block is before batch start",
+            ));
+        }
+
         let adjusted_end_block = std::cmp::min(end_block, batch_end);
 
         info!(
@@ -176,29 +195,84 @@ impl BatchProcessor {
         )))
     }
 
-    pub fn calculate_batch_bounds(&self, batch_index: u64) -> (u64, u64) {
-        let batch_start = batch_index * self.batch_size;
-        let batch_end = batch_start + self.batch_size - 1;
-        (batch_start, batch_end)
+    pub fn calculate_batch_bounds(&self, batch_index: u64) -> Result<(u64, u64), AccumulatorError> {
+        let batch_start = batch_index
+            .checked_mul(self.batch_size)
+            .ok_or(AccumulatorError::InvalidInput("Batch index too large"))?;
+
+        let batch_end = batch_start
+            .checked_add(self.batch_size)
+            .ok_or(AccumulatorError::InvalidInput(
+                "Batch end calculation overflow",
+            ))?
+            .saturating_sub(1);
+
+        Ok((batch_start, batch_end))
     }
 
-    pub fn calculate_start_block(&self, current_end: u64) -> u64 {
-        current_end.saturating_sub(current_end % self.batch_size)
+    pub fn calculate_start_block(&self, current_end: u64) -> Result<u64, AccumulatorError> {
+        if current_end == 0 {
+            return Err(AccumulatorError::InvalidInput(
+                "Current end block cannot be 0",
+            ));
+        }
+
+        Ok(current_end.saturating_sub(current_end % self.batch_size))
     }
 
-    pub fn calculate_batch_range(&self, current_end: u64, start_block: u64) -> BatchRange {
-        let batch_start = current_end - (current_end % self.batch_size);
+    pub fn calculate_batch_range(
+        &self,
+        current_end: u64,
+        start_block: u64,
+    ) -> Result<BatchRange, AccumulatorError> {
+        if current_end < start_block {
+            return Err(AccumulatorError::InvalidInput(
+                "Current end block cannot be less than start block",
+            ));
+        }
+
+        if current_end == 0 {
+            return Err(AccumulatorError::InvalidInput(
+                "Current end block cannot be 0",
+            ));
+        }
+
+        let batch_start = current_end.saturating_sub(current_end % self.batch_size);
         let effective_start = batch_start.max(start_block);
-        let effective_end = std::cmp::min(current_end, batch_start + self.batch_size - 1);
 
-        BatchRange {
+        let batch_size_minus_one = self
+            .batch_size
+            .checked_sub(1)
+            .ok_or(AccumulatorError::InvalidInput("Invalid batch size"))?;
+
+        let max_end =
+            batch_start
+                .checked_add(batch_size_minus_one)
+                .ok_or(AccumulatorError::InvalidInput(
+                    "Batch end calculation overflow",
+                ))?;
+
+        let effective_end = std::cmp::min(current_end, max_end);
+
+        Ok(BatchRange {
             start: effective_start,
             end: effective_end,
-        }
+        })
     }
 }
 
 pub struct BatchRange {
     pub start: u64,
     pub end: u64,
+}
+
+impl BatchRange {
+    pub fn new(start: u64, end: u64) -> Result<Self, AccumulatorError> {
+        if end < start {
+            return Err(AccumulatorError::InvalidInput(
+                "End block cannot be less than start block",
+            ));
+        }
+        Ok(Self { start, end })
+    }
 }

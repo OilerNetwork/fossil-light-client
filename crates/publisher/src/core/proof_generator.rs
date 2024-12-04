@@ -8,31 +8,13 @@ use risc0_ethereum_contracts::encode_seal;
 use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, VerifierContext};
 use serde::Deserialize;
 use starknet_crypto::Felt;
-use thiserror::Error;
 use tokio::task;
 use tracing::{debug, error, info, span, Level};
 
-use crate::utils::{Groth16, Stark};
-
-#[derive(Error, Debug)]
-pub enum ProofGeneratorError {
-    #[error("Failed to write input to executor env: {0}")]
-    ExecutorEnvError(String),
-    #[error("Failed to generate receipt: {0}")]
-    ReceiptError(String),
-    #[error("Failed to compute image id: {0}")]
-    ImageIdError(String),
-    #[error("Failed to encode seal: {0}")]
-    SealError(String),
-    #[error("Failed to generate StarkNet calldata: {0}")]
-    CalldataError(String),
-    #[error("Failed to spawn blocking task: {0}")]
-    SpawnBlocking(String),
-    #[error("Tokio task join error: {0}")]
-    Join(#[from] tokio::task::JoinError),
-    #[error("Risc0 serde error: {0}")]
-    Risc0Serde(#[from] risc0_zkvm::serde::Error),
-}
+use crate::{
+    errors::ProofGeneratorError,
+    utils::{Groth16, Stark},
+};
 
 pub struct ProofGenerator<T> {
     method_elf: &'static [u8],
@@ -49,13 +31,25 @@ where
         method_elf: &'static [u8],
         method_id: [u32; 8],
         skip_proof_verification: bool,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, ProofGeneratorError> {
+        if method_elf.is_empty() {
+            return Err(ProofGeneratorError::InvalidInput(
+                "Method ELF cannot be empty",
+            ));
+        }
+
+        if method_id.iter().all(|&x| x == 0) {
+            return Err(ProofGeneratorError::InvalidInput(
+                "Method ID cannot be all zeros",
+            ));
+        }
+
+        Ok(Self {
             method_elf,
             method_id,
             skip_proof_verification,
             _phantom: std::marker::PhantomData,
-        }
+        })
     }
 
     /// Generate a standard Stark proof for intermediate batches
@@ -63,15 +57,20 @@ where
         let span = span!(Level::INFO, "generate_stark_proof");
         let _enter = span.enter();
 
+        let input_size = std::mem::size_of_val(&input);
+        if input_size == 0 {
+            return Err(ProofGeneratorError::InvalidInput("Input cannot be empty"));
+        }
+
         info!("Generating STARK proof for intermediate batch");
-        debug!("Input size: {} bytes", std::mem::size_of_val(&input));
+        debug!("Input size: {} bytes", input_size);
 
         let proof = task::spawn_blocking({
             let method_elf = self.method_elf;
             let method_id = self.method_id;
             let input = input.clone();
 
-            move || -> eyre::Result<Stark> {
+            move || -> Result<Stark, ProofGeneratorError> {
                 debug!("Building executor environment");
                 let env = ExecutorEnv::builder()
                     .write(&input)
@@ -118,14 +117,19 @@ where
         let span = span!(Level::INFO, "generate_groth16_proof");
         let _enter = span.enter();
 
+        let input_size = std::mem::size_of_val(&input);
+        if input_size == 0 {
+            return Err(ProofGeneratorError::InvalidInput("Input cannot be empty"));
+        }
+
         info!("Generating Groth16 proof for final batch");
-        debug!("Input size: {} bytes", std::mem::size_of_val(&input));
+        debug!("Input size: {} bytes", input_size);
 
         let method_elf = self.method_elf;
         let input = input.clone();
         let skip_proof_verification = self.skip_proof_verification;
 
-        let proof = task::spawn_blocking(move || -> eyre::Result<Groth16> {
+        let proof = task::spawn_blocking(move || -> Result<Groth16, ProofGeneratorError> {
             debug!("Building executor environment");
             let env = ExecutorEnv::builder()
                 .write(&input)
@@ -206,6 +210,12 @@ where
         &self,
         proof: &Groth16,
     ) -> Result<U, ProofGeneratorError> {
+        if proof.receipt().journal.bytes.is_empty() {
+            return Err(ProofGeneratorError::InvalidInput(
+                "Proof journal cannot be empty",
+            ));
+        }
+
         let receipt = proof.receipt();
         Ok(receipt.journal.decode()?)
     }

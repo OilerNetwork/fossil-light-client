@@ -7,6 +7,7 @@ use mmr::{PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, StoreManager};
 use std::collections::HashMap;
 use store::SqlitePool;
+use tracing::{error, span, Level};
 
 pub struct ValidatorBuilder {
     proof_generator: ProofGenerator<BlocksValidityInput>,
@@ -15,8 +16,14 @@ pub struct ValidatorBuilder {
 
 impl ValidatorBuilder {
     pub async fn new(batch_size: u64, skip_proof: bool) -> Result<Self, ValidatorError> {
+        if batch_size == 0 {
+            return Err(ValidatorError::InvalidInput(
+                "Batch size must be greater than 0",
+            ));
+        }
+
         let proof_generator =
-            ProofGenerator::new(BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID, skip_proof);
+            ProofGenerator::new(BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID, skip_proof)?;
 
         Ok(Self {
             proof_generator,
@@ -24,10 +31,17 @@ impl ValidatorBuilder {
         })
     }
 
-    pub async fn verify_blocks_validity_and_inclusion(
+    pub async fn verify_blocks_integrity_and_inclusion(
         &self,
         headers: &Vec<eth_rlp_types::BlockHeader>,
     ) -> Result<Vec<Stark>, ValidatorError> {
+        if headers.is_empty() {
+            return Err(ValidatorError::InvalidInput("Headers list cannot be empty"));
+        }
+
+        let span = span!(Level::INFO, "verify_blocks_integrity_and_inclusion");
+        let _enter = span.enter();
+
         let mmrs = self.initialize_mmrs_for_headers(headers).await?;
         let block_indexes = self.collect_block_indexes(headers, &mmrs).await?;
         self.generate_proofs_for_batches(headers, &mmrs, &block_indexes)
@@ -38,17 +52,28 @@ impl ValidatorBuilder {
         &self,
         headers: &[eth_rlp_types::BlockHeader],
     ) -> Result<HashMap<u64, (StoreManager, MMR, SqlitePool)>, ValidatorError> {
+        let span = span!(Level::INFO, "initialize_mmrs_for_headers");
+        let _enter = span.enter();
+
         let mut mmrs = HashMap::new();
 
         for header in headers {
             let batch_index = header.number as u64 / self.batch_size;
 
             if !mmrs.contains_key(&batch_index) {
-                let batch_file_name = get_or_create_db_path(&format!("batch_{}.db", batch_index))?;
+                let batch_file_name = get_or_create_db_path(&format!("batch_{}.db", batch_index))
+                    .map_err(|e| {
+                    error!(error = %e, "Failed to get or create DB path");
+                    ValidatorError::Store(store::StoreError::GetError)
+                })?;
                 if !std::path::Path::new(&batch_file_name).exists() {
+                    error!("Batch file does not exist: {}", batch_file_name);
                     return Err(ValidatorError::Store(store::StoreError::GetError));
                 }
-                let mmr_components = initialize_mmr(&batch_file_name).await?;
+                let mmr_components = initialize_mmr(&batch_file_name).await.map_err(|e| {
+                    error!(error = %e, "Failed to initialize MMR");
+                    ValidatorError::Store(store::StoreError::GetError)
+                })?;
                 mmrs.insert(batch_index, mmr_components);
             }
         }
@@ -61,16 +86,28 @@ impl ValidatorBuilder {
         headers: &[eth_rlp_types::BlockHeader],
         mmrs: &HashMap<u64, (StoreManager, MMR, SqlitePool)>,
     ) -> Result<Vec<(usize, u64)>, ValidatorError> {
+        let span = span!(Level::INFO, "collect_block_indexes");
+        let _enter = span.enter();
+
         let mut block_indexes = Vec::new();
 
         for header in headers {
             let batch_index = header.number as u64 / self.batch_size;
-            let (store_manager, _, pool) = mmrs.get(&batch_index).unwrap();
+            let (store_manager, _, pool) = mmrs.get(&batch_index).ok_or_else(|| {
+                error!("MMR not found for batch index: {}", batch_index);
+                ValidatorError::Store(store::StoreError::GetError)
+            })?;
 
             let index = store_manager
                 .get_element_index_for_value(pool, &header.block_hash)
                 .await?
-                .ok_or(ValidatorError::Store(store::StoreError::GetError))?;
+                .ok_or_else(|| {
+                    error!(
+                        "Element index not found for block hash: {}",
+                        header.block_hash
+                    );
+                    ValidatorError::Store(store::StoreError::GetError)
+                })?;
 
             block_indexes.push((index, batch_index));
         }
@@ -84,16 +121,31 @@ impl ValidatorBuilder {
         mmrs: &HashMap<u64, (StoreManager, MMR, SqlitePool)>,
         block_indexes: &[(usize, u64)],
     ) -> Result<Vec<Stark>, ValidatorError> {
+        let span = span!(Level::INFO, "generate_proofs_for_batches");
+        let _enter = span.enter();
+
         let mut proofs = Vec::new();
 
         for (batch_index, (_, mmr, _)) in mmrs {
             let batch_block_indexes = self.get_batch_block_indexes(block_indexes, *batch_index);
             let batch_headers = self.get_batch_headers(headers, *batch_index);
 
-            let batch_proofs = mmr.get_proofs(&batch_block_indexes, None).await?;
+            let batch_proofs = mmr
+                .get_proofs(&batch_block_indexes, None)
+                .await
+                .map_err(|e| {
+                    error!(error = %e, "Failed to get proofs for batch index: {}", batch_index);
+                    ValidatorError::Store(store::StoreError::GetError)
+                })?;
             let guest_proofs = self.convert_to_guest_proofs(batch_proofs);
 
             if batch_headers.len() != guest_proofs.len() {
+                error!(
+                    "Proofs count mismatch for batch index: {}. Expected: {}, Actual: {}",
+                    batch_index,
+                    batch_headers.len(),
+                    guest_proofs.len()
+                );
                 return Err(ValidatorError::InvalidProofsCount {
                     expected: batch_headers.len(),
                     actual: guest_proofs.len(),

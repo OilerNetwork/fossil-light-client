@@ -47,14 +47,15 @@ pub async fn prove_mmr_update(
     Ok(())
 }
 
-pub async fn prove_headers_validity_and_inclusion(
+pub async fn prove_headers_integrity_and_inclusion(
     headers: &Vec<eth_rlp_types::BlockHeader>,
     skip_proof_verification: Option<bool>,
 ) -> Result<Vec<Stark>, PublisherError> {
-    let span = span!(Level::INFO, "prove_headers_validity_and_inclusion");
+    let span = span!(Level::INFO, "prove_headers_integrity_and_inclusion");
     let _enter = span.enter();
 
     let skip_proof = skip_proof_verification.unwrap_or(false);
+
     let validator = ValidatorBuilder::new(DEFAULT_BATCH_SIZE, skip_proof)
         .await
         .map_err(|e| {
@@ -63,7 +64,7 @@ pub async fn prove_headers_validity_and_inclusion(
         })?;
 
     let result = validator
-        .verify_blocks_validity_and_inclusion(headers)
+        .verify_blocks_integrity_and_inclusion(headers)
         .await
         .map_err(|e| {
             tracing::error!(error = %e, "Failed to verify blocks validity and inclusion");

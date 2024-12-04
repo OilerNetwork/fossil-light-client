@@ -18,6 +18,12 @@ impl MMRStateManager {
         guest_output: &GuestOutput,
         headers: &Vec<String>,
     ) -> Result<MmrState, AccumulatorError> {
+        if headers.is_empty() {
+            return Err(AccumulatorError::InvalidInput(
+                "Headers list cannot be empty",
+            ));
+        }
+
         let span = span!(Level::INFO, "update_state", latest_block_number);
         let _enter = span.enter();
 
@@ -56,7 +62,14 @@ impl MMRStateManager {
         headers: &Vec<String>,
     ) -> Result<(), AccumulatorError> {
         debug!("Appending headers to MMR");
+
         for hash in headers {
+            if hash.trim().is_empty() {
+                return Err(AccumulatorError::InvalidInput(
+                    "Header hash cannot be empty",
+                ));
+            }
+
             let append_result = mmr.append(hash.clone()).await.map_err(|e| {
                 error!(error = %e, "Failed to append hash to MMR");
                 e
@@ -78,11 +91,12 @@ impl MMRStateManager {
         guest_output: &GuestOutput,
     ) -> Result<(), AccumulatorError> {
         debug!("Verifying MMR state");
-        if mmr.leaves_count.get().await.map_err(|e| {
+
+        let leaves_count = mmr.leaves_count.get().await.map_err(|e| {
             error!(error = %e, "Failed to get leaves count");
             e
-        })? != guest_output.leaves_count() as usize
-        {
+        })?;
+        if leaves_count != guest_output.leaves_count() as usize {
             error!("Leaves count mismatch");
             return Err(AccumulatorError::InvalidStateTransition);
         }
@@ -121,14 +135,21 @@ impl MMRStateManager {
         guest_output: &GuestOutput,
     ) -> Result<MmrState, AccumulatorError> {
         debug!("Creating new MMR state");
+
+        let root_hash = guest_output.root_hash().trim_start_matches("0x");
+        if root_hash.is_empty() {
+            return Err(AccumulatorError::InvalidInput("Root hash cannot be empty"));
+        }
+
         let new_state = MmrState::new(
             latest_block_number,
-            u256_from_hex(guest_output.root_hash().trim_start_matches("0x")).map_err(|e| {
+            u256_from_hex(root_hash).map_err(|e| {
                 error!(error = %e, "Failed to convert root hash from hex");
                 e
             })?,
             guest_output.leaves_count() as u64,
         );
+
         debug!("New MMR state created successfully");
         Ok(new_state)
     }

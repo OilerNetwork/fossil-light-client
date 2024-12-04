@@ -1,8 +1,5 @@
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
-use eyre::Result;
-// use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
-// use publisher::{AccumulatorBuilder, ProofGenerator};
 use tracing::info;
 
 const BATCH_SIZE: u64 = 1024;
@@ -24,7 +21,7 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     initialize_logger_and_env()?;
 
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;

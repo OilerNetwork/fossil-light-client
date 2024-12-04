@@ -36,7 +36,31 @@ impl<'a> AccumulatorBuilder<'a> {
 
         info!("Initializing AccumulatorBuilder");
         let proof_generator =
-            ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, skip_proof_verification);
+            ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, skip_proof_verification)?;
+
+        if rpc_url.trim().is_empty() {
+            return Err(AccumulatorError::InvalidInput("RPC URL cannot be empty"));
+        }
+        if verifier_address.trim().is_empty() {
+            return Err(AccumulatorError::InvalidInput(
+                "Verifier address cannot be empty",
+            ));
+        }
+        if account_private_key.trim().is_empty() {
+            return Err(AccumulatorError::InvalidInput(
+                "Account private key cannot be empty",
+            ));
+        }
+        if account_address.trim().is_empty() {
+            return Err(AccumulatorError::InvalidInput(
+                "Account address cannot be empty",
+            ));
+        }
+        if batch_size == 0 {
+            return Err(AccumulatorError::InvalidInput(
+                "Batch size must be greater than 0",
+            ));
+        }
 
         Ok(Self {
             rpc_url,
@@ -47,7 +71,7 @@ impl<'a> AccumulatorBuilder<'a> {
                 batch_size,
                 proof_generator,
                 skip_proof_verification,
-            ),
+            )?,
             current_batch: 0,
             total_batches: 0,
         })
@@ -61,9 +85,15 @@ impl<'a> AccumulatorBuilder<'a> {
         let span = span!(Level::INFO, "build_with_num_batches", num_batches);
         let _enter = span.enter();
 
+        if num_batches == 0 {
+            return Err(AccumulatorError::InvalidInput(
+                "Number of batches must be greater than 0",
+            ));
+        }
+
         let (finalized_block_number, _) = get_finalized_block_hash().await.map_err(|e| {
             error!(error = %e, "Failed to get finalized block hash");
-            e
+            AccumulatorError::BlockchainError(format!("Failed to get finalized block: {}", e))
         })?;
 
         info!(
@@ -81,7 +111,7 @@ impl<'a> AccumulatorBuilder<'a> {
                 break;
             }
 
-            let start_block = self.batch_processor.calculate_start_block(current_end);
+            let start_block = self.batch_processor.calculate_start_block(current_end)?;
             debug!(batch_num, start_block, current_end, "Processing batch");
 
             let result = self
@@ -126,7 +156,7 @@ impl<'a> AccumulatorBuilder<'a> {
         let mut current_end = finalized_block_number;
 
         while current_end > 0 {
-            let start_block = self.batch_processor.calculate_start_block(current_end);
+            let start_block = self.batch_processor.calculate_start_block(current_end)?;
             let batch_result = self
                 .batch_processor
                 .process_batch(start_block, current_end)
@@ -155,6 +185,23 @@ impl<'a> AccumulatorBuilder<'a> {
         );
         let _enter = span.enter();
 
+        if end_block < start_block {
+            return Err(AccumulatorError::InvalidInput(
+                "End block cannot be less than start block",
+            ));
+        }
+
+        let (finalized_block_number, _) = get_finalized_block_hash().await.map_err(|e| {
+            error!(error = %e, "Failed to get finalized block hash");
+            AccumulatorError::BlockchainError(format!("Failed to get finalized block: {}", e))
+        })?;
+
+        if end_block > finalized_block_number {
+            return Err(AccumulatorError::InvalidInput(
+                "End block cannot be greater than finalized block",
+            ));
+        }
+
         let mut current_end = end_block;
         let mut batch_results = Vec::new();
 
@@ -166,7 +213,7 @@ impl<'a> AccumulatorBuilder<'a> {
         while current_end >= start_block {
             let batch_range = self
                 .batch_processor
-                .calculate_batch_range(current_end, start_block);
+                .calculate_batch_range(current_end, start_block)?;
 
             debug!(
                 batch_start = batch_range.start,

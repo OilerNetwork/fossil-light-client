@@ -3,8 +3,6 @@ use mmr::{InStoreTableError, MMRError, StoreError};
 use mmr_utils::MMRUtilsError;
 use thiserror::Error;
 
-use crate::core::ProofGeneratorError;
-
 #[derive(Error, Debug)]
 pub enum PublisherError {
     #[error("Verification failed: no verification result was produced")]
@@ -51,6 +49,10 @@ pub enum AccumulatorError {
     StarknetHandler(#[from] starknet_handler::StarknetHandlerError),
     #[error("No headers available for block range {start_block} to {end_block}. The range might be invalid or the data might not be synced")]
     EmptyHeaders { start_block: u64, end_block: u64 },
+    #[error("Invalid input: {0}")]
+    InvalidInput(&'static str),
+    #[error("Blockchain operation failed: {0}")]
+    BlockchainError(String),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -69,4 +71,28 @@ pub enum ValidatorError {
     ProofGenerator(#[from] ProofGeneratorError),
     #[error("Proof count mismatch: expected {expected} proofs but found {actual}. This might indicate data corruption or synchronization issues")]
     InvalidProofsCount { expected: usize, actual: usize },
+    #[error("Invalid input: {0}")]
+    InvalidInput(&'static str),
+}
+
+#[derive(Error, Debug)]
+pub enum ProofGeneratorError {
+    #[error("Invalid input: {0}")]
+    InvalidInput(&'static str),
+    #[error("Failed to write input to executor env: {0}")]
+    ExecutorEnvError(String),
+    #[error("Failed to generate receipt: {0}")]
+    ReceiptError(String),
+    #[error("Failed to compute image id: {0}")]
+    ImageIdError(String),
+    #[error("Failed to encode seal: {0}")]
+    SealError(String),
+    #[error("Failed to generate StarkNet calldata: {0}")]
+    CalldataError(String),
+    #[error("Failed to spawn blocking task: {0}")]
+    SpawnBlocking(String),
+    #[error("Tokio task join error: {0}")]
+    Join(#[from] tokio::task::JoinError),
+    #[error("Risc0 serde error: {0}")]
+    Risc0Serde(#[from] risc0_zkvm::serde::Error),
 }

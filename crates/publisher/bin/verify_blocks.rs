@@ -1,6 +1,6 @@
 use clap::Parser;
 use common::initialize_logger_and_env;
-use publisher::{db::DbConnection, prove_headers_validity_and_inclusion};
+use publisher::{db::DbConnection, prove_headers_integrity_and_inclusion};
 use tokio;
 
 #[derive(Parser, Debug)]
@@ -32,7 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     // Verify blocks
-    match prove_headers_validity_and_inclusion(&headers, Some(args.skip_proof)).await {
+    match prove_headers_integrity_and_inclusion(&headers, Some(args.skip_proof)).await {
         Ok(result) => {
             for proof in result {
                 proof.receipt().verify(proof.image_id()?)?;
