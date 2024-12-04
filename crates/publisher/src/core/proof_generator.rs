@@ -122,7 +122,7 @@ where
             return Err(ProofGeneratorError::InvalidInput("Input cannot be empty"));
         }
 
-        info!("Generating Groth16 proof for final batch");
+        info!("Generating Groth16 proof...");
         debug!("Input size: {} bytes", input_size);
 
         let method_elf = self.method_elf;

@@ -24,7 +24,7 @@ impl StarknetProvider {
         debug!("Initializing StarknetProvider");
 
         let parsed_url = Url::parse(rpc_url)?;
-        info!("Parsed RPC URL successfully");
+        debug!("Parsed RPC URL successfully");
 
         Ok(Self {
             provider: Arc::new(JsonRpcClient::new(HttpTransport::new(parsed_url))),

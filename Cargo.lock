@@ -1724,7 +1724,6 @@ dependencies = [
  "ruint",
  "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror 2.0.4",
- "tracing",
  "tracing-subscriber 0.3.19",
 ]
 
@@ -2247,6 +2246,7 @@ version = "0.1.0"
 dependencies = [
  "alloy 0.6.4",
  "common",
+ "tokio",
 ]
 
 [[package]]
@@ -4137,6 +4137,7 @@ dependencies = [
  "risc0-zkvm",
  "serde",
  "sqlx",
+ "starknet",
  "starknet-crypto 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "starknet-handler",
  "starknet-types-core",

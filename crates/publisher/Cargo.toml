@@ -35,6 +35,7 @@ tokio = { workspace = true, features = ["rt-multi-thread"] }
 sqlx = { workspace = true }
 dotenv = { workspace = true }
 starknet-crypto = { workspace = true }
+starknet = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 
 risc0-zkvm = { version = "1.1.3" }

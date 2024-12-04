@@ -5,8 +5,10 @@ use guest_types::{BlocksValidityInput, GuestProof, MMRInput};
 use methods::{BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID};
 use mmr::{PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, StoreManager};
+use starknet::core::types::U256;
 use starknet_crypto::Felt;
 use starknet_handler::provider::StarknetProvider;
+use starknet_handler::u256_from_hex;
 use std::collections::HashMap;
 use store::SqlitePool;
 use tracing::{error, span, Level};
@@ -82,9 +84,10 @@ impl ValidatorBuilder {
         let batch_indexes: Vec<u64> = mmrs.keys().cloned().collect();
         let onchain_mmr_roots = self.get_onchain_mmr_root(&batch_indexes).await?;
 
-        let onchain_roots_map: HashMap<u64, &String> = batch_indexes
+        let onchain_roots_map: HashMap<u64, U256> = batch_indexes
             .iter()
-            .map(|&index| (index, &onchain_mmr_roots[index as usize]))
+            .zip(onchain_mmr_roots.iter())
+            .map(|(&index, root)| (index, root.clone()))
             .collect();
 
         for (batch_index, (_, mmr, _)) in mmrs.iter() {
@@ -99,20 +102,23 @@ impl ValidatorBuilder {
         &self,
         batch_index: &u64,
         mmr: &MMR,
-        onchain_roots_map: &HashMap<u64, &String>,
+        onchain_roots_map: &HashMap<u64, U256>,
     ) -> Result<(), ValidatorError> {
         let mmr_elements_count = mmr.elements_count.get().await?;
         let bag = mmr.bag_the_peaks(Some(mmr_elements_count)).await?;
-        let mmr_root = mmr.calculate_root_hash(&bag, mmr_elements_count)?;
+        let mmr_root = u256_from_hex(
+            &mmr.calculate_root_hash(&bag, mmr_elements_count)?
+                .to_string(),
+        )?;
 
         let onchain_root = onchain_roots_map
             .get(batch_index)
             .ok_or_else(|| ValidatorError::InvalidInput("Missing onchain MMR root for batch"))?;
 
-        if mmr_root != **onchain_root {
+        if onchain_root.clone() != mmr_root {
             return Err(ValidatorError::InvalidMmrRoot {
-                expected: mmr_root,
-                actual: (*onchain_root).clone(),
+                expected: onchain_root.clone(),
+                actual: mmr_root,
             });
         }
 
@@ -203,7 +209,7 @@ impl ValidatorBuilder {
     async fn get_onchain_mmr_root(
         &self,
         batch_indexs: &Vec<u64>,
-    ) -> Result<Vec<String>, ValidatorError> {
+    ) -> Result<Vec<starknet::core::types::U256>, ValidatorError> {
         let provider = StarknetProvider::new(&self.rpc_url)?;
 
         let mut mmr_roots = Vec::new();
@@ -212,7 +218,7 @@ impl ValidatorBuilder {
             let mmr_state = provider
                 .get_mmr_state(&self.l2_store_address, *batch_index)
                 .await?;
-            mmr_roots.push(mmr_state.root_hash().to_string());
+            mmr_roots.push(mmr_state.root_hash());
         }
 
         Ok(mmr_roots)

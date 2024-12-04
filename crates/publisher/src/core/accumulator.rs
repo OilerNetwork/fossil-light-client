@@ -191,17 +191,6 @@ impl<'a> AccumulatorBuilder<'a> {
             ));
         }
 
-        let (finalized_block_number, _) = get_finalized_block_hash().await.map_err(|e| {
-            error!(error = %e, "Failed to get finalized block hash");
-            AccumulatorError::BlockchainError(format!("Failed to get finalized block: {}", e))
-        })?;
-
-        if end_block > finalized_block_number {
-            return Err(AccumulatorError::InvalidInput(
-                "End block cannot be greater than finalized block",
-            ));
-        }
-
         let mut current_end = end_block;
         let mut batch_results = Vec::new();
 

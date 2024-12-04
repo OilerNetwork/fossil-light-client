@@ -6,5 +6,7 @@ edition = "2021"
 [dependencies]
 common = { path = "../common" }
 
+tokio = { workspace = true }
+
 alloy = { version = "0.6.4", features = ["full", "node-bindings"] }
 

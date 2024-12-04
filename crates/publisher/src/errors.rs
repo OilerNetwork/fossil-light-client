@@ -1,6 +1,7 @@
 use common::UtilsError;
 use mmr::{InStoreTableError, MMRError, StoreError};
 use mmr_utils::MMRUtilsError;
+use starknet::core::types::U256;
 use starknet_types_core::felt::FromStrError;
 use thiserror::Error;
 
@@ -54,7 +55,9 @@ pub enum AccumulatorError {
     InvalidInput(&'static str),
     #[error("Blockchain operation failed: {0}")]
     BlockchainError(String),
-    #[error("Invalid block range: start block {start_block} is greater than end block {end_block}")]
+    #[error(
+        "Invalid block range: start block {start_block} is greater than end block {end_block}"
+    )]
     InvalidBlockRange { start_block: u64, end_block: u64 },
 }
 
@@ -79,7 +82,7 @@ pub enum ValidatorError {
     #[error("Starknet provider error: {0}")]
     StarknetProvider(#[from] starknet_handler::StarknetHandlerError),
     #[error("Invalid MMR root: expected {expected} but found {actual}")]
-    InvalidMmrRoot { expected: String, actual: String },
+    InvalidMmrRoot { expected: U256, actual: U256 },
     #[error("Failed to parse Felt value: {0}")]
     FeltParsing(#[from] FromStrError),
 }
