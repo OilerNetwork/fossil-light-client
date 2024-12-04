@@ -1,4 +1,5 @@
 use clap::Parser;
+use common::initialize_logger_and_env;
 use publisher::{db::DbConnection, prove_headers_validity_and_inclusion};
 use tokio;
 
@@ -20,6 +21,8 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    initialize_logger_and_env()?;
+
     let args = Args::parse();
 
     // Fetch block headers
@@ -31,17 +34,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Verify blocks
     match prove_headers_validity_and_inclusion(&headers, Some(args.skip_proof)).await {
         Ok(result) => {
-            println!("Verification result: {}", result);
-            if result {
-                println!("All blocks are valid!");
-            } else {
-                println!("Some blocks failed verification!");
+            for proof in result {
+                proof.receipt().verify(proof.image_id()?)?;
+                let result = proof.journal().decode::<bool>()?;
+                tracing::info!("result: {}", result);
             }
         }
         Err(e) => {
-            eprintln!("Error during verification: {:?}", e);
+            tracing::error!("Error during verification: {:?}", e);
         }
     }
+
+    tracing::info!("All blocks are valid!");
 
     Ok(())
 }

@@ -1,4 +1,6 @@
-use crate::{core::AccumulatorBuilder, errors::PublisherError, validator::ValidatorBuilder};
+use crate::{
+    core::AccumulatorBuilder, errors::PublisherError, utils::Stark, validator::ValidatorBuilder,
+};
 
 const DEFAULT_BATCH_SIZE: u64 = 1024;
 
@@ -43,7 +45,7 @@ pub async fn prove_mmr_update(
 pub async fn prove_headers_validity_and_inclusion(
     headers: &Vec<eth_rlp_types::BlockHeader>,
     skip_proof_verification: Option<bool>,
-) -> Result<bool, PublisherError> {
+) -> Result<Vec<Stark>, PublisherError> {
     let skip_proof = skip_proof_verification.unwrap_or(false);
     let validator = ValidatorBuilder::new(DEFAULT_BATCH_SIZE, skip_proof).await?;
 

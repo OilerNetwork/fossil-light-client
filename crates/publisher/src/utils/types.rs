@@ -1,7 +1,9 @@
-use risc0_zkvm::Receipt;
+use risc0_zkvm::{Journal, Receipt};
 use serde::{Deserialize, Serialize};
 use starknet_crypto::Felt;
 use starknet_handler::MmrState;
+
+use crate::PublisherError;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Groth16 {
@@ -37,6 +39,21 @@ impl Stark {
             image_id,
             method_id,
         }
+    }
+
+    pub fn receipt(&self) -> Receipt {
+        self.receipt.clone()
+    }
+
+    pub fn journal(&self) -> Journal {
+        self.receipt.journal.clone()
+    }
+
+    pub fn image_id(&self) -> Result<[u8; 32], PublisherError> {
+        self.image_id
+            .clone()
+            .try_into()
+            .map_err(|_| PublisherError::ReceiptError)
     }
 }
 

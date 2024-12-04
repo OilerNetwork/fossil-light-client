@@ -17,6 +17,8 @@ pub enum PublisherError {
     MMRUtils(#[from] MMRUtilsError),
     #[error("Headers Validator error: {0}")]
     Validator(#[from] ValidatorError),
+    #[error("Receipt error: invalid Stark proof receipt")]
+    ReceiptError,
 }
 
 #[derive(Error, Debug)]

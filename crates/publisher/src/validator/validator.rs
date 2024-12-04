@@ -1,5 +1,5 @@
-use crate::core::ProofGenerator;
 use crate::errors::ValidatorError;
+use crate::{core::ProofGenerator, utils::Stark};
 use common::get_or_create_db_path;
 use guest_types::{BlocksValidityInput, GuestProof, MMRInput};
 use methods::{BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID};
@@ -27,7 +27,7 @@ impl ValidatorBuilder {
     pub async fn verify_blocks_validity_and_inclusion(
         &self,
         headers: &Vec<eth_rlp_types::BlockHeader>,
-    ) -> Result<bool, ValidatorError> {
+    ) -> Result<Vec<Stark>, ValidatorError> {
         // Map to store MMRs per batch index
         let mut mmrs: HashMap<u64, (StoreManager, MMR, SqlitePool)> = HashMap::new();
         let mut block_indexes = Vec::new();
@@ -37,7 +37,6 @@ impl ValidatorBuilder {
             // Calculate batch index for the block
             let block_number = header.number;
             let batch_index = block_number as u64 / self.batch_size;
-            println!("batch index: {}", batch_index);
 
             // Get or initialize MMR for the batch
             if !mmrs.contains_key(&batch_index) {
@@ -82,11 +81,8 @@ impl ValidatorBuilder {
 
             // Get and verify current MMR state
             let current_peaks = mmr.get_peaks(PeaksOptions::default()).await?;
-            println!("current peaks: {:?}", current_peaks);
             let current_elements_count = mmr.elements_count.get().await?;
-            println!("current elements count: {}", current_elements_count);
             let current_leaves_count = mmr.leaves_count.get().await?;
-            println!("current leaves count: {}", current_leaves_count);
 
             // Prepare MMR input
             let mmr_input = MMRInput::new(
@@ -116,20 +112,14 @@ impl ValidatorBuilder {
             // Generate proof for this batch
             let proof = self
                 .proof_generator
-                .generate_groth16_proof(blocks_validity_input)
+                .generate_stark_proof(blocks_validity_input)
                 .await?;
 
-            let guest_output: bool = self.proof_generator.decode_journal(&proof)?;
-
             // Collect proofs or results
-            proofs.push(guest_output);
+            proofs.push(proof);
         }
 
-        // Combine results
-        // Assuming we need all proofs to be true
-        let all_valid = proofs.iter().all(|&result| result);
-
-        Ok(all_valid)
+        Ok(proofs)
     }
 }
 

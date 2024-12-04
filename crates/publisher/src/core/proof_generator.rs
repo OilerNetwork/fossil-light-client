@@ -165,8 +165,6 @@ where
                 Default::default()
             };
 
-            println!("journal: {:?}", journal);
-
             debug!("Generating calldata");
             let calldata = if !skip_proof_verification {
                 get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254).map_err(
@@ -178,8 +176,6 @@ where
             } else {
                 vec![Felt::ZERO]
             };
-
-            println!("calldata len: {:?}", calldata.len());
 
             info!("Successfully generated Groth16 proof");
             Ok(Groth16::new(receipt, calldata))

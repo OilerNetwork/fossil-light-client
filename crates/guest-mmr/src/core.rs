@@ -341,7 +341,6 @@ mod tests {
         mmr.append(APPEND_VALUE.to_string()).unwrap();
 
         let proof = mmr.get_proof(1).unwrap();
-        println!("proof: {:?}", proof);
         let is_valid = mmr
             .verify_proof(proof, INITIAL_PEAK_VALUE.to_string(), None)
             .unwrap();
