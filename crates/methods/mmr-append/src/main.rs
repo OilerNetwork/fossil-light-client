@@ -34,8 +34,6 @@ fn main() {
 
     let root_hash = mmr.calculate_root_hash(mmr.get_elements_count()).unwrap();
 
-    eprintln!("input size: {:?}", input.headers().len());
-
     let first_header = input.headers().first().unwrap();
     let last_header = input.headers().last().unwrap();
 
@@ -46,11 +44,6 @@ fn main() {
     let last_batch_index = last_block_number / BATCH_SIZE;
 
     assert!(first_batch_index == last_batch_index, "Batch index mismatch");
-
-    eprintln!("root hash: {:?}", root_hash);
-    eprintln!("leaves count: {:?}", mmr.get_leaves_count());
-    eprintln!("batch index: {:?}", first_batch_index);
-    eprintln!("latest mmr block: {:?}", last_block_number);
 
     // Create output
     let output = GuestOutput::new(
