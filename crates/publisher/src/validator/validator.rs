@@ -28,76 +28,70 @@ impl ValidatorBuilder {
         &self,
         headers: &Vec<eth_rlp_types::BlockHeader>,
     ) -> Result<Vec<Stark>, ValidatorError> {
-        // Map to store MMRs per batch index
-        let mut mmrs: HashMap<u64, (StoreManager, MMR, SqlitePool)> = HashMap::new();
-        let mut block_indexes = Vec::new();
+        let mmrs = self.initialize_mmrs_for_headers(headers).await?;
+        let block_indexes = self.collect_block_indexes(headers, &mmrs).await?;
+        self.generate_proofs_for_batches(headers, &mmrs, &block_indexes)
+            .await
+    }
 
-        // For each header, determine its batch index and process accordingly
-        for header in headers.iter() {
-            // Calculate batch index for the block
-            let block_number = header.number;
-            let batch_index = block_number as u64 / self.batch_size;
+    async fn initialize_mmrs_for_headers(
+        &self,
+        headers: &[eth_rlp_types::BlockHeader],
+    ) -> Result<HashMap<u64, (StoreManager, MMR, SqlitePool)>, ValidatorError> {
+        let mut mmrs = HashMap::new();
 
-            // Get or initialize MMR for the batch
+        for header in headers {
+            let batch_index = header.number as u64 / self.batch_size;
+
             if !mmrs.contains_key(&batch_index) {
-                // Determine batch file name
                 let batch_file_name = get_or_create_db_path(&format!("batch_{}.db", batch_index))?;
-                // Check if batch file exists
                 if !std::path::Path::new(&batch_file_name).exists() {
                     return Err(ValidatorError::Store(store::StoreError::GetError));
                 }
-                // Initialize MMR for the batch
-                let (store_manager, mmr, pool) = initialize_mmr(&batch_file_name).await?;
-                mmrs.insert(batch_index, (store_manager, mmr, pool));
+                let mmr_components = initialize_mmr(&batch_file_name).await?;
+                mmrs.insert(batch_index, mmr_components);
             }
+        }
 
-            // Retrieve the MMR and store manager for the batch
+        Ok(mmrs)
+    }
+
+    async fn collect_block_indexes(
+        &self,
+        headers: &[eth_rlp_types::BlockHeader],
+        mmrs: &HashMap<u64, (StoreManager, MMR, SqlitePool)>,
+    ) -> Result<Vec<(usize, u64)>, ValidatorError> {
+        let mut block_indexes = Vec::new();
+
+        for header in headers {
+            let batch_index = header.number as u64 / self.batch_size;
             let (store_manager, _, pool) = mmrs.get(&batch_index).unwrap();
 
-            // Get the index of the block hash in the MMR
             let index = store_manager
                 .get_element_index_for_value(pool, &header.block_hash)
                 .await?
                 .ok_or(ValidatorError::Store(store::StoreError::GetError))?;
+
             block_indexes.push((index, batch_index));
         }
 
-        // For each batch, prepare MMR inputs and generate proofs
+        Ok(block_indexes)
+    }
+
+    async fn generate_proofs_for_batches(
+        &self,
+        headers: &[eth_rlp_types::BlockHeader],
+        mmrs: &HashMap<u64, (StoreManager, MMR, SqlitePool)>,
+        block_indexes: &[(usize, u64)],
+    ) -> Result<Vec<Stark>, ValidatorError> {
         let mut proofs = Vec::new();
-        for (batch_index, (_store_manager, mmr, _pool)) in mmrs.iter() {
-            // Get block indexes for this batch
-            let batch_block_indexes: Vec<usize> = block_indexes
-                .iter()
-                .filter(|(_, idx)| idx == batch_index)
-                .map(|(index, _)| *index)
-                .collect();
 
-            let batch_proofs = mmr.get_proofs(batch_block_indexes.clone(), None).await?;
-            // Convert MMR proofs to GuestProofs
-            let guest_proofs: Vec<GuestProof> = batch_proofs
-                .into_iter()
-                .map(|proof| LocalGuestProof::from(proof).into())
-                .collect();
+        for (batch_index, (_, mmr, _)) in mmrs {
+            let batch_block_indexes = self.get_batch_block_indexes(block_indexes, *batch_index);
+            let batch_headers = self.get_batch_headers(headers, *batch_index);
 
-            // Get and verify current MMR state
-            let current_peaks = mmr.get_peaks(PeaksOptions::default()).await?;
-            let current_elements_count = mmr.elements_count.get().await?;
-            let current_leaves_count = mmr.leaves_count.get().await?;
-
-            // Prepare MMR input
-            let mmr_input = MMRInput::new(
-                current_peaks.clone(),
-                current_elements_count,
-                current_leaves_count,
-                vec![], // No new leaves to append
-            );
-
-            // Get headers for this batch
-            let batch_headers: Vec<eth_rlp_types::BlockHeader> = headers
-                .iter()
-                .filter(|header| header.number as u64 / self.batch_size == *batch_index)
-                .cloned()
-                .collect();
+            let batch_proofs = mmr.get_proofs(&batch_block_indexes, None).await?;
+            let guest_proofs = self.convert_to_guest_proofs(batch_proofs);
 
             if batch_headers.len() != guest_proofs.len() {
                 return Err(ValidatorError::InvalidProofsCount {
@@ -105,21 +99,64 @@ impl ValidatorBuilder {
                     actual: guest_proofs.len(),
                 });
             }
-            // Prepare guest input
-            let blocks_validity_input =
-                BlocksValidityInput::new(batch_headers.clone(), mmr_input, guest_proofs);
 
-            // Generate proof for this batch
+            let mmr_input = self.prepare_mmr_input(mmr).await?;
+            let blocks_validity_input =
+                BlocksValidityInput::new(batch_headers, mmr_input, guest_proofs);
+
             let proof = self
                 .proof_generator
                 .generate_stark_proof(blocks_validity_input)
                 .await?;
 
-            // Collect proofs or results
             proofs.push(proof);
         }
 
         Ok(proofs)
+    }
+
+    fn get_batch_block_indexes(
+        &self,
+        block_indexes: &[(usize, u64)],
+        batch_index: u64,
+    ) -> Vec<usize> {
+        block_indexes
+            .iter()
+            .filter(|(_, idx)| *idx == batch_index)
+            .map(|(index, _)| *index)
+            .collect()
+    }
+
+    fn get_batch_headers(
+        &self,
+        headers: &[eth_rlp_types::BlockHeader],
+        batch_index: u64,
+    ) -> Vec<eth_rlp_types::BlockHeader> {
+        headers
+            .iter()
+            .filter(|header| header.number as u64 / self.batch_size == batch_index)
+            .cloned()
+            .collect()
+    }
+
+    fn convert_to_guest_proofs(&self, batch_proofs: Vec<mmr::Proof>) -> Vec<GuestProof> {
+        batch_proofs
+            .into_iter()
+            .map(|proof| LocalGuestProof::from(proof).into())
+            .collect()
+    }
+
+    async fn prepare_mmr_input(&self, mmr: &MMR) -> Result<MMRInput, ValidatorError> {
+        let current_peaks = mmr.get_peaks(PeaksOptions::default()).await?;
+        let current_elements_count = mmr.elements_count.get().await?;
+        let current_leaves_count = mmr.leaves_count.get().await?;
+
+        Ok(MMRInput::new(
+            current_peaks,
+            current_elements_count,
+            current_leaves_count,
+            vec![],
+        ))
     }
 }
 

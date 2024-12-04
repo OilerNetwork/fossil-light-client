@@ -7,62 +7,66 @@ use crate::core::ProofGeneratorError;
 
 #[derive(Error, Debug)]
 pub enum PublisherError {
-    #[error("Verification result is empty")]
+    #[error("Verification failed: no verification result was produced")]
     VerificationError,
-    #[error("Accumulator error: {0}")]
+    #[error("Accumulator operation failed: {0}")]
     Accumulator(#[from] AccumulatorError),
-    #[error("StarknetHandler error: {0}")]
+    #[error("Starknet interaction failed: {0}")]
     StarknetHandler(#[from] starknet_handler::StarknetHandlerError),
-    #[error("MMRUtils error: {0}")]
+    #[error("MMR utilities operation failed: {0}")]
     MMRUtils(#[from] MMRUtilsError),
-    #[error("Headers Validator error: {0}")]
+    #[error("Header validation failed: {0}")]
     Validator(#[from] ValidatorError),
-    #[error("Receipt error: invalid Stark proof receipt")]
+    #[error("Invalid Stark proof receipt: receipt format or signature verification failed")]
     ReceiptError,
 }
 
 #[derive(Error, Debug)]
 pub enum AccumulatorError {
-    #[error("Invalid state transition: elements count decreased")]
+    #[error(
+        "Invalid state transition detected: total elements count decreased from previous state"
+    )]
     InvalidStateTransition,
-    #[error("Failed to verify stored peaks after update")]
+    #[error(
+        "Peak verification failed: stored peaks hash doesn't match computed peaks after update"
+    )]
     PeaksVerificationError,
-    #[error("MMR root is not a valid Starknet field element: {0}")]
+    #[error("Invalid MMR root format: value '{0}' cannot be converted to a valid Starknet field element")]
     InvalidU256Hex(String),
-    #[error("SQLx error: {0}")]
+    #[error("Database operation failed: {0}")]
     Sqlx(#[from] sqlx::Error),
-    #[error("Utils error: {0}")]
+    #[error("Utility operation failed: {0}")]
     Utils(#[from] UtilsError),
-    #[error("MMR error: {0}")]
+    #[error("MMR operation failed: {0}")]
     MMRError(#[from] MMRError),
-    #[error("Store error: {0}")]
+    #[error("Storage operation failed: {0}")]
     Store(#[from] StoreError),
-    #[error("ProofGenerator error: {0}")]
+    #[error("Proof generation failed: {0}")]
     ProofGenerator(#[from] ProofGeneratorError),
-    #[error("MMRUtils error: {0}")]
+    #[error("MMR utilities operation failed: {0}")]
     MMRUtils(#[from] MMRUtilsError),
-    #[error("InStoreTable error: {0}")]
+    #[error("In-store table operation failed: {0}")]
     InStoreTable(#[from] InStoreTableError),
-    #[error("StarknetHandler error: {0}")]
+    #[error("Starknet interaction failed: {0}")]
     StarknetHandler(#[from] starknet_handler::StarknetHandlerError),
-    #[error("No headers found for block range {start_block} to {end_block}")]
+    #[error("No headers available for block range {start_block} to {end_block}. The range might be invalid or the data might not be synced")]
     EmptyHeaders { start_block: u64, end_block: u64 },
 }
 
 #[derive(thiserror::Error, Debug)]
 pub enum ValidatorError {
-    #[error("Utils error: {0}")]
+    #[error("Utility operation failed: {0}")]
     Utils(#[from] common::UtilsError),
-    #[error("MMR error: {0}")]
+    #[error("MMR utilities operation failed: {0}")]
     MMRUtils(#[from] mmr_utils::MMRUtilsError),
-    #[error("Store error: {0}")]
+    #[error("Database operation failed: {0}")]
     Sqlx(#[from] sqlx::Error),
-    #[error("Store error: {0}")]
+    #[error("Storage operation failed: {0}")]
     Store(#[from] store::StoreError),
-    #[error("MMR error: {0}")]
+    #[error("MMR operation failed: {0}")]
     MMRError(#[from] MMRError),
-    #[error("ProofGenerator error: {0}")]
+    #[error("Proof generation failed: {0}")]
     ProofGenerator(#[from] ProofGeneratorError),
-    #[error("Invalid proofs count {expected} != {actual}")]
+    #[error("Proof count mismatch: expected {expected} proofs but found {actual}. This might indicate data corruption or synchronization issues")]
     InvalidProofsCount { expected: usize, actual: usize },
 }
