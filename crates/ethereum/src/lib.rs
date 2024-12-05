@@ -43,17 +43,16 @@ pub async fn get_finalized_block_hash() -> Result<(u64, String), UtilsError> {
         }
         .await;
 
-        match result {
-            Ok(value) => return Ok(value),
-            Err(_) => {
-                if attempts >= MAX_RETRIES {
-                    return Err(UtilsError::RetryExhausted(
-                        MAX_RETRIES,
-                        "get_finalized_block_hash".to_string(),
-                    ));
-                }
-                sleep(RETRY_DELAY).await;
+        if let Ok(value) = result {
+            return Ok(value);
+        } else {
+            if attempts >= MAX_RETRIES {
+                return Err(UtilsError::RetryExhausted(
+                    MAX_RETRIES,
+                    "get_finalized_block_hash".to_string(),
+                ));
             }
+            sleep(RETRY_DELAY).await;
         }
     }
 }
