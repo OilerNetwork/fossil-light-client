@@ -1,6 +1,5 @@
 name: Cairo fmt
 on:
-  push:
   pull_request:
 jobs:
   check:
