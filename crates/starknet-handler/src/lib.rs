@@ -9,6 +9,7 @@ use starknet::core::codec::{Decode, Encode};
 use starknet::core::types::U256;
 use starknet::signers::local_wallet::SignError as LocalWalletSignError;
 use thiserror::Error;
+use tracing::{debug, instrument};
 
 #[derive(Error, Debug)]
 pub enum StarknetHandlerError {
@@ -30,6 +31,8 @@ pub enum StarknetHandlerError {
     ParseIntError(#[from] std::num::ParseIntError),
     #[error("Provider error: {0}")]
     Provider(#[from] starknet::providers::ProviderError),
+    #[error("Felt conversion error: {0}")]
+    FeltConversion(#[from] starknet::core::types::FromStrError),
 }
 
 #[derive(Clone, Debug, Encode, Decode)]
@@ -41,12 +44,14 @@ pub struct MmrState {
 }
 
 impl MmrState {
+    #[instrument(skip(root_hash), level = "debug")]
     pub fn new(
         latest_block_number: u64,
         root_hash: U256,
         // elements_count: u64,
         leaves_count: u64,
     ) -> Self {
+        debug!(latest_block_number, leaves_count, "Creating new MMR state");
         Self {
             latest_block_number,
             root_hash,
@@ -72,10 +77,15 @@ impl MmrState {
     }
 }
 
+#[instrument(level = "debug")]
 pub fn u256_from_hex(hex: &str) -> Result<U256, StarknetHandlerError> {
-    let crypto_bigint = CryptoBigIntU256::from_be_hex(hex);
+    let hex_clean = hex.strip_prefix("0x").unwrap_or(hex);
 
-    Ok(U256::from(crypto_bigint))
+    let crypto_bigint = CryptoBigIntU256::from_be_hex(hex_clean);
+    let result = U256::from(crypto_bigint);
+
+    debug!(result = ?result, "Hex conversion completed");
+    Ok(result)
 }
 
 #[cfg(test)]

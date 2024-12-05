@@ -7,7 +7,7 @@ use starknet::{
 };
 use starknet_handler::provider::StarknetProvider;
 use tokio::time::{self, Duration};
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 const BATCH_SIZE: u64 = 1024;
 
@@ -173,7 +173,9 @@ impl LightClient {
 
         info!(
             latest_relayed_block,
-            latest_mmr_block, "State fetched from Starknet"
+            latest_mmr_block,
+            num_blocks = latest_relayed_block - latest_mmr_block,
+            "State fetched from Starknet"
         );
 
         // Update MMR and verify proofs
@@ -191,9 +193,10 @@ impl LightClient {
         latest_relayed_block: u64,
     ) -> Result<(), LightClientError> {
         if latest_mmr_block >= latest_relayed_block {
-            error!(
+            warn!(
                 latest_mmr_block,
-                latest_relayed_block, "Latest MMR block is greater than the latest relayed block"
+                latest_relayed_block,
+                "Latest MMR block is greater than the latest relayed block, skipping proof verification"
             );
             return Err(LightClientError::StateError(
                 latest_mmr_block,

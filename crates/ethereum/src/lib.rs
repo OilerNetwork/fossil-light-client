@@ -2,6 +2,7 @@
 
 use alloy::{providers::ProviderBuilder, sol};
 use common::{get_env_var, UtilsError};
+use tokio::time::{sleep, Duration};
 
 // Codegen from embedded Solidity code and precompiled bytecode.
 sol! {
@@ -21,17 +22,37 @@ sol! {
 #[allow(dead_code)]
 pub async fn get_finalized_block_hash() -> Result<(u64, String), UtilsError> {
     let rpc_url = get_env_var("ETH_RPC_URL")?;
-    let provider = ProviderBuilder::new()
-        .with_recommended_fillers()
-        .on_anvil_with_wallet_and_config(|anvil| anvil.fork(rpc_url));
+    const MAX_RETRIES: u32 = 3;
+    const RETRY_DELAY: Duration = Duration::from_secs(1);
 
-    let contract = BlockHashFetcher::deploy(&provider).await?;
+    let mut attempts = 0;
+    loop {
+        attempts += 1;
+        let result: Result<(u64, String), UtilsError> = async {
+            let provider = ProviderBuilder::new()
+                .with_recommended_fillers()
+                .on_anvil_with_wallet_and_config(|anvil| anvil.fork(rpc_url.clone()));
 
-    let builder = contract.getBlockHash();
-    let result = builder.call().await?;
+            let contract = BlockHashFetcher::deploy(&provider).await?;
+            let result = contract.getBlockHash().call().await?;
 
-    let block_number: u64 = result.blockNumber.try_into()?;
-    let block_hash = result.blockHash.to_string();
+            let block_number: u64 = result.blockNumber.try_into()?;
+            let block_hash = result.blockHash.to_string();
 
-    Ok((block_number, block_hash))
+            Ok((block_number, block_hash))
+        }
+        .await;
+
+        if let Ok(value) = result {
+            return Ok(value);
+        } else {
+            if attempts >= MAX_RETRIES {
+                return Err(UtilsError::RetryExhausted(
+                    MAX_RETRIES,
+                    "get_finalized_block_hash".to_string(),
+                ));
+            }
+            sleep(RETRY_DELAY).await;
+        }
+    }
 }

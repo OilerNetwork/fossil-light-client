@@ -85,14 +85,12 @@ pub fn hasher(data: Vec<String>) -> Result<String, MMRError> {
 
 pub fn find_siblings(element_index: usize, elements_count: usize) -> Result<Vec<usize>, MMRError> {
     let mut leaf_index = element_index_to_leaf_index(element_index)?;
-    println!("leaf index: {}", leaf_index);
     let mut height = 0;
     let mut siblings = Vec::new();
     let mut current_element_index = element_index;
 
     while current_element_index <= elements_count {
         let siblings_offset = (2 << height) - 1;
-        println!("siblings offset: {}", siblings_offset);
         if leaf_index % 2 == 1 {
             // right child
             siblings.push(current_element_index - siblings_offset);

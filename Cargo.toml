@@ -31,7 +31,7 @@ sqlx = { version = "0.8.2", features = [
     "runtime-tokio-native-tls",
 ] }
 eyre = "0.6"
-thiserror = "2.0.3"
+thiserror = "2.0.4"
 tracing = "0.1.40"
 tokio = "1.41.1"
 dotenv = "0.15"

@@ -45,11 +45,6 @@ fn main() {
 
     assert!(first_batch_index == last_batch_index, "Batch index mismatch");
 
-    eprintln!("root hash: {:?}", root_hash);
-    eprintln!("leaves count: {:?}", mmr.get_leaves_count());
-    eprintln!("batch index: {:?}", first_batch_index);
-    eprintln!("latest mmr block: {:?}", last_block_number);
-
     // Create output
     let output = GuestOutput::new(
         root_hash,

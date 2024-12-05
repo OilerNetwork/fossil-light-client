@@ -27,6 +27,8 @@ pub enum UtilsError {
     FeltError(String),
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+    #[error("Retry exhausted after {0} attempts: {1}")]
+    RetryExhausted(u32, String),
 }
 
 /// Retrieves an environment variable or returns an error if not set.
@@ -50,19 +52,32 @@ pub fn initialize_logger_and_env() -> Result<(), UtilsError> {
     dotenv::dotenv().ok();
 
     let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        let directive = match "sqlx=off".parse() {
-            Ok(d) => d,
-            Err(e) => {
-                tracing::warn!("Failed to parse sqlx filter directive: {}", e);
-                Default::default()
+        // Define default filter directives - adjust these based on your needs
+        let directives = [
+            "sqlx=off",
+            "info",
+            "handle_events=warn", // Reduce verbosity of handle_events
+            "publisher=info",     // Keep publisher at info level
+        ];
+
+        let mut filter = tracing_subscriber::EnvFilter::new("");
+        for directive in directives {
+            if let Ok(d) = directive.parse() {
+                filter = filter.add_directive(d);
             }
-        };
-        tracing_subscriber::EnvFilter::new("info").add_directive(directive)
+        }
+        filter
     });
 
     tracing_subscriber::fmt()
         .with_env_filter(filter)
+        .with_target(false) // Removes module path from output
+        .with_thread_ids(false) // Removes thread IDs
+        .with_thread_names(false) // Removes thread names
         .with_file(true)
+        .with_line_number(true)
+        .with_span_events(tracing_subscriber::fmt::format::FmtSpan::NONE) // Reduces span noise
+        .compact() // Uses more compact format
         .init();
     Ok(())
 }

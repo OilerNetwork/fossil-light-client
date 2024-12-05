@@ -1,6 +1,5 @@
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
-use eyre::Result;
 use publisher::core::AccumulatorBuilder;
 use tracing::info;
 
@@ -21,7 +20,7 @@ struct Args {
 }
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     initialize_logger_and_env()?;
 
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;

@@ -5,7 +5,7 @@ use ethereum::get_finalized_block_hash;
 use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
 use starknet_crypto::Felt;
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
-use tracing::{debug, info};
+use tracing::{debug, error, info, warn};
 
 pub struct AccumulatorBuilder<'a> {
     rpc_url: &'a String,
@@ -26,8 +26,33 @@ impl<'a> AccumulatorBuilder<'a> {
         batch_size: u64,
         skip_proof_verification: bool,
     ) -> Result<Self, AccumulatorError> {
+        info!("Initializing AccumulatorBuilder");
         let proof_generator =
-            ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, skip_proof_verification);
+            ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, skip_proof_verification)?;
+
+        if rpc_url.trim().is_empty() {
+            return Err(AccumulatorError::InvalidInput("RPC URL cannot be empty"));
+        }
+        if verifier_address.trim().is_empty() {
+            return Err(AccumulatorError::InvalidInput(
+                "Verifier address cannot be empty",
+            ));
+        }
+        if account_private_key.trim().is_empty() {
+            return Err(AccumulatorError::InvalidInput(
+                "Account private key cannot be empty",
+            ));
+        }
+        if account_address.trim().is_empty() {
+            return Err(AccumulatorError::InvalidInput(
+                "Account address cannot be empty",
+            ));
+        }
+        if batch_size == 0 {
+            return Err(AccumulatorError::InvalidInput(
+                "Batch size must be greater than 0",
+            ));
+        }
 
         Ok(Self {
             rpc_url,
@@ -38,7 +63,7 @@ impl<'a> AccumulatorBuilder<'a> {
                 batch_size,
                 proof_generator,
                 skip_proof_verification,
-            ),
+            )?,
             current_batch: 0,
             total_batches: 0,
         })
@@ -49,33 +74,63 @@ impl<'a> AccumulatorBuilder<'a> {
         &mut self,
         num_batches: u64,
     ) -> Result<(), AccumulatorError> {
-        let (finalized_block_number, _) = get_finalized_block_hash().await?;
-        info!("Building MMR...");
+        if num_batches == 0 {
+            return Err(AccumulatorError::InvalidInput(
+                "Number of batches must be greater than 0",
+            ));
+        }
+
+        let (finalized_block_number, _) = get_finalized_block_hash().await.map_err(|e| {
+            error!(error = %e, "Failed to get finalized block hash");
+            AccumulatorError::BlockchainError(format!("Failed to get finalized block: {}", e))
+        })?;
+
+        info!(
+            finalized_block_number,
+            num_batches, "Starting MMR build with specified number of batches"
+        );
 
         self.total_batches = num_batches;
         self.current_batch = 0;
-
         let mut current_end = finalized_block_number;
 
-        for _ in 0..num_batches {
+        for batch_num in 0..num_batches {
             if current_end == 0 {
+                warn!("Reached block 0 before completing all batches");
                 break;
             }
 
-            let start_block = self.batch_processor.calculate_start_block(current_end);
+            let start_block = self.batch_processor.calculate_start_block(current_end)?;
+            debug!(batch_num, start_block, current_end, "Processing batch");
+
             let result = self
                 .batch_processor
                 .process_batch(start_block, current_end)
-                .await?;
+                .await
+                .map_err(|e| {
+                    error!(
+                        error = %e,
+                        batch_num,
+                        start_block,
+                        current_end,
+                        "Failed to process batch"
+                    );
+                    e
+                })?;
 
             if let Some(batch_result) = result {
                 self.handle_batch_result(&batch_result).await?;
                 self.current_batch += 1;
+                info!(
+                    progress = format!("{}/{}", self.current_batch, self.total_batches),
+                    "Batch processed successfully"
+                );
             }
 
             current_end = start_block.saturating_sub(1);
         }
 
+        info!("MMR build completed successfully");
         Ok(())
     }
 
@@ -90,7 +145,7 @@ impl<'a> AccumulatorBuilder<'a> {
         let mut current_end = finalized_block_number;
 
         while current_end > 0 {
-            let start_block = self.batch_processor.calculate_start_block(current_end);
+            let start_block = self.batch_processor.calculate_start_block(current_end)?;
             let batch_result = self
                 .batch_processor
                 .process_batch(start_block, current_end)
@@ -111,34 +166,65 @@ impl<'a> AccumulatorBuilder<'a> {
         start_block: u64,
         end_block: u64,
     ) -> Result<(), AccumulatorError> {
+        if end_block < start_block {
+            return Err(AccumulatorError::InvalidInput(
+                "End block cannot be less than start block",
+            ));
+        }
+
         let mut current_end = end_block;
         let mut batch_results = Vec::new();
 
-        debug!(
-            "Updating MMR with blocks from {} to {}",
-            start_block, end_block
+        info!(
+            total_blocks = end_block - start_block,
+            "Starting MMR update with new headers"
         );
 
         while current_end >= start_block {
             let batch_range = self
                 .batch_processor
-                .calculate_batch_range(current_end, start_block);
+                .calculate_batch_range(current_end, start_block)?;
+
+            debug!(
+                batch_start = batch_range.start,
+                batch_end = batch_range.end,
+                "Processing batch range"
+            );
 
             if let Some(result) = self
                 .batch_processor
                 .process_batch(batch_range.start, batch_range.end)
-                .await?
+                .await
+                .map_err(|e| {
+                    error!(
+                        error = %e,
+                        batch_start = batch_range.start,
+                        batch_end = batch_range.end,
+                        "Failed to process batch"
+                    );
+                    e
+                })?
             {
                 self.handle_batch_result(&result).await?;
                 batch_results.push((result.proof().calldata(), result.new_mmr_state()));
+                debug!(
+                    batch_start = batch_range.start,
+                    batch_end = batch_range.end,
+                    "Batch processed successfully"
+                );
             }
 
             current_end = batch_range.start.saturating_sub(1);
         }
 
         if batch_results.is_empty() {
+            error!(start_block, end_block, "No batch results generated");
             Err(AccumulatorError::InvalidStateTransition)
         } else {
+            debug!(
+                total_batches = batch_results.len(),
+                "MMR update completed successfully"
+            );
             Ok(())
         }
     }
@@ -154,17 +240,33 @@ impl<'a> AccumulatorBuilder<'a> {
     }
 
     async fn verify_proof(&self, calldata: Vec<Felt>) -> Result<(), AccumulatorError> {
-        let starknet_provider = StarknetProvider::new(&self.rpc_url)?;
+        debug!("Initializing Starknet provider");
+        let starknet_provider = StarknetProvider::new(&self.rpc_url).map_err(|e| {
+            error!(error = %e, "Failed to initialize Starknet provider");
+            e
+        })?;
+
+        debug!("Creating Starknet account");
         let starknet_account = StarknetAccount::new(
             starknet_provider.provider(),
             &self.account_private_key,
             &self.account_address,
-        )?;
+        )
+        .map_err(|e| {
+            error!(error = %e, "Failed to create Starknet account");
+            e
+        })?;
 
+        debug!("Verifying MMR proof");
         starknet_account
             .verify_mmr_proof(&self.verifier_address, calldata)
-            .await?;
+            .await
+            .map_err(|e| {
+                error!(error = %e, "Failed to verify MMR proof");
+                e
+            })?;
 
+        debug!("MMR proof verified successfully");
         Ok(())
     }
 }
