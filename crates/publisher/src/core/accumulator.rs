@@ -5,7 +5,7 @@ use ethereum::get_finalized_block_hash;
 use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
 use starknet_crypto::Felt;
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
-use tracing::{debug, error, info, span, warn, Level};
+use tracing::{debug, error, info, warn};
 
 pub struct AccumulatorBuilder<'a> {
     rpc_url: &'a String,
@@ -26,14 +26,6 @@ impl<'a> AccumulatorBuilder<'a> {
         batch_size: u64,
         skip_proof_verification: bool,
     ) -> Result<Self, AccumulatorError> {
-        let span = span!(
-            Level::INFO,
-            "accumulator_builder_new",
-            batch_size,
-            skip_proof_verification
-        );
-        let _enter = span.enter();
-
         info!("Initializing AccumulatorBuilder");
         let proof_generator =
             ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, skip_proof_verification)?;
@@ -82,9 +74,6 @@ impl<'a> AccumulatorBuilder<'a> {
         &mut self,
         num_batches: u64,
     ) -> Result<(), AccumulatorError> {
-        let span = span!(Level::INFO, "build_with_num_batches", num_batches);
-        let _enter = span.enter();
-
         if num_batches == 0 {
             return Err(AccumulatorError::InvalidInput(
                 "Number of batches must be greater than 0",
@@ -177,14 +166,6 @@ impl<'a> AccumulatorBuilder<'a> {
         start_block: u64,
         end_block: u64,
     ) -> Result<(), AccumulatorError> {
-        let span = span!(
-            Level::INFO,
-            "update_mmr_with_new_headers",
-            start_block,
-            end_block
-        );
-        let _enter = span.enter();
-
         if end_block < start_block {
             return Err(AccumulatorError::InvalidInput(
                 "End block cannot be less than start block",
@@ -195,8 +176,8 @@ impl<'a> AccumulatorBuilder<'a> {
         let mut batch_results = Vec::new();
 
         info!(
-            start_block,
-            end_block, "Starting MMR update with new headers"
+            total_blocks = end_block - start_block,
+            "Starting MMR update with new headers"
         );
 
         while current_end >= start_block {
@@ -226,7 +207,7 @@ impl<'a> AccumulatorBuilder<'a> {
             {
                 self.handle_batch_result(&result).await?;
                 batch_results.push((result.proof().calldata(), result.new_mmr_state()));
-                info!(
+                debug!(
                     batch_start = batch_range.start,
                     batch_end = batch_range.end,
                     "Batch processed successfully"
@@ -240,7 +221,7 @@ impl<'a> AccumulatorBuilder<'a> {
             error!(start_block, end_block, "No batch results generated");
             Err(AccumulatorError::InvalidStateTransition)
         } else {
-            info!(
+            debug!(
                 total_batches = batch_results.len(),
                 "MMR update completed successfully"
             );
@@ -259,9 +240,6 @@ impl<'a> AccumulatorBuilder<'a> {
     }
 
     async fn verify_proof(&self, calldata: Vec<Felt>) -> Result<(), AccumulatorError> {
-        let span = span!(Level::DEBUG, "verify_proof", calldata_len = calldata.len());
-        let _enter = span.enter();
-
         debug!("Initializing Starknet provider");
         let starknet_provider = StarknetProvider::new(&self.rpc_url).map_err(|e| {
             error!(error = %e, "Failed to initialize Starknet provider");

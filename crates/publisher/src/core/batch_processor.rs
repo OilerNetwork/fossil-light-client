@@ -6,7 +6,7 @@ use common::get_or_create_db_path;
 use guest_types::{CombinedInput, GuestOutput, MMRInput};
 use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
-use tracing::{debug, error, info, span, Level};
+use tracing::{debug, error, info};
 
 pub struct BatchProcessor {
     batch_size: u64,
@@ -52,9 +52,6 @@ impl BatchProcessor {
             ));
         }
 
-        let span = span!(Level::INFO, "process_batch", start_block, end_block);
-        let _enter = span.enter();
-
         let batch_index = start_block / self.batch_size;
         let (batch_start, batch_end) = self.calculate_batch_bounds(batch_index)?;
 
@@ -67,8 +64,9 @@ impl BatchProcessor {
         let adjusted_end_block = std::cmp::min(end_block, batch_end);
 
         info!(
-            "Processing batch {} (blocks {} to {})",
-            batch_index, start_block, adjusted_end_block
+            batch_index,
+            num_blocks = adjusted_end_block - start_block,
+            "Processing batch"
         );
 
         let batch_file_name =

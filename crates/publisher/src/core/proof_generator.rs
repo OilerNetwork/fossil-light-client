@@ -9,7 +9,7 @@ use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, Veri
 use serde::Deserialize;
 use starknet_crypto::Felt;
 use tokio::task;
-use tracing::{debug, error, info, span, Level};
+use tracing::{debug, error, info};
 
 use crate::{
     errors::ProofGeneratorError,
@@ -54,9 +54,6 @@ where
 
     /// Generate a standard Stark proof for intermediate batches
     pub async fn generate_stark_proof(&self, input: T) -> Result<Stark, ProofGeneratorError> {
-        let span = span!(Level::INFO, "generate_stark_proof");
-        let _enter = span.enter();
-
         let input_size = std::mem::size_of_val(&input);
         if input_size == 0 {
             return Err(ProofGeneratorError::InvalidInput("Input cannot be empty"));
@@ -114,9 +111,6 @@ where
 
     /// Generate a Groth16 proof for the final batch
     pub async fn generate_groth16_proof(&self, input: T) -> Result<Groth16, ProofGeneratorError> {
-        let span = span!(Level::INFO, "generate_groth16_proof");
-        let _enter = span.enter();
-
         let input_size = std::mem::size_of_val(&input);
         if input_size == 0 {
             return Err(ProofGeneratorError::InvalidInput("Input cannot be empty"));
@@ -194,7 +188,7 @@ where
                 vec![Felt::ZERO]
             };
 
-            info!("Successfully generated Groth16 proof");
+            info!("Successfully generated Groth16 proof and calldata.");
             Ok(Groth16::new(receipt, calldata))
         })
         .await?

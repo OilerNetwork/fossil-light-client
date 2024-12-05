@@ -11,7 +11,7 @@ use starknet_handler::provider::StarknetProvider;
 use starknet_handler::u256_from_hex;
 use std::collections::HashMap;
 use store::SqlitePool;
-use tracing::{error, span, Level};
+use tracing::error;
 
 pub struct ValidatorBuilder {
     rpc_url: String,
@@ -51,7 +51,6 @@ impl ValidatorBuilder {
         headers: &Vec<eth_rlp_types::BlockHeader>,
     ) -> Result<Vec<Stark>, ValidatorError> {
         self.validate_headers(headers)?;
-        let _span = span!(Level::INFO, "verify_blocks_integrity_and_inclusion").entered();
 
         let mmrs = self.initialize_mmrs_for_headers(headers).await?;
 
@@ -131,9 +130,7 @@ impl ValidatorBuilder {
         mmrs: &HashMap<u64, (StoreManager, MMR, SqlitePool)>,
         block_indexes: &[(usize, u64)],
     ) -> Result<Vec<Stark>, ValidatorError> {
-        let _span = span!(Level::INFO, "generate_proofs_for_batches").entered();
         let mut proofs = Vec::new();
-
         for (batch_index, (_, mmr, _)) in mmrs {
             let proof = self
                 .generate_batch_proof(headers, mmr, block_indexes, *batch_index)
@@ -228,9 +225,6 @@ impl ValidatorBuilder {
         &self,
         headers: &[eth_rlp_types::BlockHeader],
     ) -> Result<HashMap<u64, (StoreManager, MMR, SqlitePool)>, ValidatorError> {
-        let span = span!(Level::INFO, "initialize_mmrs_for_headers");
-        let _enter = span.enter();
-
         let mut mmrs = HashMap::new();
 
         for header in headers {
@@ -262,9 +256,6 @@ impl ValidatorBuilder {
         headers: &[eth_rlp_types::BlockHeader],
         mmrs: &HashMap<u64, (StoreManager, MMR, SqlitePool)>,
     ) -> Result<Vec<(usize, u64)>, ValidatorError> {
-        let span = span!(Level::INFO, "collect_block_indexes");
-        let _enter = span.enter();
-
         let mut block_indexes = Vec::new();
 
         for header in headers {

@@ -46,7 +46,7 @@ impl StarknetAccount {
             ExecutionEncoding::New,
         );
 
-        info!("Starknet account successfully created");
+        debug!("Starknet account successfully created");
         Ok(Self { account })
     }
 
@@ -77,7 +77,7 @@ impl StarknetAccount {
 
         info!(
             tx_hash = ?tx.transaction_hash,
-            "MMR proof verification transaction sent"
+            "MMR proof onchain verification successful."
         );
         Ok(tx.transaction_hash)
     }

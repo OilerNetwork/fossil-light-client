@@ -5,7 +5,7 @@ use mmr::MMR;
 use mmr_utils::StoreManager;
 use starknet_handler::{u256_from_hex, MmrState};
 use store::SqlitePool;
-use tracing::{debug, error, info, span, Level};
+use tracing::{debug, error, info};
 
 pub struct MMRStateManager;
 
@@ -24,10 +24,7 @@ impl MMRStateManager {
             ));
         }
 
-        let span = span!(Level::INFO, "update_state", latest_block_number);
-        let _enter = span.enter();
-
-        info!("Updating MMR state");
+        info!("Updating MMR state...");
 
         Self::append_headers(store_manager, mmr, pool, headers)
             .await

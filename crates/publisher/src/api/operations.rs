@@ -1,7 +1,6 @@
 use crate::{
     core::AccumulatorBuilder, errors::PublisherError, utils::Stark, validator::ValidatorBuilder,
 };
-use tracing::{span, Level};
 
 const DEFAULT_BATCH_SIZE: u64 = 1024;
 
@@ -15,9 +14,6 @@ pub async fn prove_mmr_update(
     end_block: u64,
     skip_proof_verification: bool,
 ) -> Result<(), PublisherError> {
-    let span = span!(Level::INFO, "prove_mmr_update", start_block, end_block);
-    let _enter = span.enter();
-
     let mut builder = AccumulatorBuilder::new(
         rpc_url,
         verifier_address,
@@ -42,7 +38,7 @@ pub async fn prove_mmr_update(
             e
         })?;
 
-    tracing::info!("Successfully generated proof for block range");
+    tracing::debug!("Successfully generated proof for block range");
 
     Ok(())
 }
@@ -53,9 +49,6 @@ pub async fn prove_headers_integrity_and_inclusion(
     headers: &Vec<eth_rlp_types::BlockHeader>,
     skip_proof_verification: Option<bool>,
 ) -> Result<Vec<Stark>, PublisherError> {
-    let span = span!(Level::INFO, "prove_headers_integrity_and_inclusion");
-    let _enter = span.enter();
-
     let skip_proof = skip_proof_verification.unwrap_or(false);
 
     let validator =

@@ -173,7 +173,9 @@ impl LightClient {
 
         info!(
             latest_relayed_block,
-            latest_mmr_block, "State fetched from Starknet"
+            latest_mmr_block,
+            num_blocks = latest_relayed_block - latest_mmr_block,
+            "State fetched from Starknet"
         );
 
         // Update MMR and verify proofs
