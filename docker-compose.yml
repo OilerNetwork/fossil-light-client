@@ -1,0 +1,100 @@
+services:
+  anvil:
+    image: fossil-anvil:latest
+    networks:
+      - fossil
+    ports:
+      - "8545:8545"
+    env_file:
+      - ${ENV_FILE:-.env.local}
+    healthcheck:
+      test: ["CMD", "cast", "block-number"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  katana:
+    image: fossil-katana:latest
+    networks:
+      - fossil
+    ports:
+      - "5050:5050"
+    volumes:
+      - ./config:/app/config
+    command: ["katana", "--messaging", "/app/config/anvil.messaging.json", "--disable-fee", "--disable-validate", "--host", "0.0.0.0"]
+    depends_on:
+      anvil:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "katana", "--version"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  deployer:
+    image: fossil-deploy:latest
+    networks:
+      - fossil
+    env_file:
+      - ${ENV_FILE:-.env.local}
+    volumes:
+      - .:/app
+    depends_on:
+      anvil:
+        condition: service_healthy
+      katana:
+        condition: service_healthy
+    command: >
+      /bin/bash -c '
+      source ${ENV_FILE} &&
+      if [ "$ENV_FILE" = ".env.local" ]; then
+        ./scripts/deploy-contracts.sh local
+      elif [ "$ENV_FILE" = ".env.sepolia" ]; then
+        ./scripts/deploy-contracts.sh sepolia
+      elif [ "$ENV_FILE" = ".env.mainnet" ]; then
+        ./scripts/deploy-contracts.sh mainnet
+      else
+        echo "Unknown environment"
+        exit 1
+      fi'
+
+  mmr-builder:
+    image: fossil-core-client:latest
+    networks:
+      - fossil
+    env_file:
+      - ${ENV_FILE:-.env.local}
+    volumes:
+      - .:/app
+    entrypoint: ["cargo", "run", "--bin", "build-mmr", "--", "-n", "1"]
+    depends_on:
+      deployer:
+        condition: service_completed_successfully
+
+  client:
+    image: fossil-core-client:latest
+    networks:
+      - fossil
+    env_file:
+      - ${ENV_FILE:-.env.local}
+    volumes:
+      - .:/app
+    depends_on:
+      mmr-builder:
+        condition: service_completed_successfully
+      deployer:
+        condition: service_completed_successfully
+
+  relayer:
+    image: fossil-core-relayer:latest
+    networks:
+      - fossil
+    env_file:
+      - ${ENV_FILE:-.env.local}
+    depends_on:
+      deployer:
+        condition: service_completed_successfully
+
+networks:
+  fossil:
+    name: fossil-network

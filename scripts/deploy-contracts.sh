@@ -3,35 +3,49 @@
 # Ensure the script stops on the first error
 set -e
 
-source .env
+# Store the original directory (now inside container at /app)
+ORIGINAL_DIR="/app"
 
-ETHEREUM_DIR="contracts/ethereum"
+# Check if environment argument is provided
+if [ -z "$1" ]; then
+    echo "Usage: $0 <environment>"
+    echo "Available environments: local, sepolia, mainnet"
+    exit 1
+fi
 
-cd $ETHEREUM_DIR && forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL
+# Validate environment argument
+ENV_TYPE="$1"
+case "$ENV_TYPE" in
+    "local"|"sepolia"|"mainnet")
+        ENV_FILE="$ORIGINAL_DIR/.env.$ENV_TYPE"
+        echo "Using environment: $ENV_TYPE ($ENV_FILE)"
+        ;;
+    *)
+        echo "Invalid environment. Must be one of: local, sepolia, mainnet"
+        exit 1
+        ;;
+esac
+# Check if environment file exists
+if [ ! -f "$ENV_FILE" ]; then
+    echo "Error: Environment file $ENV_FILE not found"
+    exit 1
+fi
+
+# Source the appropriate environment file
+source "$ENV_FILE"
+
+ETHEREUM_DIR="/app/contracts/ethereum"
+STARKNET_DIR="/app/contracts/starknet"
+
+# Deploy Ethereum contracts
+cd "$ETHEREUM_DIR"
+forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL
 
 L1_MESSAGE_SENDER=0x364C7188028348566E38D762f6095741c49f492B
 
-# Function to wait for Katana to be ready
-# wait_for_katana() {
-#     echo "Waiting for Katana to be ready..."
-#     while ! curl -s -X POST -H "Content-Type: application/json" \
-#         -d '{"jsonrpc":"2.0","method":"starknet_chainId","params":[],"id":1}' \
-#         http://0.0.0.0:5050 > /dev/null; do
-#         echo "Katana is not ready yet. Waiting..."
-#         sleep 5
-#     done
-#     echo "Katana is ready!"
-# }
-
-# # Wait for Katana to be ready
-# wait_for_katana
-
-# # Set absolute paths
-STARKNET_DIR="../starknet"
-
 # Now deploy Starknet contracts
 echo "Deploying Starknet contracts..."
-cd $STARKNET_DIR
+cd "$STARKNET_DIR"
 
 scarb build
 
@@ -77,46 +91,31 @@ echo "Contract deployed at: $FOSSIL_VERIFIER_ADDRESS"
 
 echo "All contracts deployed!"
 
-# # Fetch the current Ethereum block number using `cast`
-# ETH_BLOCK=$(cast block-number)
-# echo "Current Ethereum block number: $ETH_BLOCK"
-
-# # Ensure `ETH_BLOCK` is a valid number before performing arithmetic
-# if [[ $ETH_BLOCK =~ ^[0-9]+$ ]]; then
-#     # Subtract 256 from the current block number
-#     ETH_BLOCK=$((ETH_BLOCK - 256))
-#     echo "Updated Ethereum block number: $ETH_BLOCK"
-
-#     # Run the Starkli command with the updated block number
-#     starkli invoke $FOSSILSTORE_ADDRESS update_mmr_state $ETH_BLOCK 0x0 0x0 0x0 0x0
-#     echo "Updated MMR state on Starknet for testing with block number: $ETH_BLOCK"
-# else
-#     echo "Failed to retrieve a valid block number from 'cast'."
-# fi
-
-# Path to the .env file
-ENV_FILE="../../.env"
-
-# Function to update or append an environment variable in the .env file
+# Update the environment file with new addresses
 update_env_var() {
     local var_name=$1
     local var_value=$2
+    
     if grep -q "^$var_name=" "$ENV_FILE"; then
-        echo "$var_name already exists, replacing..."
+        echo "$var_name already exists, replacing in $ENV_FILE..."
         sed -i "s|^$var_name=.*|$var_name=$var_value|" "$ENV_FILE"
     else
         echo "Appending $var_name to $ENV_FILE..."
-        echo "$var_name=$var_value" >>"$ENV_FILE"
+        echo "$var_name=$var_value" >> "$ENV_FILE"
     fi
 }
 
-# Update the .env file with the new addresses
+# Update the environment file with the new addresses
 update_env_var "L2_MSG_PROXY" "$L1MESSAGEPROXY_ADDRESS"
 update_env_var "FOSSIL_STORE" "$FOSSILSTORE_ADDRESS"
 update_env_var "STARKNET_VERIFIER" "$VERIFIER_ADDRESS"
 update_env_var "FOSSIL_VERIFIER" "$FOSSIL_VERIFIER_ADDRESS"
-pwd
 
-source ../../.env
+# Return to original directory
+cd "$ORIGINAL_DIR"
+
+# Source the updated environment file
+source "$ENV_FILE"
 
 echo "Environment variables successfully updated in $ENV_FILE"
+
