@@ -1,0 +1,36 @@
+FROM rust:slim-bookworm
+
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install basic dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    ca-certificates \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Foundry
+RUN curl -L https://foundry.paradigm.xyz | bash
+ENV PATH="/root/.foundry/bin:${PATH}"
+RUN foundryup
+
+# Set up directories and PATH for Scarb
+RUN mkdir -p /root/.local/bin
+ENV PATH="/root/.local/bin:${PATH}"
+
+# Install Scarb
+RUN curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh -s -- -v 2.8.5
+
+# Install Starkli
+RUN curl https://get.starkli.sh | sh && \
+    /root/.starkli/bin/starkliup -v 0.3.5
+ENV PATH="/root/.starkli/bin:${PATH}"
+
+# Create Starkli directory structure
+RUN mkdir -p /root/.starkli/accounts /root/.starkli/keystores
+
+WORKDIR /app
+CMD ["bash"] 
