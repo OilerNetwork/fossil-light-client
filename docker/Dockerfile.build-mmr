@@ -3,6 +3,17 @@ FROM rust:latest AS builder
 
 WORKDIR /app
 
+# Install Foundry (includes Anvil)
+RUN curl -L https://foundry.paradigm.xyz | bash && \
+    /root/.foundry/bin/foundryup
+
+# Add foundry binaries to PATH
+ENV PATH="/root/.foundry/bin:$PATH"
+
+# Set DATABASE_URL as build arg
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
+
 # Install the RISC Zero toolchain
 RUN curl -L https://risczero.com/install | bash && \
     /root/.risc0/bin/rzup install || true && \
@@ -93,26 +104,38 @@ offline = true\n\
 [patch.crates-io]\n\
 sha2 = { git = "https://github.com/risc0/RustCrypto-hashes.git", tag = "sha2-v0.10.8-risczero.0" }' > /usr/local/cargo/config.toml
 
-# Step 4: Build the application
-ARG DATABASE_URL
-ENV DATABASE_URL=${DATABASE_URL}
-RUN cargo build --release --package client
+# Step 4: Prepare sqlx before building
+# RUN cargo install sqlx-cli --no-default-features --features native-tls,postgres
+# RUN cargo sqlx prepare --database-url="${DATABASE_URL}" -- --package publisher --bin build-mmr
+
+# Step 5: Build the application
+RUN cargo build --release --package publisher --bin build-mmr
 
 # Stage 2: Create a minimal runtime image
 FROM debian:bookworm-slim
 
-# Set up the working directory
 WORKDIR /app
 
-# Install runtime dependencies with OpenSSL 3
+# Install runtime dependencies and Foundry
 RUN apt-get update && apt-get install -y \
     ca-certificates \
     openssl \
     libssl3 \
-    && rm -rf /var/lib/apt/lists/*
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -L https://foundry.paradigm.xyz | bash \
+    && /root/.foundry/bin/foundryup
+
+# Add foundry binaries to PATH
+ENV PATH="/root/.foundry/bin:$PATH"
 
 # Copy the compiled binary from the builder stage
-COPY --from=builder /app/target/release/client .
+COPY --from=builder /app/target/release/build-mmr .
+
+# Make the binary executable
+RUN chmod +x /app/build-mmr
 
 # Define the entrypoint
-CMD ["./client"]
+ENTRYPOINT ["/app/build-mmr"]
+CMD ["-n", "1"]

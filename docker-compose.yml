@@ -59,15 +59,17 @@ services:
       fi'
 
   mmr-builder:
-    image: fossil-core-client:latest
+    image: fossil-build-mmr:latest
     networks:
       - fossil
     env_file:
       - ${ENV_FILE:-.env.local}
-    volumes:
-      - .:/app
-    entrypoint: ["cargo", "run", "--bin", "build-mmr", "--", "-n", "1"]
+    environment:
+      - RUST_BACKTRACE=1
+      - ANVIL_URL=http://anvil:8545
     depends_on:
+      anvil:
+        condition: service_healthy
       deployer:
         condition: service_completed_successfully
 

@@ -26,3 +26,7 @@ scripts/katana/katana.log
 *.pb
 
 vendor/
+
+.env.local
+.env.sepolia
+.env.mainnet
