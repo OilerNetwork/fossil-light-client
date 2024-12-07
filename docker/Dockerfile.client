@@ -111,8 +111,11 @@ RUN apt-get update && apt-get install -y \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /app/target/release/client .
+# Copy the compiled binary from the builder stage to /usr/local/bin
+COPY --from=builder /app/target/release/client /usr/local/bin/client
+
+# Make the binary executable
+RUN chmod +x /usr/local/bin/client
 
 # Define the entrypoint
-CMD ["./client"]
+CMD ["client"]

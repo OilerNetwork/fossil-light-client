@@ -81,6 +81,7 @@ services:
       - ${ENV_FILE:-.env.local}
     volumes:
       - .:/app
+    command: ["client"]
     depends_on:
       mmr-builder:
         condition: service_completed_successfully
