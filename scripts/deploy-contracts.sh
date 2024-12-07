@@ -43,11 +43,37 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
+RED='\033[0;31m'
+
+# Function to retry commands
+retry_command() {
+    local retries=5
+    local wait_time=5
+    local command="$@"
+    local retry_count=0
+
+    until [ $retry_count -ge $retries ]
+    do
+        echo -e "${YELLOW}Attempting deployment (attempt $((retry_count + 1)) of $retries)...${NC}"
+        if eval "$command"; then
+            return 0
+        fi
+        retry_count=$((retry_count + 1))
+        if [ $retry_count -lt $retries ]; then
+            echo -e "${YELLOW}Deployment failed. Waiting ${wait_time} seconds before retrying...${NC}"
+            sleep $wait_time
+            # Increase wait time for next attempt
+            wait_time=$((wait_time * 2))
+        fi
+    done
+    echo -e "${RED}Failed to deploy after $retries attempts${NC}"
+    return 1
+}
 
 # Deploy Ethereum contracts
 cd "$ETHEREUM_DIR"
 echo -e "${BLUE}${BOLD}Deploying Ethereum contracts...${NC}"
-forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL
+retry_command "forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL"
 
 L1_MESSAGE_SENDER=0x364C7188028348566E38D762f6095741c49f492B
 
