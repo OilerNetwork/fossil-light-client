@@ -187,7 +187,6 @@ where
             } else {
                 vec![Felt::ZERO]
             };
-            println!("calldata: {:?}", calldata);
 
             info!("Successfully generated Groth16 proof and calldata.");
             Ok(Groth16::new(receipt, calldata))
