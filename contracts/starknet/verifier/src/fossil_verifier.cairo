@@ -1,6 +1,6 @@
 #[starknet::interface]
 pub trait IFossilVerifier<TContractState> {
-    fn verify_mmr_proof(ref self: TContractState, proof: Span<felt252>,) -> bool;
+    fn verify_mmr_proof(ref self: TContractState, proof: Span<felt252>,);
     fn get_verifier_address(self: @TContractState) -> starknet::ContractAddress;
     fn get_fossil_store_address(self: @TContractState) -> starknet::ContractAddress;
 }
@@ -46,25 +46,21 @@ mod FossilVerifier {
     }
 
     #[external(v0)]
-    fn verify_mmr_proof(ref self: ContractState, proof: Span<felt252>,) -> bool {
-        let (verified, journal) = self.bn254_verifier.read().verify_groth16_proof_bn254(proof);
+    fn verify_mmr_proof(ref self: ContractState, proof: Span<felt252>,) {
+        let journal = self.bn254_verifier.read().verify_groth16_proof_bn254(proof).expect('Proof verification failed');
 
         let (new_mmr_root, new_leaves_count, batch_index, latest_mmr_block) = decode_journal(
             journal
         );
 
-        if verified {
-            self
-                .fossil_store
-                .read()
-                .update_mmr_state(batch_index, latest_mmr_block, new_leaves_count, new_mmr_root);
-        }
+        self
+            .fossil_store
+            .read()
+            .update_mmr_state(batch_index, latest_mmr_block, new_leaves_count, new_mmr_root);
 
         self
             .emit(
                 MmrProofVerified { batch_index, latest_mmr_block, new_leaves_count, new_mmr_root }
             );
-
-        verified
     }
 }
