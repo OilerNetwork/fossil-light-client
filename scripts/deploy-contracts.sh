@@ -75,13 +75,13 @@ cd "$ETHEREUM_DIR"
 echo -e "${BLUE}${BOLD}Deploying Ethereum contracts...${NC}"
 retry_command "forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL"
 
-L1_MESSAGE_SENDER=0x364C7188028348566E38D762f6095741c49f492B
+L1_MESSAGE_SENDER=0x5147c5C1Cb5b5D3f56186C37a4bcFBb3Cd0bD5A7
 
 # Now deploy Starknet contracts
 echo -e "\n${BLUE}${BOLD}Building Starknet contracts...${NC}"
 cd "$STARKNET_DIR"
 
-scarb build --quiet
+scarb build 
 
 echo -e "\n${BLUE}${BOLD}Deploying Starknet contracts...${NC}"
 # Declare and deploy Fossil Store contract

@@ -11,7 +11,6 @@ dependencies = [
 [[package]]
 name = "garaga"
 version = "0.14.0"
-source = "git+https://github.com/keep-starknet-strange/garaga.git?rev=5f3b232#5f3b23252a04f1714838415e69e318ed8e097c15"
 
 [[package]]
 name = "l1_message_proxy"

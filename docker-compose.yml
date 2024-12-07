@@ -94,7 +94,9 @@ services:
       - fossil
     env_file:
       - ${ENV_FILE:-.env.local}
-    command: ["relayer"]
+    volumes:
+      - ./scripts:/app/scripts
+    command: ["/bin/sh", "/app/scripts/run_relayer.sh"]
     depends_on:
       deployer:
         condition: service_completed_successfully

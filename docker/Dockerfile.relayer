@@ -56,5 +56,7 @@ COPY --from=builder /app/target/release/relayer /usr/local/bin/relayer
 # Make the binary executable
 RUN chmod +x /usr/local/bin/relayer
 
-# Define the entrypoint
-CMD ["relayer"]
+# Define the entrypoint using SHELL instruction to use sh
+SHELL ["/bin/sh", "-c"]
+ENTRYPOINT ["/usr/local/bin/relayer"]
+CMD []
