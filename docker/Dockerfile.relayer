@@ -8,7 +8,6 @@ WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 
 # Step 2: Copy pre-fetched dependencies and vendor directory
-COPY .cargo /usr/local/cargo
 COPY vendor /usr/local/cargo/registry
 
 # Create cargo config for vendored dependencies
@@ -61,24 +60,20 @@ git-fetch-with-cli = true' > /usr/local/cargo/config.toml
 # Step 3: Copy the workspace crates
 COPY crates ./crates
 
-# Step 4: Copy OpenZeppelin contracts to the expected location
-COPY vendor/openzeppelin-contracts /usr/local/cargo/registry/openzeppelin-contracts
-
 # Step 5: Build the application
 RUN cargo build --release --package relayer
 
 # Stage 2: Create a minimal runtime image
-FROM debian:bookworm-slim
+FROM alpine:3.19
 
 # Set up the working directory
 WORKDIR /app
 
-# Install runtime dependencies with OpenSSL 3
-RUN apt-get update && apt-get install -y \
+# Install SSL libraries and certificates
+RUN apk add --no-cache \
     ca-certificates \
     openssl \
-    libssl3 \
-    && rm -rf /var/lib/apt/lists/*
+    libssl3
 
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app/target/release/relayer .
