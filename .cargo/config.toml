@@ -1,44 +1,44 @@
-[source.crates-io]
-replace-with = "vendored-sources"
+# [source.crates-io]
+# replace-with = "vendored-sources"
 
-[source."git+https://github.com/ametel01/eth-rlp-verify.git"]
-git = "https://github.com/ametel01/eth-rlp-verify.git"
-replace-with = "vendored-sources"
+# [source."git+https://github.com/ametel01/eth-rlp-verify.git"]
+# git = "https://github.com/ametel01/eth-rlp-verify.git"
+# replace-with = "vendored-sources"
 
-[source."git+https://github.com/ametel01/garaga.git"]
-git = "https://github.com/ametel01/garaga.git"
-replace-with = "vendored-sources"
+# [source."git+https://github.com/ametel01/garaga.git"]
+# git = "https://github.com/ametel01/garaga.git"
+# replace-with = "vendored-sources"
 
-[source."git+https://github.com/ametel01/rust-accumulators.git?branch=feat/sha2-hasher"]
-git = "https://github.com/ametel01/rust-accumulators.git"
-branch = "feat/sha2-hasher"
-replace-with = "vendored-sources"
+# [source."git+https://github.com/ametel01/rust-accumulators.git?branch=feat/sha2-hasher"]
+# git = "https://github.com/ametel01/rust-accumulators.git"
+# branch = "feat/sha2-hasher"
+# replace-with = "vendored-sources"
 
-[source."git+https://github.com/lambdaclass/lambdaworks.git"]
-git = "https://github.com/lambdaclass/lambdaworks.git"
-replace-with = "vendored-sources"
+# [source."git+https://github.com/lambdaclass/lambdaworks.git"]
+# git = "https://github.com/lambdaclass/lambdaworks.git"
+# replace-with = "vendored-sources"
 
-[source."git+https://github.com/risc0/RustCrypto-hashes.git?tag=sha2-v0.10.8-risczero.0"]
-git = "https://github.com/risc0/RustCrypto-hashes.git"
-tag = "sha2-v0.10.8-risczero.0"
-replace-with = "vendored-sources"
+# [source."git+https://github.com/risc0/RustCrypto-hashes.git?tag=sha2-v0.10.8-risczero.0"]
+# git = "https://github.com/risc0/RustCrypto-hashes.git"
+# tag = "sha2-v0.10.8-risczero.0"
+# replace-with = "vendored-sources"
 
-[source."git+https://github.com/risc0/risc0-ethereum?tag=v1.1.4"]
-git = "https://github.com/risc0/risc0-ethereum"
-tag = "v1.1.4"
-replace-with = "vendored-sources"
+# [source."git+https://github.com/risc0/risc0-ethereum?tag=v1.1.4"]
+# git = "https://github.com/risc0/risc0-ethereum"
+# tag = "v1.1.4"
+# replace-with = "vendored-sources"
 
-[source."git+https://github.com/xJonathanLEI/starknet-rs.git?branch=master"]
-git = "https://github.com/xJonathanLEI/starknet-rs.git"
-branch = "master"
-replace-with = "vendored-sources"
+# [source."git+https://github.com/xJonathanLEI/starknet-rs.git?branch=master"]
+# git = "https://github.com/xJonathanLEI/starknet-rs.git"
+# branch = "master"
+# replace-with = "vendored-sources"
 
-[source."git+https://github.com/OpenZeppelin/openzeppelin-contracts.git"]
-git = "https://github.com/OpenZeppelin/openzeppelin-contracts.git"
-replace-with = "vendored-sources"
+# [source."git+https://github.com/OpenZeppelin/openzeppelin-contracts.git"]
+# git = "https://github.com/OpenZeppelin/openzeppelin-contracts.git"
+# replace-with = "vendored-sources"
 
-[source.vendored-sources]
-directory = "vendor"
+# [source.vendored-sources]
+# directory = "vendor"
 
-[net]
-git-fetch-with-cli = true
+# [net]
+# git-fetch-with-cli = true
