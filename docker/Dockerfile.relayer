@@ -66,17 +66,14 @@ RUN cargo build --release --package relayer
 # Stage 2: Create a minimal runtime image
 FROM alpine:3.19
 
-# Set up the working directory
-WORKDIR /app
+# Install SSL certificates (still needed for HTTPS connections)
+RUN apk add --no-cache ca-certificates
 
-# Install SSL libraries and certificates
-RUN apk add --no-cache \
-    ca-certificates \
-    openssl \
-    libssl3
+# Copy the compiled binary from the builder stage to /usr/local/bin
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/relayer /usr/local/bin/relayer
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /app/target/release/relayer .
+# Make the binary executable
+RUN chmod +x /usr/local/bin/relayer
 
 # Define the entrypoint
-ENTRYPOINT ["./relayer"]
+CMD ["relayer"]
