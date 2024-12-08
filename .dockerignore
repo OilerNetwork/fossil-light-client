@@ -1,3 +1,68 @@
+# Build artifacts
 target/
-Dockerfile
+/target/
+dist/
+
+# Docker files
+Dockerfile*
 .dockerignore
+docker/
+
+# Version control
+.git/
+.gitignore
+.github/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Debug files
+*.log
+*.log.*
+debug/
+
+# Development configs
+.env*
+*.local
+.editorconfig
+.eslintrc*
+.prettierrc*
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Test files
+tests/
+*_test.go
+*.test
+coverage/
+
+# Dependencies
+node_modules/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Cargo specific
+Cargo.lock  # unless it's a binary project
+.cargo/
+!vendor/  # Explicitly allow the vendor directory
+!vendor/**/target/  # Explicitly allow target directories under vendor
+
+# Foundry specific
+cache/
+out/
+broadcast/
+
+# Misc development files
+.husky/
+.lint*
+.format*

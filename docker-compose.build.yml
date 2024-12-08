@@ -1,0 +1,15 @@
+services:
+  anvil:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.anvil
+
+  katana:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.katana
+
+  deployer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.deploy 
