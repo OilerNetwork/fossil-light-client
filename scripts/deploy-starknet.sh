@@ -5,6 +5,7 @@ set -e
 
 # Store the original directory (now inside container at /app)
 ORIGINAL_DIR="/app"
+UPDATE_INTERVAL=40
 
 # Update the environment file with new addresses
 update_env_var() {
@@ -113,6 +114,11 @@ echo
 echo -e "${YELLOW}Deploying Fossil Verifier contract...${NC}"
 FOSSIL_VERIFIER_ADDRESS=$(starkli deploy $FOSSIL_VERIFIER_HASH $VERIFIER_ADDRESS $FOSSILSTORE_ADDRESS --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract deployed at: ${BOLD}$FOSSIL_VERIFIER_ADDRESS${NC}"
+echo
+
+echo -e "${YELLOW}Initializing Fossil Store contract...${NC}"
+starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS $UPDATE_INTERVAL -w
+echo -e "${GREEN}Fossil Store contract initialized${NC}"
 echo
 
 echo -e "\n${GREEN}${BOLD}All contracts deployed!${NC}"
