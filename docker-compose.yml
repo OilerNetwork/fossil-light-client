@@ -97,14 +97,13 @@ services:
     volumes:
       - ./scripts:/app/scripts
     command: ["/bin/sh", "/app/scripts/run_relayer.sh"]
-    restart: unless-stopped
     depends_on:
       deploy-starknet:
         condition: service_completed_successfully
       mmr-builder:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "pgrep", "-f", "relayer"]
+      test: ["CMD-SHELL", "pgrep -f run_relayer.sh"]
       interval: 30s
       timeout: 10s
       retries: 3
