@@ -24,6 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     initialize_logger_and_env()?;
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
     let l2_store_address = get_env_var("FOSSIL_STORE")?;
+    let chain_id = get_env_var("CHAIN_ID")?.parse::<u64>()?;
 
     let args = Args::parse();
 
@@ -37,6 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match prove_headers_integrity_and_inclusion(
         &rpc_url,
         &l2_store_address,
+        chain_id,
         &headers,
         Some(args.skip_proof),
     )

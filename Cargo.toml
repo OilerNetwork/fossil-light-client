@@ -25,6 +25,7 @@ lto = true
 eth-rlp-types = { git = "https://github.com/ametel01/eth-rlp-verify.git" }
 eth-rlp-verify = { git = "https://github.com/ametel01/eth-rlp-verify.git" }
 starknet = { git = "https://github.com/xJonathanLEI/starknet-rs.git", branch = "master" }
+starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs.git", branch = "master" }
 
 sqlx = { version = "0.8.2", features = [
     "postgres",
@@ -35,6 +36,8 @@ thiserror = "2.0.4"
 tracing = "0.1.40"
 tokio = "1.41.1"
 dotenv = "0.15"
-starknet-crypto = "0.7.3"
 clap = "4.5"
 
+[patch.crates-io]
+sha2 = { git = "https://github.com/risc0/RustCrypto-hashes.git", tag = "sha2-v0.10.8-risczero.0" }
+starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs.git", branch = "master" }

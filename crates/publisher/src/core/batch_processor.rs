@@ -6,7 +6,7 @@ use common::get_or_create_db_path;
 use guest_types::{CombinedInput, GuestOutput, MMRInput};
 use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 pub struct BatchProcessor {
     batch_size: u64,
@@ -43,6 +43,7 @@ impl BatchProcessor {
 
     pub async fn process_batch(
         &self,
+        chain_id: u64,
         start_block: u64,
         end_block: u64,
     ) -> Result<Option<BatchResult>, AccumulatorError> {
@@ -104,7 +105,7 @@ impl BatchProcessor {
             })?;
 
         if headers.is_empty() {
-            error!(
+            warn!(
                 "No headers found for block range {} to {}",
                 start_block, adjusted_end_block
             );
@@ -136,8 +137,12 @@ impl BatchProcessor {
             new_headers.clone(),
         );
 
-        let combined_input =
-            CombinedInput::new(headers.clone(), mmr_input, self.skip_proof_verification);
+        let combined_input = CombinedInput::new(
+            chain_id,
+            headers.clone(),
+            mmr_input,
+            self.skip_proof_verification,
+        );
 
         let proof = self
             .proof_generator

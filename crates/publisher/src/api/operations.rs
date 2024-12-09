@@ -6,6 +6,7 @@ const DEFAULT_BATCH_SIZE: u64 = 1024;
 
 pub async fn prove_mmr_update(
     rpc_url: &String,
+    chain_id: u64,
     verifier_address: &String,
     account_private_key: &String,
     account_address: &String,
@@ -16,6 +17,7 @@ pub async fn prove_mmr_update(
 ) -> Result<(), PublisherError> {
     let mut builder = AccumulatorBuilder::new(
         rpc_url,
+        chain_id,
         verifier_address,
         account_private_key,
         account_address,
@@ -46,18 +48,24 @@ pub async fn prove_mmr_update(
 pub async fn prove_headers_integrity_and_inclusion(
     rpc_url: &String,
     l2_store_address: &String,
+    chain_id: u64,
     headers: &Vec<eth_rlp_types::BlockHeader>,
     skip_proof_verification: Option<bool>,
 ) -> Result<Vec<Stark>, PublisherError> {
     let skip_proof = skip_proof_verification.unwrap_or(false);
 
-    let validator =
-        ValidatorBuilder::new(rpc_url, l2_store_address, DEFAULT_BATCH_SIZE, skip_proof)
-            .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "Failed to create ValidatorBuilder");
-                e
-            })?;
+    let validator = ValidatorBuilder::new(
+        rpc_url,
+        l2_store_address,
+        chain_id,
+        DEFAULT_BATCH_SIZE,
+        skip_proof,
+    )
+    .await
+    .map_err(|e| {
+        tracing::error!(error = %e, "Failed to create ValidatorBuilder");
+        e
+    })?;
 
     let result = validator
         .verify_blocks_integrity_and_inclusion(headers)

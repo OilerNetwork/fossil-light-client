@@ -102,6 +102,7 @@ impl GuestOutput {
 // CombinedInput
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CombinedInput {
+    chain_id: u64,
     headers: Vec<BlockHeader>,
     mmr_input: MMRInput,
     skip_proof_verification: bool,
@@ -109,15 +110,21 @@ pub struct CombinedInput {
 
 impl CombinedInput {
     pub fn new(
+        chain_id: u64,
         headers: Vec<BlockHeader>,
         mmr_input: MMRInput,
         skip_proof_verification: bool,
     ) -> Self {
         Self {
+            chain_id,
             headers,
             mmr_input,
             skip_proof_verification,
         }
+    }
+
+    pub fn chain_id(&self) -> u64 {
+        self.chain_id
     }
 
     pub fn headers(&self) -> &Vec<BlockHeader> {
@@ -225,17 +232,28 @@ pub struct GuestProof {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlocksValidityInput {
+    chain_id: u64,
     headers: Vec<BlockHeader>,
     mmr_input: MMRInput,
     proofs: Vec<GuestProof>,
 }
 impl BlocksValidityInput {
-    pub fn new(headers: Vec<BlockHeader>, mmr_input: MMRInput, proofs: Vec<GuestProof>) -> Self {
+    pub fn new(
+        chain_id: u64,
+        headers: Vec<BlockHeader>,
+        mmr_input: MMRInput,
+        proofs: Vec<GuestProof>,
+    ) -> Self {
         Self {
+            chain_id,
             headers,
             mmr_input,
             proofs,
         }
+    }
+
+    pub fn chain_id(&self) -> u64 {
+        self.chain_id
     }
 
     pub fn headers(&self) -> &Vec<BlockHeader> {

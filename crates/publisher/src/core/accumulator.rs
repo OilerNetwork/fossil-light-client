@@ -9,6 +9,7 @@ use tracing::{debug, error, info, warn};
 
 pub struct AccumulatorBuilder<'a> {
     rpc_url: &'a String,
+    chain_id: u64,
     verifier_address: &'a String,
     account_private_key: &'a String,
     account_address: &'a String,
@@ -20,6 +21,7 @@ pub struct AccumulatorBuilder<'a> {
 impl<'a> AccumulatorBuilder<'a> {
     pub async fn new(
         rpc_url: &'a String,
+        chain_id: u64,
         verifier_address: &'a String,
         account_private_key: &'a String,
         account_address: &'a String,
@@ -56,6 +58,7 @@ impl<'a> AccumulatorBuilder<'a> {
 
         Ok(Self {
             rpc_url,
+            chain_id,
             verifier_address,
             account_private_key,
             account_address,
@@ -105,7 +108,7 @@ impl<'a> AccumulatorBuilder<'a> {
 
             let result = self
                 .batch_processor
-                .process_batch(start_block, current_end)
+                .process_batch(self.chain_id, start_block, current_end)
                 .await
                 .map_err(|e| {
                     error!(
@@ -148,7 +151,7 @@ impl<'a> AccumulatorBuilder<'a> {
             let start_block = self.batch_processor.calculate_start_block(current_end)?;
             let batch_result = self
                 .batch_processor
-                .process_batch(start_block, current_end)
+                .process_batch(self.chain_id, start_block, current_end)
                 .await?;
 
             if let Some(result) = batch_result {
@@ -193,7 +196,7 @@ impl<'a> AccumulatorBuilder<'a> {
 
             if let Some(result) = self
                 .batch_processor
-                .process_batch(batch_range.start, batch_range.end)
+                .process_batch(self.chain_id, batch_range.start, batch_range.end)
                 .await
                 .map_err(|e| {
                     error!(

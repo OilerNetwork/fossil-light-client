@@ -31,7 +31,13 @@ pub async fn get_finalized_block_hash() -> Result<(u64, String), UtilsError> {
         let result: Result<(u64, String), UtilsError> = async {
             let provider = ProviderBuilder::new()
                 .with_recommended_fillers()
-                .on_anvil_with_wallet_and_config(|anvil| anvil.fork(rpc_url.clone()));
+                .try_on_anvil_with_wallet_and_config(|anvil| anvil.fork(rpc_url.clone()))
+                .map_err(|e| {
+                    UtilsError::RetryExhausted(
+                        attempts,
+                        format!("Failed to setup Anvil provider: {}", e),
+                    )
+                })?;
 
             let contract = BlockHashFetcher::deploy(&provider).await?;
             let result = contract.getBlockHash().call().await?;
@@ -43,16 +49,23 @@ pub async fn get_finalized_block_hash() -> Result<(u64, String), UtilsError> {
         }
         .await;
 
-        if let Ok(value) = result {
-            return Ok(value);
-        } else {
-            if attempts >= MAX_RETRIES {
-                return Err(UtilsError::RetryExhausted(
-                    MAX_RETRIES,
-                    "get_finalized_block_hash".to_string(),
-                ));
+        match result {
+            Ok(value) => return Ok(value),
+            Err(e) => {
+                if attempts >= MAX_RETRIES {
+                    return Err(UtilsError::RetryExhausted(
+                        MAX_RETRIES,
+                        format!("get_finalized_block_hash failed: {}", e),
+                    ));
+                }
+                tracing::error!(
+                    attempts = attempts,
+                    max_retries = MAX_RETRIES,
+                    error = %e.to_string(),
+                    "Attempt failed"
+                );
+                sleep(RETRY_DELAY).await;
             }
-            sleep(RETRY_DELAY).await;
         }
     }
 }

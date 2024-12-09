@@ -1,0 +1,60 @@
+# Stage 1: Build the application
+FROM rust:alpine AS builder
+
+# Set up the working directory
+WORKDIR /app
+
+# Install build dependencies including OpenSSL static libraries
+RUN apk add --no-cache \
+    musl-dev \
+    git \
+    openssl-dev \
+    openssl-libs-static \
+    pkgconfig \
+    gcc
+
+# Set environment variables for static linking
+ENV OPENSSL_STATIC=1
+ENV OPENSSL_LIB_DIR=/usr/lib
+ENV OPENSSL_INCLUDE_DIR=/usr/include/openssl
+
+# Copy only necessary workspace files
+COPY Cargo.toml Cargo.lock ./
+COPY vendor /usr/local/cargo/registry
+COPY crates/common ./crates/common
+COPY crates/relayer ./crates/relayer
+
+# Create cargo config for vendored dependencies
+RUN mkdir -p /usr/local/cargo/registry && echo $'[source.crates-io]\nreplace-with = "vendored-sources"\n\n[source."git+https://github.com/xJonathanLEI/starknet-rs.git?branch=master"]\ngit = "https://github.com/xJonathanLEI/starknet-rs.git"\nbranch = "master"\nreplace-with = "vendored-sources"\n\n[source.vendored-sources]\ndirectory = "/usr/local/cargo/registry"\n\n[net]\ngit-fetch-with-cli = true' > /usr/local/cargo/config.toml
+
+# Create a minimal workspace with dependencies
+RUN echo $'[workspace]\nmembers = ["crates/common", "crates/relayer"]\nresolver = "2"\n\n\
+[workspace.dependencies]\n\
+dotenv = "0.15.0"\n\
+thiserror = "1.0.50"\n\
+starknet-crypto = "0.7.3"\n\
+tracing = "0.1.40"\n\
+tokio = { version = "1.35.0", features = ["full"] }\n\
+eyre = "0.6.11"' > workspace.toml && \
+    mv workspace.toml Cargo.toml
+
+# Build only relayer
+RUN cargo build --release --package relayer
+
+# Stage 2: Create a minimal runtime image
+FROM alpine:latest
+
+# Update repositories and install SSL certificates
+RUN echo "https://mirror.ette.biz/alpine/v3.19/main" > /etc/apk/repositories && \
+    echo "https://mirror.ette.biz/alpine/v3.19/community" >> /etc/apk/repositories && \
+    apk update && \
+    apk add --no-cache ca-certificates openssl
+
+# Copy the compiled binary from the builder stage to /usr/local/bin
+COPY --from=builder /app/target/release/relayer /usr/local/bin/relayer
+
+# Make the binary executable
+RUN chmod +x /usr/local/bin/relayer
+
+# Remove the ENTRYPOINT and CMD directives
+# Let docker-compose handle the command

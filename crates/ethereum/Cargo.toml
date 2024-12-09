@@ -7,6 +7,7 @@ edition = "2021"
 common = { path = "../common" }
 
 tokio = { workspace = true }
+tracing = { workspace = true }
 
 alloy = { version = "0.6.4", features = ["full", "node-bindings"] }
 

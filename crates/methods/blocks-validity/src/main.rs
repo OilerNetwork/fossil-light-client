@@ -9,7 +9,7 @@ fn main() {
     let input: BlocksValidityInput = env::read();
 
     // Verify block headers
-    if !are_blocks_and_chain_valid(&input.headers()) {
+    if !are_blocks_and_chain_valid(&input.headers(), input.chain_id()) {
         env::commit(&false);
     }
     // Initialize MMR with previous state
