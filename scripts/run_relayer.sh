@@ -2,16 +2,10 @@
 
 set -e
 
-# Check environment and set interval
-if [ "$ENV_FILE" = ".env.local" ]; then
-    INTERVAL_MINUTES=10
-    MAX_RETRIES=3
-    RETRY_DELAY=10  # seconds
-else
-    INTERVAL_MINUTES=720  # 12 hours = 720 minutes
-    MAX_RETRIES=5
-    RETRY_DELAY=60  # seconds
-fi
+# Use RELAYER_INTERVAL from environment, default to 720 if not set
+INTERVAL_MINUTES=${RELAYER_INTERVAL:-720}
+MAX_RETRIES=3
+RETRY_DELAY=10  # seconds
 
 run_with_retry() {
     attempt=1
