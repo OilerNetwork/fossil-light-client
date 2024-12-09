@@ -71,6 +71,7 @@ services:
     depends_on:
       deploy-starknet:
         condition: service_completed_successfully
+    restart: on-failure:3
 
   client:
     image: fossil-client:latest
