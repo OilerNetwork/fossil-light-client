@@ -1,6 +1,6 @@
 use garaga_rs::{
     calldata::full_proof_with_hints::groth16::{
-        get_groth16_calldata, risc0_utils::get_risc0_vk, Groth16Proof,
+        get_groth16_calldata_felt, risc0_utils::get_risc0_vk, Groth16Proof,
     },
     definitions::CurveID,
 };
@@ -167,25 +167,23 @@ where
 
             debug!("Converting to Groth16 proof");
             let groth16_proof = if !skip_proof_verification {
-                Groth16Proof::from_risc0(
+                Some(Groth16Proof::from_risc0(
                     encoded_seal,
                     image_id.as_bytes().to_vec(),
                     journal.clone(),
-                )
+                ))
             } else {
-                Default::default()
+                None
             };
 
             debug!("Generating calldata");
-            let calldata = if !skip_proof_verification {
-                get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254).map_err(
-                    |e| {
-                        error!("Failed to generate calldata: {}", e);
-                        ProofGeneratorError::CalldataError(e.to_string())
-                    },
-                )?
-            } else {
-                vec![Felt::ZERO]
+            let calldata = match groth16_proof {
+                Some(proof) => get_groth16_calldata_felt(&proof, &get_risc0_vk(), CurveID::BN254)
+                    .map_err(|e| {
+                    error!("Failed to generate calldata: {}", e);
+                    ProofGeneratorError::CalldataError(e.to_string())
+                })?,
+                None => vec![Felt::ZERO],
             };
 
             info!("Successfully generated Groth16 proof and calldata.");

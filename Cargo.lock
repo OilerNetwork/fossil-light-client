@@ -2537,7 +2537,7 @@ checksum = "42012b0f064e01aa58b545fe3727f90f7dd4020f4a3ea735b50344965f5a57e9"
 [[package]]
 name = "garaga_rs"
 version = "0.15.0"
-source = "git+https://github.com/ametel01/garaga.git?branch=garaga%2Flatest#5732a2acd6a5bf0ec50976322815ec58c8dae783"
+source = "git+https://github.com/keep-starknet-strange/garaga.git#7c0993f91ada9ec94ab83fc132f13ee4cd032e40"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
