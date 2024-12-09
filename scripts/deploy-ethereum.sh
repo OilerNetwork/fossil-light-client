@@ -57,9 +57,21 @@ update_json_config() {
     local json_file=$1
     local contract_address=$2
     
-    # Update the contract_address in the JSON file
-    tmp=$(mktemp)
-    jq --arg addr "$contract_address" '.contract_address = $addr' "$json_file" > "$tmp" && mv "$tmp" "$json_file"
+    # Create temp file in the same directory to avoid permission issues
+    local tmp_file="${json_file}.tmp"
+    
+    if ! jq --arg addr "$contract_address" '.contract_address = $addr' "$json_file" > "$tmp_file"; then
+        echo -e "${RED}Failed to update JSON file${NC}"
+        rm -f "$tmp_file"
+        return 1
+    fi
+    
+    if ! mv "$tmp_file" "$json_file"; then
+        echo -e "${RED}Failed to replace JSON file${NC}"
+        rm -f "$tmp_file"
+        return 1
+    fi
+    
     echo -e "${BLUE}Updated contract address in $json_file${NC}"
 }
 
