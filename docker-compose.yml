@@ -13,6 +13,19 @@ services:
       timeout: 5s
       retries: 5
 
+  deploy-ethereum:
+    image: fossil-deploy:latest
+    networks:
+      - fossil
+    env_file:
+      - ${ENV_FILE:-.env.local}
+    volumes:
+      - .:/app
+    depends_on:
+      anvil:
+        condition: service_healthy
+    command: ["./scripts/deploy-ethereum.sh", "local"]
+
   katana:
     image: fossil-katana:latest
     networks:
@@ -25,13 +38,15 @@ services:
     depends_on:
       anvil:
         condition: service_healthy
+      deploy-ethereum:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "katana", "--version"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  deployer:
+  deploy-starknet:
     image: fossil-deploy:latest
     networks:
       - fossil
@@ -40,23 +55,9 @@ services:
     volumes:
       - .:/app
     depends_on:
-      anvil:
-        condition: service_healthy
       katana:
         condition: service_healthy
-    command: >
-      /bin/bash -c '
-      source ${ENV_FILE} &&
-      if [ "$ENV_FILE" = ".env.local" ]; then
-        ./scripts/deploy-contracts.sh local
-      elif [ "$ENV_FILE" = ".env.sepolia" ]; then
-        ./scripts/deploy-contracts.sh sepolia
-      elif [ "$ENV_FILE" = ".env.mainnet" ]; then
-        ./scripts/deploy-contracts.sh mainnet
-      else
-        echo "Unknown environment"
-        exit 1
-      fi'
+    command: ["./scripts/deploy-starknet.sh", "local"]
 
   mmr-builder:
     image: fossil-build-mmr:latest
@@ -68,9 +69,7 @@ services:
       - RUST_BACKTRACE=1
       - ANVIL_URL=http://anvil:8545
     depends_on:
-      anvil:
-        condition: service_healthy
-      deployer:
+      deploy-starknet:
         condition: service_completed_successfully
 
   client:
@@ -83,9 +82,9 @@ services:
       - .:/app
     command: ["client"]
     depends_on:
-      mmr-builder:
+      deploy-starknet:
         condition: service_completed_successfully
-      deployer:
+      mmr-builder:
         condition: service_completed_successfully
 
   relayer:
@@ -97,11 +96,17 @@ services:
     volumes:
       - ./scripts:/app/scripts
     command: ["/bin/sh", "/app/scripts/run_relayer.sh"]
+    restart: unless-stopped
     depends_on:
-      deployer:
+      deploy-starknet:
         condition: service_completed_successfully
       mmr-builder:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "relayer"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 networks:
   fossil:
