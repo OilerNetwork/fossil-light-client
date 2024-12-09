@@ -7,14 +7,11 @@ import {L1MessageSender} from "../src/L1MessageSender.sol";
 
 import {StarknetMessagingLocal} from "../src/StarknetMessagingLocal.sol";
 
-// address constant SN_CORE = 0xc662c410C0ECf747543f5bA90660f6ABeBD9C8c4;
-
 contract LocalSetup is Script {
     function setUp() public {}
 
     function run() public{
-        // uint256 deployerPrivateKey = vm.envUint("ACCOUNT_PRIVATE_KEY");
-        uint256 deployerPrivateKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+        uint256 deployerPrivateKey = vm.envUint("ACCOUNT_PRIVATE_KEY");
         
         string memory json = "local_testing";
 
