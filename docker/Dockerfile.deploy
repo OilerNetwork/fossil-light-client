@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     pkg-config \
     libssl-dev \
+    jq \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Foundry
