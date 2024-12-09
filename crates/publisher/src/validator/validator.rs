@@ -16,6 +16,7 @@ use tracing::error;
 pub struct ValidatorBuilder {
     rpc_url: String,
     l2_store_address: Felt,
+    chain_id: u64,
     proof_generator: ProofGenerator<BlocksValidityInput>,
     batch_size: u64,
     skip_proof: bool,
@@ -25,6 +26,7 @@ impl ValidatorBuilder {
     pub async fn new(
         rpc_url: &String,
         l2_store_address: &String,
+        chain_id: u64,
         batch_size: u64,
         skip_proof: bool,
     ) -> Result<Self, ValidatorError> {
@@ -40,6 +42,7 @@ impl ValidatorBuilder {
         Ok(Self {
             rpc_url: rpc_url.clone(),
             l2_store_address: Felt::from_hex(l2_store_address)?,
+            chain_id,
             proof_generator,
             batch_size,
             skip_proof,
@@ -160,7 +163,7 @@ impl ValidatorBuilder {
 
         let mmr_input = self.prepare_mmr_input(mmr).await?;
         let blocks_validity_input =
-            BlocksValidityInput::new(batch_headers, mmr_input, guest_proofs);
+            BlocksValidityInput::new(self.chain_id, batch_headers, mmr_input, guest_proofs);
 
         Ok(self
             .proof_generator

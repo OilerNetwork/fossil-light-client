@@ -29,12 +29,15 @@ pub enum LightClientError {
     ConfigError(String),
     #[error("Polling interval must be greater than zero")]
     PollingIntervalError,
+    #[error("Chain ID is not a valid number")]
+    ChainIdError(#[from] std::num::ParseIntError),
 }
 
 pub struct LightClient {
     starknet_provider: StarknetProvider,
     l2_store_addr: Felt,
     verifier_addr: String,
+    chain_id: u64,
     latest_processed_block: u64,
     starknet_private_key: String,
     starknet_account_address: String,
@@ -54,7 +57,7 @@ impl LightClient {
         let verifier_addr = get_env_var("FOSSIL_VERIFIER")?;
         let starknet_private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
         let starknet_account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
-
+        let chain_id = get_env_var("CHAIN_ID")?.parse::<u64>()?;
         // Initialize providers
         let starknet_provider = StarknetProvider::new(&starknet_rpc_url)?;
 
@@ -71,6 +74,7 @@ impl LightClient {
             starknet_provider,
             l2_store_addr,
             verifier_addr,
+            chain_id,
             latest_processed_block: 0,
             starknet_private_key,
             starknet_account_address,
@@ -207,6 +211,7 @@ impl LightClient {
 
         publisher::prove_mmr_update(
             &self.starknet_provider.rpc_url().to_string(),
+            self.chain_id,
             &self.verifier_addr,
             &self.starknet_private_key,
             &self.starknet_account_address,

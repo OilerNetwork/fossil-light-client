@@ -32,10 +32,12 @@ pub async fn get_finalized_block_hash() -> Result<(u64, String), UtilsError> {
             let provider = ProviderBuilder::new()
                 .with_recommended_fillers()
                 .try_on_anvil_with_wallet_and_config(|anvil| anvil.fork(rpc_url.clone()))
-                .map_err(|e| UtilsError::RetryExhausted(
-                    attempts,
-                    format!("Failed to setup Anvil provider: {}", e),
-                ))?;
+                .map_err(|e| {
+                    UtilsError::RetryExhausted(
+                        attempts,
+                        format!("Failed to setup Anvil provider: {}", e),
+                    )
+                })?;
 
             let contract = BlockHashFetcher::deploy(&provider).await?;
             let result = contract.getBlockHash().call().await?;

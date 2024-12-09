@@ -43,6 +43,7 @@ impl BatchProcessor {
 
     pub async fn process_batch(
         &self,
+        chain_id: u64,
         start_block: u64,
         end_block: u64,
     ) -> Result<Option<BatchResult>, AccumulatorError> {
@@ -136,8 +137,12 @@ impl BatchProcessor {
             new_headers.clone(),
         );
 
-        let combined_input =
-            CombinedInput::new(headers.clone(), mmr_input, self.skip_proof_verification);
+        let combined_input = CombinedInput::new(
+            chain_id,
+            headers.clone(),
+            mmr_input,
+            self.skip_proof_verification,
+        );
 
         let proof = self
             .proof_generator

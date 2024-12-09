@@ -11,7 +11,7 @@ fn main() {
     let input: CombinedInput = env::read();
     // Verify block headers
     assert!(
-        are_blocks_and_chain_valid(&input.headers()),
+        are_blocks_and_chain_valid(&input.headers(), input.chain_id()),
         "Invalid block headers"
     );
     // Initialize MMR with previous state
