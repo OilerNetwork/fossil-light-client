@@ -104,20 +104,24 @@ mod Store {
             );
 
             let min_update_interval = self.min_update_interval.read();
-            let actual_update_interval = latest_mmr_block - self.latest_mmr_block.read();
-            assert!(
-                actual_update_interval >= min_update_interval,
-                "Update interval: {} must be greater than or equal to the minimum update interval: {}",
-                actual_update_interval,
-                min_update_interval
-            );
+            let stored_latest_mmr_block = self.latest_mmr_block.read();
+
+            if latest_mmr_block > stored_latest_mmr_block {
+                let actual_update_interval = latest_mmr_block - stored_latest_mmr_block;
+                assert!(
+                    actual_update_interval >= min_update_interval,
+                    "Update interval: {} must be greater than or equal to the minimum update interval: {}",
+                    actual_update_interval,
+                    min_update_interval
+                );
+                self.latest_mmr_block.write(latest_mmr_block);
+            }
 
             let mut curr_state = self.mmr_batches.entry(batch_index);
 
             curr_state.leaves_count.write(leaves_count);
             curr_state.root_hash.write(mmr_root);
 
-            self.latest_mmr_block.write(latest_mmr_block);
 
             self.emit(MmrStateUpdated { batch_index, leaves_count, root_hash: mmr_root });
         }

@@ -2536,21 +2536,22 @@ checksum = "42012b0f064e01aa58b545fe3727f90f7dd4020f4a3ea735b50344965f5a57e9"
 
 [[package]]
 name = "garaga_rs"
-version = "0.1.0"
-source = "git+https://github.com/ametel01/garaga.git#b768d2f71ceeb6c778eb67d87254ab4582a05468"
+version = "0.15.0"
+source = "git+https://github.com/ametel01/garaga.git?branch=garaga%2Flatest#5732a2acd6a5bf0ec50976322815ec58c8dae783"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
  "ark-ec",
  "ark-ff 0.4.2",
  "hex",
+ "js-sys",
  "lambdaworks-crypto 0.11.0",
  "lambdaworks-math 0.11.0",
  "num-bigint",
  "num-traits",
  "pyo3",
  "sha2",
- "starknet-crypto",
+ "starknet-types-core",
  "wasm-bindgen",
 ]
 

@@ -2,10 +2,10 @@
 members = ["l1_message_proxy", "store", "verifier"]
 
 [workspace.dependencies]
-starknet = "2.8.5"
-assert_macros = "2.8.5"
+starknet = "2.9.1"
+assert_macros = "2.9.1"
 snforge_std = "0.34.0"
-cairo_test = "2.8.5"
+cairo_test = "2.9.1"
 
 [dev-dependencies]
 snforge_std.workspace = true
