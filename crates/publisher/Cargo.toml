@@ -25,7 +25,7 @@ starknet-handler = { path = "../starknet-handler" }
 
 eth-rlp-types = { workspace = true }
 
-garaga_rs = { git = "https://github.com/ametel01/garaga.git" }
+garaga_rs = { git = "https://github.com/ametel01/garaga.git", branch = "garaga/latest" }
 mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
 store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
 
