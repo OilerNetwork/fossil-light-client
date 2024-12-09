@@ -175,13 +175,6 @@ impl LightClient {
             .get_latest_mmr_block(&self.l2_store_addr)
             .await?;
 
-        info!(
-            latest_relayed_block,
-            latest_mmr_block,
-            num_blocks = latest_relayed_block - latest_mmr_block,
-            "State fetched from Starknet"
-        );
-
         // Update MMR and verify proofs
         self.update_mmr(latest_mmr_block, latest_relayed_block)
             .await?;

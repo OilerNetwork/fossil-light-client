@@ -6,7 +6,7 @@ use common::get_or_create_db_path;
 use guest_types::{CombinedInput, GuestOutput, MMRInput};
 use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 pub struct BatchProcessor {
     batch_size: u64,
@@ -105,7 +105,7 @@ impl BatchProcessor {
             })?;
 
         if headers.is_empty() {
-            error!(
+            warn!(
                 "No headers found for block range {} to {}",
                 start_block, adjusted_end_block
             );
