@@ -54,13 +54,18 @@ pub async fn prove_headers_integrity_and_inclusion(
 ) -> Result<Vec<Stark>, PublisherError> {
     let skip_proof = skip_proof_verification.unwrap_or(false);
 
-    let validator =
-        ValidatorBuilder::new(rpc_url, l2_store_address, chain_id, DEFAULT_BATCH_SIZE, skip_proof)
-            .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "Failed to create ValidatorBuilder");
-                e
-            })?;
+    let validator = ValidatorBuilder::new(
+        rpc_url,
+        l2_store_address,
+        chain_id,
+        DEFAULT_BATCH_SIZE,
+        skip_proof,
+    )
+    .await
+    .map_err(|e| {
+        tracing::error!(error = %e, "Failed to create ValidatorBuilder");
+        e
+    })?;
 
     let result = validator
         .verify_blocks_integrity_and_inclusion(headers)
