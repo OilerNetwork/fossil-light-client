@@ -31,3 +31,5 @@ vendor/
 .env.sepolia
 .env.mainnet
 docker/rebuild-all.sh
+
+scripts/deploy-contracts.bash.sh
