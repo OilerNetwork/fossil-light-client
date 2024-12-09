@@ -75,10 +75,34 @@ update_json_config() {
     echo -e "${BLUE}Updated contract address in $json_file${NC}"
 }
 
+# Function to deploy with retries
+deploy_contracts() {
+    local max_attempts=3
+    local attempt=1
+    local wait_time=10
+
+    while [ $attempt -le $max_attempts ]; do
+        echo -e "${BLUE}${BOLD}Deploying Ethereum contracts (Attempt $attempt/$max_attempts)...${NC}"
+        
+        if forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL; then
+            return 0
+        fi
+        
+        if [ $attempt -lt $max_attempts ]; then
+            echo -e "${YELLOW}Deployment failed, retrying in ${wait_time}s...${NC}"
+            sleep $wait_time
+        fi
+        
+        attempt=$((attempt + 1))
+    done
+
+    echo -e "${RED}Failed to deploy contracts after $max_attempts attempts${NC}"
+    return 1
+}
+
 # Deploy Ethereum contracts
 cd "$ETHEREUM_DIR"
-echo -e "${BLUE}${BOLD}Deploying Ethereum contracts...${NC}"
-forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL
+deploy_contracts || exit 1
 
 # Read values from the JSON file and update env vars
 SN_MESSAGING=$(jq -r '.snMessaging_address' logs/local_setup.json)
