@@ -33,3 +33,7 @@ vendor/
 docker/rebuild-all.sh
 
 scripts/deploy-contracts.bash.sh
+
+contracts/starknet/account-sepolia
+
+contracts/starknet/keystore
