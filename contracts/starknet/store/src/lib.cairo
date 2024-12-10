@@ -3,7 +3,7 @@ pub trait IFossilStore<TContractState> {
     fn initialize(
         ref self: TContractState,
         verifier_address: starknet::ContractAddress,
-        min_update_interval: u64
+        min_update_interval: u64,
     );
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_mmr_state(
@@ -21,7 +21,7 @@ pub trait IFossilStore<TContractState> {
 #[starknet::contract]
 mod Store {
     use core::starknet::storage::{
-        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess
+        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
 
     #[starknet::storage_node]
@@ -72,7 +72,7 @@ mod Store {
         fn initialize(
             ref self: ContractState,
             verifier_address: starknet::ContractAddress,
-            min_update_interval: u64
+            min_update_interval: u64,
         ) {
             assert!(!self.initialized.read(), "Contract already initialized");
             self.initialized.write(true);
@@ -81,7 +81,7 @@ mod Store {
         }
 
         fn store_latest_blockhash_from_l1(
-            ref self: ContractState, block_number: u64, blockhash: u256
+            ref self: ContractState, block_number: u64, blockhash: u256,
         ) {
             self.latest_blockhash_from_l1.write((block_number, blockhash));
             self.emit(LatestBlockhashFromL1Stored { block_number, blockhash });
@@ -100,7 +100,7 @@ mod Store {
         ) {
             assert!(
                 starknet::get_caller_address() == self.verifier_address.read(),
-                "Only Fossil Verifier can update MMR state"
+                "Only Fossil Verifier can update MMR state",
             );
 
             let min_update_interval = self.min_update_interval.read();
@@ -112,7 +112,7 @@ mod Store {
                     actual_update_interval >= min_update_interval,
                     "Update interval: {} must be greater than or equal to the minimum update interval: {}",
                     actual_update_interval,
-                    min_update_interval
+                    min_update_interval,
                 );
                 self.latest_mmr_block.write(latest_mmr_block);
             }
@@ -121,7 +121,6 @@ mod Store {
 
             curr_state.leaves_count.write(leaves_count);
             curr_state.root_hash.write(mmr_root);
-
 
             self.emit(MmrStateUpdated { batch_index, leaves_count, root_hash: mmr_root });
         }

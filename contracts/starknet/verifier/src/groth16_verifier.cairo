@@ -1,4 +1,4 @@
-use super::groth16_verifier_constants::{N_FREE_PUBLIC_INPUTS, vk, ic, precomputed_lines, T};
+use super::groth16_verifier_constants::{N_FREE_PUBLIC_INPUTS, T, ic, precomputed_lines, vk};
 
 #[starknet::interface]
 pub trait IRisc0Groth16VerifierBN254<TContractState> {
@@ -9,14 +9,14 @@ pub trait IRisc0Groth16VerifierBN254<TContractState> {
 
 #[starknet::contract]
 mod Risc0Groth16VerifierBN254 {
-    use garaga::definitions::{G1Point, G1G2Pair};
+    use garaga::definitions::{G1G2Pair, G1Point};
     use garaga::ec_ops::{G1PointTrait, ec_safe_add};
     use garaga::ec_ops_g2::{G2PointTrait};
     use garaga::groth16::{multi_pairing_check_bn254_3P_2F_with_extra_miller_loop_result};
     use garaga::utils::calldata::deserialize_full_proof_with_hints_risc0;
     use garaga::utils::risc0::{compute_receipt_claim, journal_sha256};
     use starknet::SyscallResultTrait;
-    use super::{N_FREE_PUBLIC_INPUTS, vk, ic, precomputed_lines, T};
+    use super::{N_FREE_PUBLIC_INPUTS, T, ic, precomputed_lines, vk};
 
     #[storage]
     struct Storage {
@@ -73,13 +73,13 @@ mod Risc0Groth16VerifierBN254 {
             let mut _msm_result_serialized = core::starknet::syscalls::library_call_syscall(
                 self.ecip_ops_class_hash.read().try_into().unwrap(),
                 selector!("msm_g1_u128"),
-                msm_calldata.span()
+                msm_calldata.span(),
             )
                 .unwrap_syscall();
 
             // Finalize vk_x computation by adding the precomputed T point.
             let vk_x = ec_safe_add(
-                T, Serde::<G1Point>::deserialize(ref _msm_result_serialized).unwrap(), 0
+                T, Serde::<G1Point>::deserialize(ref _msm_result_serialized).unwrap(), 0,
             );
 
             // Perform the pairing check.
@@ -90,7 +90,7 @@ mod Risc0Groth16VerifierBN254 {
                 vk.alpha_beta_miller_loop_result,
                 precomputed_lines.span(),
                 mpcheck_hint,
-                small_Q
+                small_Q,
             );
 
             (result, journal)
