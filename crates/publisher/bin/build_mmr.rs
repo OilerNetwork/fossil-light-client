@@ -29,12 +29,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
     let account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
 
-    info!("Starting Publisher...");
-
     // Parse CLI arguments
     let args = Args::parse();
 
-    info!("Initializing accumulator builder...");
     // Initialize accumulator builder with the batch size
     let mut builder = AccumulatorBuilder::new(
         &rpc_url,
@@ -47,7 +44,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     )
     .await?;
 
-    info!("Building MMR...");
     // Build MMR from finalized block to block #0 or up to the specified number of batches
     if let Some(num_batches) = args.num_batches {
         builder.build_with_num_batches(num_batches).await?;
@@ -55,7 +51,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         builder.build_from_finalized().await?;
     }
 
-    info!("MMR building completed");
     info!("Host finished");
 
     Ok(())

@@ -110,6 +110,7 @@ impl GuestOutput {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CombinedInput {
     chain_id: u64,
+    batch_size: u64,
     headers: Vec<BlockHeader>,
     mmr_input: MMRInput,
     skip_proof_verification: bool,
@@ -118,12 +119,14 @@ pub struct CombinedInput {
 impl CombinedInput {
     pub fn new(
         chain_id: u64,
+        batch_size: u64,
         headers: Vec<BlockHeader>,
         mmr_input: MMRInput,
         skip_proof_verification: bool,
     ) -> Self {
         Self {
             chain_id,
+            batch_size,
             headers,
             mmr_input,
             skip_proof_verification,
@@ -132,6 +135,10 @@ impl CombinedInput {
 
     pub fn chain_id(&self) -> u64 {
         self.chain_id
+    }
+
+    pub fn batch_size(&self) -> u64 {
+        self.batch_size
     }
 
     pub fn headers(&self) -> &Vec<BlockHeader> {

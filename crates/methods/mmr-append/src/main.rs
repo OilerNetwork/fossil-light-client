@@ -4,8 +4,6 @@ use risc0_zkvm::guest::env;
 use guest_mmr::core::GuestMMR;
 use guest_types::{CombinedInput, GuestOutput};
 
-const BATCH_SIZE: u64 = 1024;
-
 fn main() {
     // Read combined input
     let input: CombinedInput = env::read();
@@ -41,8 +39,8 @@ fn main() {
     let last_block_number = last_header.number as u64;
     let last_block_hash = last_header.block_hash.clone();
 
-    let first_batch_index = first_block_number / BATCH_SIZE;
-    let last_batch_index = last_block_number / BATCH_SIZE;
+    let first_batch_index = first_block_number / input.batch_size();
+    let last_batch_index = last_block_number / input.batch_size();
 
     assert!(first_batch_index == last_batch_index, "Batch index mismatch");
 

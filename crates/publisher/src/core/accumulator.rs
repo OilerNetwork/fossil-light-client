@@ -28,7 +28,6 @@ impl<'a> AccumulatorBuilder<'a> {
         batch_size: u64,
         skip_proof_verification: bool,
     ) -> Result<Self, AccumulatorError> {
-        info!("Initializing AccumulatorBuilder");
         let proof_generator =
             ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, skip_proof_verification)?;
 

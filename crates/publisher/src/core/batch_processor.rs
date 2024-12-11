@@ -139,6 +139,7 @@ impl BatchProcessor {
 
         let combined_input = CombinedInput::new(
             chain_id,
+            self.batch_size,
             headers.clone(),
             mmr_input,
             self.skip_proof_verification,
