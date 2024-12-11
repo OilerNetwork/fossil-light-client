@@ -28,8 +28,7 @@ impl<'a> AccumulatorBuilder<'a> {
         batch_size: u64,
         skip_proof_verification: bool,
     ) -> Result<Self, AccumulatorError> {
-        let proof_generator =
-            ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID, skip_proof_verification)?;
+        let proof_generator = ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID)?;
 
         if rpc_url.trim().is_empty() {
             return Err(AccumulatorError::InvalidInput("RPC URL cannot be empty"));

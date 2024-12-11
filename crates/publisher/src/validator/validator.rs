@@ -11,6 +11,7 @@ use starknet_handler::u256_from_hex;
 use std::collections::HashMap;
 use store::SqlitePool;
 use tracing::error;
+// use eth_rlp_verify::are_blocks_and_chain_valid;
 
 pub struct ValidatorBuilder<'a> {
     rpc_url: &'a str,
@@ -35,8 +36,7 @@ impl<'a> ValidatorBuilder<'a> {
             ));
         }
 
-        let proof_generator =
-            ProofGenerator::new(BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID, skip_proof)?;
+        let proof_generator = ProofGenerator::new(BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID)?;
 
         Ok(Self {
             rpc_url,
