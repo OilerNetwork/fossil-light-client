@@ -26,10 +26,8 @@ scripts/katana/katana.log
 *.pb
 
 vendor/
+.env.*
 
-.env.local
-.env.sepolia
-.env.mainnet
 docker/rebuild-all.sh
 
 scripts/deploy-contracts.bash.sh

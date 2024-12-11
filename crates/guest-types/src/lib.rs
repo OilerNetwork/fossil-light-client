@@ -84,7 +84,7 @@ impl GuestOutput {
             leaves_count,
         }
     }
-    
+
     pub fn latest_mmr_block(&self) -> u64 {
         self.latest_mmr_block
     }
