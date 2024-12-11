@@ -160,35 +160,35 @@ impl BatchProcessor {
             self.skip_proof_verification,
         );
 
-        let (guest_output, proof): (Option<GuestOutput>, Option<_>) =
-            if self.skip_proof_verification {
-                (None, None)
-            } else {
-                let proof = self
-                    .proof_generator
-                    .generate_groth16_proof(combined_input)
-                    .await
-                    .map_err(|e| {
-                        error!(error = %e, "Failed to generate proof");
-                        e
-                    })?;
+        let (guest_output, proof) = if self.skip_proof_verification {
+            info!("Skipping proof generation and verification");
+            (None, None)
+        } else {
+            let proof = self
+                .proof_generator
+                .generate_groth16_proof(combined_input)
+                .await
+                .map_err(|e| {
+                    error!(error = %e, "Failed to generate proof");
+                    e
+                })?;
 
-                debug!("Generated proof with {} elements", proof.calldata().len());
+            debug!("Generated proof with {} elements", proof.calldata().len());
 
-                let guest_output: GuestOutput =
-                    self.proof_generator.decode_journal(&proof).map_err(|e| {
-                        error!(error = %e, "Failed to decode guest output");
-                        e
-                    })?;
+            let guest_output: GuestOutput =
+                self.proof_generator.decode_journal(&proof).map_err(|e| {
+                    error!(error = %e, "Failed to decode guest output");
+                    e
+                })?;
 
-                debug!(
-                    "Guest output - root_hash: {}, leaves_count: {}",
-                    guest_output.root_hash(),
-                    guest_output.leaves_count()
-                );
+            debug!(
+                "Guest output - root_hash: {}, leaves_count: {}",
+                guest_output.root_hash(),
+                guest_output.leaves_count()
+            );
 
-                (Some(guest_output), Some(proof))
-            };
+            (Some(guest_output), Some(proof))
+        };
 
         let new_mmr_state = MMRStateManager::update_state(
             store_manager,
