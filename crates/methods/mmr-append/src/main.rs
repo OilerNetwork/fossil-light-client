@@ -44,6 +44,20 @@ fn main() {
 
     assert!(first_batch_index == last_batch_index, "Batch index mismatch");
 
+    if first_batch_index > 0 {
+        match (input.batch_link(), &first_header.parent_hash) {
+            (Some(batch_link), Some(parent_hash)) => {
+                assert!(batch_link == parent_hash, "Batch link mismatch");
+            }
+            (None, _) => {
+                assert!(false, "Missing batch link for non-genesis batch");
+            }
+            (Some(_), None) => {
+                assert!(false, "Missing parent hash in first header");
+            }
+        }
+    }
+
     // Create output
     let output = GuestOutput::new(
         first_batch_index,

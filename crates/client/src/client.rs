@@ -1,4 +1,4 @@
-use common::{felt, get_env_var};
+use common::get_env_var;
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
     core::types::{BlockId, BlockTag, EventFilter, Felt},
@@ -31,11 +31,13 @@ pub enum LightClientError {
     PollingIntervalError,
     #[error("Chain ID is not a valid number")]
     ChainIdError(#[from] std::num::ParseIntError),
+    #[error("Felt conversion error: {0}")]
+    FeltConversion(#[from] starknet::core::types::FromStrError),
 }
 
 pub struct LightClient {
     starknet_provider: StarknetProvider,
-    l2_store_addr: Felt,
+    l2_store_addr: String,
     verifier_addr: String,
     chain_id: u64,
     latest_processed_block: u64,
@@ -53,7 +55,7 @@ impl LightClient {
         }
         // Load environment variables
         let starknet_rpc_url = get_env_var("STARKNET_RPC_URL")?;
-        let l2_store_addr = felt(&get_env_var("FOSSIL_STORE")?)?;
+        let l2_store_addr = get_env_var("FOSSIL_STORE")?;
         let verifier_addr = get_env_var("FOSSIL_VERIFIER")?;
         let starknet_private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
         let starknet_account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
@@ -115,7 +117,7 @@ impl LightClient {
         let event_filter = EventFilter {
             from_block: Some(BlockId::Number(self.latest_processed_block + 1)),
             to_block: Some(BlockId::Tag(BlockTag::Latest)),
-            address: Some(self.l2_store_addr),
+            address: Some(Felt::from_hex(&self.l2_store_addr)?),
             keys: Some(vec![vec![selector!("LatestBlockhashFromL1Stored")]]),
         };
 

@@ -113,6 +113,7 @@ pub struct CombinedInput {
     batch_size: u64,
     headers: Vec<BlockHeader>,
     mmr_input: MMRInput,
+    batch_link: Option<String>,
     skip_proof_verification: bool,
 }
 
@@ -122,6 +123,7 @@ impl CombinedInput {
         batch_size: u64,
         headers: Vec<BlockHeader>,
         mmr_input: MMRInput,
+        batch_link: Option<String>,
         skip_proof_verification: bool,
     ) -> Self {
         Self {
@@ -129,6 +131,7 @@ impl CombinedInput {
             batch_size,
             headers,
             mmr_input,
+            batch_link,
             skip_proof_verification,
         }
     }
@@ -147,6 +150,10 @@ impl CombinedInput {
 
     pub fn mmr_input(&self) -> &MMRInput {
         &self.mmr_input
+    }
+
+    pub fn batch_link(&self) -> Option<&str> {
+        self.batch_link.as_deref()
     }
 
     pub fn skip_proof_verification(&self) -> bool {

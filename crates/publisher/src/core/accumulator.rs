@@ -87,11 +87,6 @@ impl<'a> AccumulatorBuilder<'a> {
             AccumulatorError::BlockchainError(format!("Failed to get finalized block: {}", e))
         })?;
 
-        info!(
-            finalized_block_number,
-            num_batches, "Starting MMR build with specified number of batches"
-        );
-
         self.total_batches = num_batches;
         self.current_batch = 0;
         let mut current_end = finalized_block_number;
@@ -105,6 +100,13 @@ impl<'a> AccumulatorBuilder<'a> {
             let start_block = self.batch_processor.calculate_start_block(current_end)?;
             debug!(batch_num, start_block, current_end, "Processing batch");
 
+            info!(
+                finalized_block_number,
+                num_batches,
+                start_block,
+                current_end,
+                "Starting MMR build with specified number of batches"
+            );
             let result = self
                 .batch_processor
                 .process_batch(self.chain_id, start_block, current_end)
