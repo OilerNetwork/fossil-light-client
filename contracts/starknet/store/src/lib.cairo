@@ -29,6 +29,8 @@ mod Store {
     #[derive(Copy, Drop, Serde, Debug)]
     pub struct MMRSnapshot {
         batch_index: u64,
+        latest_mmr_block: u64,
+        latest_mmr_block_hash: u256,
         root_hash: u256,
         leaves_count: u64,
     }
@@ -132,6 +134,8 @@ mod Store {
             let curr_state = self.mmr_batches.entry(batch_index);
             MMRSnapshot {
                 batch_index,
+                latest_mmr_block: curr_state.latest_mmr_block.read(),
+                latest_mmr_block_hash: curr_state.latest_mmr_block_hash.read(),
                 leaves_count: curr_state.leaves_count.read(),
                 root_hash: curr_state.root_hash.read(),
             }

@@ -44,7 +44,7 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
     let mut latest_mmr_block_hash: u256 = 0;
     let mut i = offset;
     let loop_end = offset + 64; // 64 hex characters for 32 bytes
-    
+
     loop {
         if i >= loop_end {
             break;
@@ -63,12 +63,12 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
 
     // Parse root_hash
     offset += 66; // Skip past latest_mmr_block_hash (64 hex chars + "0x")
-    offset += 4;  // Skip length indicator (66, 0, 0, 0)
-    offset += 2;  // Skip "0x" prefix
+    offset += 4; // Skip length indicator (66, 0, 0, 0)
+    offset += 2; // Skip "0x" prefix
     let mut root_hash: u256 = 0;
     let mut i = offset;
     let loop_end = offset + 64; // 64 hex characters for 32 bytes
-    
+
     loop {
         if i >= loop_end {
             break;
@@ -161,16 +161,187 @@ mod tests {
         let journal = decode_journal(journal_bytes);
         assert_eq!(journal.batch_index, 7083);
         assert_eq!(journal.latest_mmr_block, 7253851);
-        assert_eq!(journal.latest_mmr_block_hash, 0x858768dd79b8c6190fb224ff398345ffe4fcb9c4899c55e0fc0994b7d35177af);
         assert_eq!(
-            journal.root_hash,
-            0x72aa9525dc9b7953631c0699d041fd4f23aa9f98c4a73aab27fbf2f0b9b451f8,
+            journal.latest_mmr_block_hash,
+            0x858768dd79b8c6190fb224ff398345ffe4fcb9c4899c55e0fc0994b7d35177af
+        );
+        assert_eq!(
+            journal.root_hash, 0x72aa9525dc9b7953631c0699d041fd4f23aa9f98c4a73aab27fbf2f0b9b451f8,
         );
         assert_eq!(journal.leaves_count, 4);
     }
 
     fn get_journal_bytes() -> Span<u8> {
-        array![171, 27, 0, 0, 0, 0, 0, 0, 91, 175, 110, 0, 0, 0, 0, 0, 66, 0, 0, 0, 48, 120, 56, 53, 56, 55, 54, 56, 100, 100, 55, 57, 98, 56, 99, 54, 49, 57, 48, 102, 98, 50, 50, 52, 102, 102, 51, 57, 56, 51, 52, 53, 102, 102, 101, 52, 102, 99, 98, 57, 99, 52, 56, 57, 57, 99, 53, 53, 101, 48, 102, 99, 48, 57, 57, 52, 98, 55, 100, 51, 53, 49, 55, 55, 97, 102, 0, 0, 66, 0, 0, 0, 48, 120, 55, 50, 97, 97, 57, 53, 50, 53, 100, 99, 57, 98, 55, 57, 53, 51, 54, 51, 49, 99, 48, 54, 57, 57, 100, 48, 52, 49, 102, 100, 52, 102, 50, 51, 97, 97, 57, 102, 57, 56, 99, 52, 97, 55, 51, 97, 97, 98, 50, 55, 102, 98, 102, 50, 102, 48, 98, 57, 98, 52, 53, 49, 102, 56, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0]
+        array![
+            171,
+            27,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            91,
+            175,
+            110,
+            0,
+            0,
+            0,
+            0,
+            0,
+            66,
+            0,
+            0,
+            0,
+            48,
+            120,
+            56,
+            53,
+            56,
+            55,
+            54,
+            56,
+            100,
+            100,
+            55,
+            57,
+            98,
+            56,
+            99,
+            54,
+            49,
+            57,
+            48,
+            102,
+            98,
+            50,
+            50,
+            52,
+            102,
+            102,
+            51,
+            57,
+            56,
+            51,
+            52,
+            53,
+            102,
+            102,
+            101,
+            52,
+            102,
+            99,
+            98,
+            57,
+            99,
+            52,
+            56,
+            57,
+            57,
+            99,
+            53,
+            53,
+            101,
+            48,
+            102,
+            99,
+            48,
+            57,
+            57,
+            52,
+            98,
+            55,
+            100,
+            51,
+            53,
+            49,
+            55,
+            55,
+            97,
+            102,
+            0,
+            0,
+            66,
+            0,
+            0,
+            0,
+            48,
+            120,
+            55,
+            50,
+            97,
+            97,
+            57,
+            53,
+            50,
+            53,
+            100,
+            99,
+            57,
+            98,
+            55,
+            57,
+            53,
+            51,
+            54,
+            51,
+            49,
+            99,
+            48,
+            54,
+            57,
+            57,
+            100,
+            48,
+            52,
+            49,
+            102,
+            100,
+            52,
+            102,
+            50,
+            51,
+            97,
+            97,
+            57,
+            102,
+            57,
+            56,
+            99,
+            52,
+            97,
+            55,
+            51,
+            97,
+            97,
+            98,
+            50,
+            55,
+            102,
+            98,
+            102,
+            50,
+            102,
+            48,
+            98,
+            57,
+            98,
+            52,
+            53,
+            49,
+            102,
+            56,
+            0,
+            0,
+            4,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+        ]
             .span()
     }
 }
