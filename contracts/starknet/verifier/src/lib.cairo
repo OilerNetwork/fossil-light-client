@@ -2,7 +2,7 @@ pub mod fossil_verifier;
 pub mod groth16_verifier;
 mod groth16_verifier_constants;
 pub mod universal_ecip;
-use core::num::traits::{WideMul, Bounded};
+use core::num::traits::{Bounded, WideMul};
 
 pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> (u256, u64, u64, u64) {
     let mut root_hash_start = 4;
@@ -98,7 +98,7 @@ impl U128BitShift of BitShift<u128> {
 }
 
 fn pow<T, +Sub<T>, +Mul<T>, +Div<T>, +Rem<T>, +PartialEq<T>, +Into<u8, T>, +Drop<T>, +Copy<T>>(
-    base: T, exp: T
+    base: T, exp: T,
 ) -> T {
     if exp == 0_u8.into() {
         1_u8.into()
@@ -120,10 +120,11 @@ mod tests {
         let journal_bytes = get_journal_bytes();
 
         let (root_hash, leaves_count, batch_index, latest_mmr_block) = decode_journal(
-            journal_bytes
+            journal_bytes,
         );
         assert_eq!(
-            root_hash, 63221064195583864302708890759072807439606022947695579972969583236139473588457
+            root_hash,
+            63221064195583864302708890759072807439606022947695579972969583236139473588457,
         );
         assert_eq!(leaves_count, 170);
         assert_eq!(batch_index, 20820);
@@ -227,7 +228,7 @@ mod tests {
             0,
             0,
             0,
-            0
+            0,
         ]
             .span()
     }
