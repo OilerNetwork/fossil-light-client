@@ -138,11 +138,15 @@ impl BatchProcessor {
         );
 
         let batch_link: Option<String> = if batch_index > 0 {
-            Some(db_connection
-                .get_block_header_by_number(batch_start - 1)
-                .await?
-                .ok_or_else(|| AccumulatorError::InvalidInput("Previous block header not found"))?
-                .block_hash)
+            Some(
+                db_connection
+                    .get_block_header_by_number(batch_start - 1)
+                    .await?
+                    .ok_or_else(|| {
+                        AccumulatorError::InvalidInput("Previous block header not found")
+                    })?
+                    .block_hash,
+            )
         } else {
             None
         };
