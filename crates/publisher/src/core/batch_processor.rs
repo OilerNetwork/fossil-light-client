@@ -137,11 +137,22 @@ impl BatchProcessor {
             new_headers.clone(),
         );
 
+        let batch_link: Option<String> = if batch_index > 0 {
+            Some(db_connection
+                .get_block_header_by_number(batch_start - 1)
+                .await?
+                .ok_or_else(|| AccumulatorError::InvalidInput("Previous block header not found"))?
+                .block_hash)
+        } else {
+            None
+        };
+
         let combined_input = CombinedInput::new(
             chain_id,
             self.batch_size,
             headers.clone(),
             mmr_input,
+            batch_link,
             self.skip_proof_verification,
         );
 
