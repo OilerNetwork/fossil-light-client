@@ -15,7 +15,7 @@ impl MMRStateManager {
         mmr: &mut MMR,
         pool: &SqlitePool,
         latest_block_number: u64,
-        guest_output: &GuestOutput,
+        guest_output: Option<&GuestOutput>,
         headers: &Vec<String>,
     ) -> Result<MmrState, AccumulatorError> {
         if headers.is_empty() {
@@ -33,23 +33,54 @@ impl MMRStateManager {
                 e
             })?;
 
-        Self::verify_mmr_state(mmr, guest_output)
-            .await
-            .map_err(|e| {
-                error!(error = %e, "Failed to verify MMR state");
+        if let Some(guest_output) = guest_output {
+            Self::verify_mmr_state(mmr, guest_output)
+                .await
+                .map_err(|e| {
+                    error!(error = %e, "Failed to verify MMR state");
+                    e
+                })?;
+
+            let new_mmr_state = Self::create_new_state(latest_block_number, guest_output)
+                .await
+                .map_err(|e| {
+                    error!(error = %e, "Failed to create new MMR state");
+                    e
+                })?;
+
+            info!("MMR state updated successfully");
+            Ok(new_mmr_state)
+        } else {
+            // When no guest output, create state directly from MMR
+            let bag = mmr.bag_the_peaks(None).await.map_err(|e| {
+                error!(error = %e, "Failed to bag the peaks");
+                e
+            })?;
+            let elements_count = mmr.elements_count.get().await.map_err(|e| {
+                error!(error = %e, "Failed to get elements count");
+                e
+            })?;
+            let root_hash = mmr.calculate_root_hash(&bag, elements_count).map_err(|e| {
+                error!(error = %e, "Failed to calculate root hash");
+                e
+            })?;
+            let leaves_count = mmr.leaves_count.get().await.map_err(|e| {
+                error!(error = %e, "Failed to get leaves count");
                 e
             })?;
 
-        let new_mmr_state = Self::create_new_state(latest_block_number, guest_output)
-            .await
-            .map_err(|e| {
-                error!(error = %e, "Failed to create new MMR state");
-                e
-            })?;
+            let new_mmr_state = MmrState::new(
+                latest_block_number,
+                u256_from_hex(&root_hash.trim_start_matches("0x")).map_err(|e| {
+                    error!(error = %e, "Failed to convert root hash from hex");
+                    e
+                })?,
+                leaves_count as u64,
+            );
 
-        info!("MMR state updated successfully");
-
-        Ok(new_mmr_state)
+            info!("MMR state updated successfully (without verification)");
+            Ok(new_mmr_state)
+        }
     }
 
     async fn append_headers(

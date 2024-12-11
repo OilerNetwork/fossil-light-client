@@ -62,11 +62,16 @@ pub struct BatchResult {
     start_block: u64,
     end_block: u64,
     new_mmr_state: MmrState,
-    proof: Groth16,
+    proof: Option<Groth16>,
 }
 
 impl BatchResult {
-    pub fn new(start_block: u64, end_block: u64, new_mmr_state: MmrState, proof: Groth16) -> Self {
+    pub fn new(
+        start_block: u64,
+        end_block: u64,
+        new_mmr_state: MmrState,
+        proof: Option<Groth16>,
+    ) -> Self {
         Self {
             start_block,
             end_block,
@@ -87,7 +92,7 @@ impl BatchResult {
         self.new_mmr_state.clone()
     }
 
-    pub fn proof(&self) -> Groth16 {
+    pub fn proof(&self) -> Option<Groth16> {
         self.proof.clone()
     }
 }

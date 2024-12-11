@@ -210,7 +210,11 @@ impl<'a> AccumulatorBuilder<'a> {
                 })?
             {
                 self.handle_batch_result(&result).await?;
-                batch_results.push((result.proof().calldata(), result.new_mmr_state()));
+                let calldata = result
+                    .proof()
+                    .map(|proof| proof.calldata())
+                    .unwrap_or_else(Vec::new);
+                batch_results.push((calldata, result.new_mmr_state()));
                 debug!(
                     batch_start = batch_range.start,
                     batch_end = batch_range.end,
@@ -237,8 +241,15 @@ impl<'a> AccumulatorBuilder<'a> {
         &self,
         batch_result: &BatchResult,
     ) -> Result<(), AccumulatorError> {
+        // Skip verification if explicitly disabled or if no proof is available
         if !self.batch_processor.skip_proof_verification() {
-            self.verify_proof(batch_result.proof().calldata()).await?;
+            if let Some(proof) = batch_result.proof() {
+                self.verify_proof(proof.calldata()).await?;
+            } else {
+                debug!("Skipping proof verification - no proof available");
+            }
+        } else {
+            debug!("Skipping proof verification - verification disabled");
         }
         Ok(())
     }
