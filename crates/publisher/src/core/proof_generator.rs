@@ -4,6 +4,7 @@ use garaga_rs::{
     },
     definitions::CurveID,
 };
+use guest_types::GuestOutput;
 use risc0_ethereum_contracts::encode_seal;
 use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, VerifierContext};
 use serde::Deserialize;
@@ -164,6 +165,7 @@ where
             })?;
 
             let journal = receipt.journal.bytes.clone();
+            println!("Journal bytes: {:?}", journal);
 
             debug!("Converting to Groth16 proof");
             let groth16_proof = if !skip_proof_verification {
@@ -196,6 +198,9 @@ where
             error!("Failed to spawn blocking task: {}", e);
             ProofGeneratorError::SpawnBlocking(e.to_string())
         })?;
+
+        let decoded = self.decode_journal::<GuestOutput>(&proof)?;
+        println!("Decoded journal: {:?}", decoded);
 
         Ok(proof)
     }

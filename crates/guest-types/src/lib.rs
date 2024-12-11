@@ -61,25 +61,36 @@ impl AppendResult {
 // GuestOutput
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GuestOutput {
-    root_hash: String,
-    leaves_count: usize,
     batch_index: u64,
     latest_mmr_block: u64,
+    latest_mmr_block_hash: String,
+    root_hash: String,
+    leaves_count: usize,
 }
 
 impl GuestOutput {
     pub fn new(
-        root_hash: String,
-        leaves_count: usize,
         batch_index: u64,
         latest_mmr_block: u64,
+        latest_mmr_block_hash: String,
+        root_hash: String,
+        leaves_count: usize,
     ) -> Self {
         Self {
-            root_hash,
-            leaves_count,
             batch_index,
             latest_mmr_block,
+            latest_mmr_block_hash,
+            root_hash,
+            leaves_count,
         }
+    }
+    
+    pub fn latest_mmr_block(&self) -> u64 {
+        self.latest_mmr_block
+    }
+
+    pub fn latest_mmr_block_hash(&self) -> &str {
+        &self.latest_mmr_block_hash
     }
 
     pub fn root_hash(&self) -> &str {
@@ -88,10 +99,6 @@ impl GuestOutput {
 
     pub fn batch_index(&self) -> u64 {
         self.batch_index
-    }
-
-    pub fn latest_mmr_block(&self) -> u64 {
-        self.latest_mmr_block
     }
 
     pub fn leaves_count(&self) -> usize {

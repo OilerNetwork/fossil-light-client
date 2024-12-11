@@ -39,6 +39,7 @@ fn main() {
 
     let first_block_number = first_header.number as u64;
     let last_block_number = last_header.number as u64;
+    let last_block_hash = last_header.block_hash.clone();
 
     let first_batch_index = first_block_number / BATCH_SIZE;
     let last_batch_index = last_block_number / BATCH_SIZE;
@@ -47,10 +48,11 @@ fn main() {
 
     // Create output
     let output = GuestOutput::new(
-        root_hash,
-        mmr.get_leaves_count(),
         first_batch_index,
         last_block_number,
+        last_block_hash,
+        root_hash,
+        mmr.get_leaves_count(),
     );
     // Commit the output
     env::commit(&output);
