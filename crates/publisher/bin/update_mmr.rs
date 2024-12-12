@@ -27,6 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let chain_id = get_env_var("CHAIN_ID")?.parse::<u64>()?;
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
     let verifier_address = get_env_var("FOSSIL_VERIFIER")?;
+    let store_address = get_env_var("FOSSIL_STORE")?;
     let private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
     let account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
 
@@ -39,6 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &rpc_url,
         chain_id,
         &verifier_address,
+        &store_address,
         &private_key,
         &account_address,
         BATCH_SIZE,

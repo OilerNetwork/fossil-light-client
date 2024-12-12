@@ -6,26 +6,26 @@ use methods::{BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID};
 use mmr::{PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, StoreManager};
 use starknet::core::types::U256;
-use starknet_crypto::Felt;
 use starknet_handler::provider::StarknetProvider;
 use starknet_handler::u256_from_hex;
 use std::collections::HashMap;
 use store::SqlitePool;
 use tracing::error;
+// use eth_rlp_verify::are_blocks_and_chain_valid;
 
-pub struct ValidatorBuilder {
-    rpc_url: String,
-    l2_store_address: Felt,
+pub struct ValidatorBuilder<'a> {
+    rpc_url: &'a str,
+    l2_store_address: &'a str,
     chain_id: u64,
     proof_generator: ProofGenerator<BlocksValidityInput>,
     batch_size: u64,
     skip_proof: bool,
 }
 
-impl ValidatorBuilder {
+impl<'a> ValidatorBuilder<'a> {
     pub async fn new(
-        rpc_url: &String,
-        l2_store_address: &String,
+        rpc_url: &'a str,
+        l2_store_address: &'a str,
         chain_id: u64,
         batch_size: u64,
         skip_proof: bool,
@@ -36,12 +36,11 @@ impl ValidatorBuilder {
             ));
         }
 
-        let proof_generator =
-            ProofGenerator::new(BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID, skip_proof)?;
+        let proof_generator = ProofGenerator::new(BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID)?;
 
         Ok(Self {
-            rpc_url: rpc_url.clone(),
-            l2_store_address: Felt::from_hex(l2_store_address)?,
+            rpc_url,
+            l2_store_address,
             chain_id,
             proof_generator,
             batch_size,

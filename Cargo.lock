@@ -2202,16 +2202,13 @@ dependencies = [
 [[package]]
 name = "eth-rlp-types"
 version = "0.1.0"
-source = "git+https://github.com/ametel01/eth-rlp-verify.git#227fdf0e684b16053710966b07ec0671954dc2cf"
+source = "git+https://github.com/ametel01/eth-rlp-verify.git#fde970ddf93771af8c320a99640355b78e3bae14"
 dependencies = [
  "ethereum-types 0.15.1",
- "fixed-hash",
+ "eyre",
  "hex",
- "rlp 0.6.1",
  "serde",
  "sha3",
- "thiserror 2.0.4",
- "uint 0.10.0",
 ]
 
 [[package]]

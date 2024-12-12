@@ -1,4 +1,4 @@
-use common::{felt, get_env_var};
+use common::get_env_var;
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
     core::types::{BlockId, BlockTag, EventFilter, Felt},
@@ -31,11 +31,13 @@ pub enum LightClientError {
     PollingIntervalError,
     #[error("Chain ID is not a valid number")]
     ChainIdError(#[from] std::num::ParseIntError),
+    #[error("Felt conversion error: {0}")]
+    FeltConversion(#[from] starknet::core::types::FromStrError),
 }
 
 pub struct LightClient {
     starknet_provider: StarknetProvider,
-    l2_store_addr: Felt,
+    l2_store_addr: String,
     verifier_addr: String,
     chain_id: u64,
     latest_processed_block: u64,
@@ -53,7 +55,7 @@ impl LightClient {
         }
         // Load environment variables
         let starknet_rpc_url = get_env_var("STARKNET_RPC_URL")?;
-        let l2_store_addr = felt(&get_env_var("FOSSIL_STORE")?)?;
+        let l2_store_addr = get_env_var("FOSSIL_STORE")?;
         let verifier_addr = get_env_var("FOSSIL_VERIFIER")?;
         let starknet_private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
         let starknet_account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
@@ -115,7 +117,7 @@ impl LightClient {
         let event_filter = EventFilter {
             from_block: Some(BlockId::Number(self.latest_processed_block + 1)),
             to_block: Some(BlockId::Tag(BlockTag::Latest)),
-            address: Some(self.l2_store_addr),
+            address: Some(Felt::from_hex(&self.l2_store_addr)?),
             keys: Some(vec![vec![selector!("LatestBlockhashFromL1Stored")]]),
         };
 
@@ -206,6 +208,7 @@ impl LightClient {
             &self.starknet_provider.rpc_url().to_string(),
             self.chain_id,
             &self.verifier_addr,
+            &self.l2_store_addr,
             &self.starknet_private_key,
             &self.starknet_account_address,
             BATCH_SIZE,
@@ -214,41 +217,6 @@ impl LightClient {
             false,
         )
         .await?;
-
-        // self.update_mmr_state_on_starknet(latest_relayed_block, new_mmr_state, proof)
-        //     .await?;
-
         Ok(())
     }
-
-    // /// Updates the MMR state on Starknet.
-    // pub async fn update_mmr_state_on_starknet(
-    //     &self,
-    //     latest_relayed_block: u64,
-    //     new_mmr_state: MmrState,
-    //     proof: Vec<Felt>,
-    // ) -> Result<(), LightClientError> {
-    //     if new_mmr_state.root_hash() == U256::from(0_u8) {
-    //         error!("New MMR root hash cannot be zero");
-    //         return Err(LightClientError::StateRootError);
-    //     }
-
-    //     let starknet_account = StarknetAccount::new(
-    //         self.starknet_provider.provider(),
-    //         &self.starknet_private_key,
-    //         &self.starknet_account_address,
-    //     )?;
-
-    //     starknet_account
-    //         .verify_mmr_proof(&self.verifier_addr, &new_mmr_state, proof)
-    //         .await?;
-
-    //     info!(
-    //         latest_block = latest_relayed_block,
-    //         mmr_root = %new_mmr_state.root_hash(),
-    //         "MMR state updated on Starknet"
-    //     );
-
-    //     Ok(())
-    // }
 }

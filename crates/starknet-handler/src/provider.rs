@@ -43,7 +43,7 @@ impl StarknetProvider {
     #[instrument(skip(self), level = "debug")]
     pub async fn get_latest_mmr_block(
         &self,
-        l2_store_address: &Felt,
+        l2_store_address: &str,
     ) -> Result<u64, StarknetHandlerError> {
         debug!("Fetching latest MMR block");
 
@@ -53,7 +53,7 @@ impl StarknetProvider {
             .provider
             .call(
                 FunctionCall {
-                    contract_address: *l2_store_address,
+                    contract_address: Felt::from_hex(l2_store_address)?,
                     entry_point_selector,
                     calldata: vec![],
                 },
@@ -70,7 +70,7 @@ impl StarknetProvider {
     #[instrument(skip(self), level = "debug")]
     pub async fn get_mmr_state(
         &self,
-        l2_store_address: &Felt,
+        l2_store_address: &str,
         batch_index: u64,
     ) -> Result<MmrState, StarknetHandlerError> {
         debug!(batch_index, "Fetching MMR state");
@@ -81,7 +81,7 @@ impl StarknetProvider {
             .provider
             .call(
                 FunctionCall {
-                    contract_address: *l2_store_address,
+                    contract_address: Felt::from_hex(l2_store_address)?,
                     entry_point_selector,
                     calldata: vec![Felt::from(batch_index)],
                 },
@@ -98,7 +98,7 @@ impl StarknetProvider {
     #[instrument(skip(self), level = "debug")]
     pub async fn get_latest_relayed_block(
         &self,
-        l2_store_address: &Felt,
+        l2_store_address: &str,
     ) -> Result<u64, StarknetHandlerError> {
         debug!("Fetching latest relayed block");
 
@@ -108,7 +108,7 @@ impl StarknetProvider {
             .provider
             .call(
                 FunctionCall {
-                    contract_address: *l2_store_address,
+                    contract_address: Felt::from_hex(l2_store_address)?,
                     entry_point_selector,
                     calldata: vec![],
                 },

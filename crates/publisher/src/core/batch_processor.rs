@@ -8,17 +8,19 @@ use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
 use tracing::{debug, error, info, warn};
 
-pub struct BatchProcessor {
+pub struct BatchProcessor<'a> {
     batch_size: u64,
     proof_generator: ProofGenerator<CombinedInput>,
+    mmr_state_manager: MMRStateManager<'a>,
     skip_proof_verification: bool,
 }
 
-impl BatchProcessor {
+impl<'a> BatchProcessor<'a> {
     pub fn new(
         batch_size: u64,
         proof_generator: ProofGenerator<CombinedInput>,
         skip_proof_verification: bool,
+        mmr_state_manager: MMRStateManager<'a>,
     ) -> Result<Self, AccumulatorError> {
         if batch_size == 0 {
             return Err(AccumulatorError::InvalidInput(
@@ -30,7 +32,16 @@ impl BatchProcessor {
             batch_size,
             proof_generator,
             skip_proof_verification,
+            mmr_state_manager,
         })
+    }
+
+    pub fn mmr_state_manager(&self) -> &MMRStateManager<'a> {
+        &self.mmr_state_manager
+    }
+
+    pub fn proof_generator(&self) -> &ProofGenerator<CombinedInput> {
+        &self.proof_generator
     }
 
     pub fn batch_size(&self) -> u64 {
@@ -66,7 +77,7 @@ impl BatchProcessor {
 
         info!(
             batch_index,
-            num_blocks = adjusted_end_block - start_block,
+            num_blocks = adjusted_end_block - start_block + 1,
             "Processing batch"
         );
 
@@ -137,48 +148,75 @@ impl BatchProcessor {
             new_headers.clone(),
         );
 
+        let batch_link: Option<String> = if batch_index > 0 {
+            Some(
+                db_connection
+                    .get_block_header_by_number(batch_start - 1)
+                    .await?
+                    .ok_or_else(|| {
+                        AccumulatorError::InvalidInput("Previous block header not found")
+                    })?
+                    .block_hash,
+            )
+        } else {
+            None
+        };
+
         let combined_input = CombinedInput::new(
             chain_id,
+            self.batch_size,
             headers.clone(),
             mmr_input,
+            batch_link,
             self.skip_proof_verification,
         );
 
-        let proof = self
-            .proof_generator
-            .generate_groth16_proof(combined_input)
+        let (guest_output, proof) = if self.skip_proof_verification {
+            info!("Skipping proof generation and verification");
+            (None, None)
+        } else {
+            let proof = self
+                .proof_generator
+                .generate_groth16_proof(combined_input)
+                .await
+                .map_err(|e| {
+                    error!(error = %e, "Failed to generate proof");
+                    e
+                })?;
+
+            debug!("Generated proof with {} elements", proof.calldata().len());
+
+            let guest_output: GuestOutput =
+                self.proof_generator.decode_journal(&proof).map_err(|e| {
+                    error!(error = %e, "Failed to decode guest output");
+                    e
+                })?;
+
+            debug!(
+                "Guest output - root_hash: {}, leaves_count: {}",
+                guest_output.root_hash(),
+                guest_output.leaves_count()
+            );
+
+            (Some(guest_output), Some(proof))
+        };
+
+        let new_mmr_state = self
+            .mmr_state_manager
+            .update_state(
+                store_manager,
+                &mut mmr,
+                &pool,
+                batch_index,
+                adjusted_end_block,
+                guest_output.as_ref(),
+                &new_headers,
+            )
             .await
             .map_err(|e| {
-                error!(error = %e, "Failed to generate proof");
+                error!(error = %e, "Failed to update MMR state");
                 e
             })?;
-
-        debug!("Generated proof with {} elements", proof.calldata().len());
-
-        let guest_output: GuestOutput =
-            self.proof_generator.decode_journal(&proof).map_err(|e| {
-                error!(error = %e, "Failed to decode guest output");
-                e
-            })?;
-        debug!(
-            "Guest output - root_hash: {}, leaves_count: {}",
-            guest_output.root_hash(),
-            guest_output.leaves_count()
-        );
-
-        let new_mmr_state = MMRStateManager::update_state(
-            store_manager,
-            &mut mmr,
-            &pool,
-            adjusted_end_block,
-            &guest_output,
-            &new_headers,
-        )
-        .await
-        .map_err(|e| {
-            error!(error = %e, "Failed to update MMR state");
-            e
-        })?;
 
         let new_leaves_count = mmr.leaves_count.get().await.map_err(|e| {
             error!(error = %e, "Failed to get new leaves count");

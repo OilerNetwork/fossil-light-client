@@ -68,6 +68,33 @@ impl DbConnection {
 
         Ok(headers)
     }
+
+    pub async fn get_block_header_by_number(
+        &self,
+        block_number: u64,
+    ) -> Result<Option<BlockHeader>, AccumulatorError> {
+        let temp_header = sqlx::query_as!(
+            TempBlockHeader,
+            r#"
+            SELECT block_hash, number, gas_limit, gas_used, nonce, 
+                   transaction_root, receipts_root, state_root, 
+                   base_fee_per_gas, parent_hash, miner, logs_bloom, 
+                   difficulty, totaldifficulty, sha3_uncles, "timestamp", 
+                   extra_data, mix_hash, withdrawals_root, 
+                   blob_gas_used, excess_blob_gas, parent_beacon_block_root
+            FROM blockheaders
+            WHERE number = $1
+            "#,
+            block_number as i64
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        // Convert TempBlockHeader to BlockHeader if found
+        let header = temp_header.map(temp_to_block_header);
+
+        Ok(header)
+    }
 }
 
 #[derive(sqlx::FromRow, Debug)]

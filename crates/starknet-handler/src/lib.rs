@@ -37,31 +37,35 @@ pub enum StarknetHandlerError {
 
 #[derive(Clone, Debug, Encode, Decode)]
 pub struct MmrState {
-    latest_block_number: u64,
+    latest_mmr_block: u64,
+    latest_mmr_block_hash: U256,
     root_hash: U256,
-    // elements_count: u64,
     leaves_count: u64,
 }
 
 impl MmrState {
     #[instrument(skip(root_hash), level = "debug")]
     pub fn new(
-        latest_block_number: u64,
+        latest_mmr_block: u64,
+        latest_mmr_block_hash: U256,
         root_hash: U256,
-        // elements_count: u64,
         leaves_count: u64,
     ) -> Self {
-        debug!(latest_block_number, leaves_count, "Creating new MMR state");
+        debug!(latest_mmr_block, leaves_count, "Creating new MMR state");
         Self {
-            latest_block_number,
+            latest_mmr_block,
+            latest_mmr_block_hash,
             root_hash,
-            // elements_count,
             leaves_count,
         }
     }
 
-    pub fn latest_block_number(&self) -> u64 {
-        self.latest_block_number
+    pub fn latest_mmr_block(&self) -> u64 {
+        self.latest_mmr_block
+    }
+
+    pub fn latest_mmr_block_hash(&self) -> U256 {
+        self.latest_mmr_block_hash
     }
 
     pub fn root_hash(&self) -> U256 {

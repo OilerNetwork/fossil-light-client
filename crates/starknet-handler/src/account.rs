@@ -1,7 +1,7 @@
 use starknet::macros::selector;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
-    core::chain_id,
+    core::{chain_id, codec::Encode},
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
     signers::{LocalWallet, SigningKey},
 };
@@ -11,7 +11,7 @@ use tracing::{debug, info, instrument, warn};
 
 use common::felt;
 
-use crate::StarknetHandlerError;
+use crate::{MmrState, StarknetHandlerError};
 
 pub struct StarknetAccount {
     account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,
@@ -79,6 +79,31 @@ impl StarknetAccount {
             tx_hash = ?tx.transaction_hash,
             "MMR proof onchain verification successful."
         );
+        Ok(tx.transaction_hash)
+    }
+
+    pub async fn update_mmr_state(
+        &self,
+        store_address: &str,
+        batch_index: u64,
+        mmr_state: &MmrState,
+    ) -> Result<Felt, StarknetHandlerError> {
+        let selector = selector!("update_mmr_state");
+
+        let mut calldata = vec![];
+        calldata.push(Felt::from(batch_index));
+        mmr_state.encode(&mut calldata)?;
+
+        let tx = self
+            .account
+            .execute_v1(vec![starknet::core::types::Call {
+                selector,
+                calldata,
+                to: felt(store_address)?,
+            }])
+            .send()
+            .await?;
+
         Ok(tx.transaction_hash)
     }
 }
