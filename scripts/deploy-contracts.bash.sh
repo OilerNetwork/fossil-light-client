@@ -102,8 +102,13 @@ echo "Deploying Fossil Verifier contract..."
 FOSSIL_VERIFIER_ADDRESS=$(starkli deploy $FOSSIL_VERIFIER_HASH $VERIFIER_ADDRESS $FOSSILSTORE_ADDRESS  -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo "Contract deployed at: $FOSSIL_VERIFIER_ADDRESS"
 
-echo "Initializing Fossil Store contract..."
-starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS $UPDATE_INTERVAL -w
+if [ "$DEPLOYMENT_VERSION" = "local" ]; then
+    echo "Initializing Fossil Store contract for local deployment..."
+    starkli invoke $FOSSILSTORE_ADDRESS initialize $STARKNET_ACCOUNT_ADDRESS $UPDATE_INTERVAL -w
+else
+    echo "Initializing Fossil Store contract..."
+    starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS $UPDATE_INTERVAL -w
+fi
 echo "Fossil Store contract initialized"
 echo
 
