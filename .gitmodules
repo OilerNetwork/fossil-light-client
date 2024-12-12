@@ -4,4 +4,4 @@
 	shallow = true
 [submodule "contracts/starknet/garaga"]
 	path = contracts/starknet/garaga
-	url = git@github.com:keep-starknet-strange/garaga.git
+	url = git@github.com:ametel01/garaga.git

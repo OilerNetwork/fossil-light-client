@@ -1,6 +1,6 @@
 #[starknet::interface]
 pub trait IFossilVerifier<TContractState> {
-    fn verify_mmr_proof(ref self: TContractState, proof: Span<felt252>,) -> bool;
+    fn verify_mmr_proof(ref self: TContractState, proof: Span<felt252>) -> bool;
     fn get_verifier_address(self: @TContractState) -> starknet::ContractAddress;
     fn get_fossil_store_address(self: @TContractState) -> starknet::ContractAddress;
 }
@@ -10,7 +10,7 @@ mod FossilVerifier {
     use fossil_store::{IFossilStoreDispatcher, IFossilStoreDispatcherTrait};
     use verifier::decode_journal;
     use verifier::groth16_verifier::{
-        IRisc0Groth16VerifierBN254Dispatcher, IRisc0Groth16VerifierBN254DispatcherTrait
+        IRisc0Groth16VerifierBN254Dispatcher, IRisc0Groth16VerifierBN254DispatcherTrait,
     };
 
     #[storage]
@@ -37,7 +37,7 @@ mod FossilVerifier {
     fn constructor(
         ref self: ContractState,
         verifier_address: starknet::ContractAddress,
-        fossil_store_address: starknet::ContractAddress
+        fossil_store_address: starknet::ContractAddress,
     ) {
         self
             .bn254_verifier
@@ -46,23 +46,23 @@ mod FossilVerifier {
     }
 
     #[external(v0)]
-    fn verify_mmr_proof(ref self: ContractState, proof: Span<felt252>,) -> bool {
+    fn verify_mmr_proof(ref self: ContractState, proof: Span<felt252>) -> bool {
         let (verified, journal) = self.bn254_verifier.read().verify_groth16_proof_bn254(proof);
 
-        let (new_mmr_root, new_leaves_count, batch_index, latest_mmr_block) = decode_journal(
-            journal
-        );
+        let journal = decode_journal(journal);
 
         if verified {
-            self
-                .fossil_store
-                .read()
-                .update_mmr_state(batch_index, latest_mmr_block, new_leaves_count, new_mmr_root);
+            self.fossil_store.read().update_mmr_state(journal);
         }
 
         self
             .emit(
-                MmrProofVerified { batch_index, latest_mmr_block, new_leaves_count, new_mmr_root }
+                MmrProofVerified {
+                    batch_index: journal.batch_index,
+                    latest_mmr_block: journal.latest_mmr_block,
+                    new_leaves_count: journal.leaves_count,
+                    new_mmr_root: journal.root_hash
+                },
             );
 
         verified

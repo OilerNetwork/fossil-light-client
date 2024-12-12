@@ -6,13 +6,7 @@ pub trait IFossilStore<TContractState> {
         min_update_interval: u64
     );
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
-    fn update_mmr_state(
-        ref self: TContractState,
-        batch_index: u64,
-        latest_mmr_block: u64,
-        leaves_count: u64,
-        mmr_root: u256,
-    );
+    fn update_mmr_state(ref self: TContractState, journal: verifier::Journal);
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
     fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
     fn get_latest_mmr_block(self: @TContractState) -> u64;
@@ -26,6 +20,8 @@ mod Store {
 
     #[starknet::storage_node]
     pub(crate) struct MMRBatch {
+        latest_mmr_block: u64,
+        latest_mmr_block_hash: u256,
         leaves_count: u64,
         root_hash: u256,
     }
@@ -33,6 +29,8 @@ mod Store {
     #[derive(Copy, Drop, Serde, Debug)]
     pub struct MMRSnapshot {
         batch_index: u64,
+        latest_mmr_block: u64,
+        latest_mmr_block_hash: u256,
         root_hash: u256,
         leaves_count: u64,
     }
@@ -63,6 +61,8 @@ mod Store {
     #[derive(Drop, starknet::Event)]
     struct MmrStateUpdated {
         batch_index: u64,
+        latest_mmr_block: u64,
+        latest_mmr_block_hash: u256,
         leaves_count: u64,
         root_hash: u256,
     }
@@ -91,41 +91,51 @@ mod Store {
             self.latest_blockhash_from_l1.read()
         }
 
-        fn update_mmr_state(
-            ref self: ContractState,
-            batch_index: u64,
-            latest_mmr_block: u64,
-            leaves_count: u64,
-            mmr_root: u256,
-        ) {
+        fn update_mmr_state(ref self: ContractState, journal: verifier::Journal) {
             assert!(
                 starknet::get_caller_address() == self.verifier_address.read(),
                 "Only Fossil Verifier can update MMR state"
             );
+            let global_latest_mmr_block = self.latest_mmr_block.read();
 
-            let min_update_interval = self.min_update_interval.read();
-            let actual_update_interval = latest_mmr_block - self.latest_mmr_block.read();
-            assert!(
-                actual_update_interval >= min_update_interval,
-                "Update interval: {} must be greater than or equal to the minimum update interval: {}",
-                actual_update_interval,
-                min_update_interval
-            );
+            if journal.latest_mmr_block > global_latest_mmr_block {
+                let min_update_interval = self.min_update_interval.read();
+                let actual_update_interval = journal.latest_mmr_block
+                    - self.latest_mmr_block.read();
+                assert!(
+                    actual_update_interval >= min_update_interval,
+                    "Update interval: {} must be greater than or equal to the minimum update interval: {}",
+                    actual_update_interval,
+                    min_update_interval
+                );
+                self.latest_mmr_block.write(journal.latest_mmr_block);
+            }
 
-            let mut curr_state = self.mmr_batches.entry(batch_index);
+            let mut curr_state = self.mmr_batches.entry(journal.batch_index);
 
-            curr_state.leaves_count.write(leaves_count);
-            curr_state.root_hash.write(mmr_root);
+            curr_state.latest_mmr_block.write(journal.latest_mmr_block);
+            curr_state.latest_mmr_block_hash.write(journal.latest_mmr_block_hash);
+            curr_state.leaves_count.write(journal.leaves_count);
+            curr_state.root_hash.write(journal.root_hash);
 
-            self.latest_mmr_block.write(latest_mmr_block);
-
-            self.emit(MmrStateUpdated { batch_index, leaves_count, root_hash: mmr_root });
+            self
+                .emit(
+                    MmrStateUpdated {
+                        batch_index: journal.batch_index,
+                        latest_mmr_block: journal.latest_mmr_block,
+                        latest_mmr_block_hash: journal.latest_mmr_block_hash,
+                        leaves_count: journal.leaves_count,
+                        root_hash: journal.root_hash
+                    }
+                );
         }
 
         fn get_mmr_state(self: @ContractState, batch_index: u64) -> MMRSnapshot {
             let curr_state = self.mmr_batches.entry(batch_index);
             MMRSnapshot {
                 batch_index,
+                latest_mmr_block: curr_state.latest_mmr_block.read(),
+                latest_mmr_block_hash: curr_state.latest_mmr_block_hash.read(),
                 leaves_count: curr_state.leaves_count.read(),
                 root_hash: curr_state.root_hash.read(),
             }

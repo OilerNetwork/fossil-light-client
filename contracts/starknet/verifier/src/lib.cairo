@@ -2,14 +2,72 @@ pub mod fossil_verifier;
 pub mod groth16_verifier;
 mod groth16_verifier_constants;
 pub mod universal_ecip;
-use core::num::traits::{WideMul, Bounded};
+use core::num::traits::{Bounded, WideMul};
 
-pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> (u256, u64, u64, u64) {
-    let mut root_hash_start = 4;
+#[derive(Drop, Copy, Serde)]
+pub struct Journal {
+    pub batch_index: u64,
+    pub latest_mmr_block: u64,
+    pub latest_mmr_block_hash: u256,
+    pub root_hash: u256,
+    pub leaves_count: u64,
+}
 
-    let mut i = root_hash_start + 2;
-    let loop_end = root_hash_start + 66;
+pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
+    let mut offset = 0; // Skip initial bytes
+
+    // Parse batch_index
+    let mut batch_index: u64 = 0;
+    let mut i = 0;
+    while i < 8 {
+        let f0: u64 = (*journal_bytes.at(offset + i)).into();
+        let f1: u64 = BitShift::shl(f0, 8 * i.into());
+        batch_index += f1;
+        i += 1;
+    };
+
+    // Parse latest_mmr_block
+    offset += 8;
+    let mut latest_mmr_block: u64 = 0;
+    let mut j = 0;
+    while j < 8 {
+        let f0: u64 = (*journal_bytes.at(offset + j)).into();
+        let f1: u64 = BitShift::shl(f0, 8 * j.into());
+        latest_mmr_block += f1;
+        j += 1;
+    };
+
+    // Parse latest_mmr_block_hash
+    offset += 8; // Skip to start of hash length
+    offset += 4; // Skip length indicator (66, 0, 0, 0)
+    offset += 2; // Skip "0x" prefix
+    let mut latest_mmr_block_hash: u256 = 0;
+    let mut i = offset;
+    let loop_end = offset + 64; // 64 hex characters for 32 bytes
+
+    loop {
+        if i >= loop_end {
+            break;
+        }
+
+        let f0: u256 = BitShift::shl(latest_mmr_block_hash, 4);
+        let f1: u256 = (*journal_bytes.at(i)).into();
+        let f2: u256 = if f1 < 58 { // '0'-'9' vs 'a'-'f'
+            48 // ASCII '0'
+        } else {
+            87 // ASCII 'a' - 10
+        };
+        latest_mmr_block_hash = f0 + f1 - f2;
+        i += 1;
+    };
+
+    // Parse root_hash
+    offset += 66; // Skip past latest_mmr_block_hash (64 hex chars + "0x")
+    offset += 4; // Skip length indicator (66, 0, 0, 0)
+    offset += 2; // Skip "0x" prefix
     let mut root_hash: u256 = 0;
+    let mut i = offset;
+    let loop_end = offset + 64; // 64 hex characters for 32 bytes
 
     loop {
         if i >= loop_end {
@@ -18,46 +76,27 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> (u256, u64, u64, u64) {
 
         let f0: u256 = BitShift::shl(root_hash, 4);
         let f1: u256 = (*journal_bytes.at(i)).into();
-        let f2: u256 = if f1 < 58 {
-            48
+        let f2: u256 = if f1 < 58 { // '0'-'9' vs 'a'-'f'
+            48 // ASCII '0'
         } else {
-            87
+            87 // ASCII 'a' - 10
         };
         root_hash = f0 + f1 - f2;
         i += 1;
     };
 
-    let leaves_count_offset = root_hash_start + 68;
+    // Parse leaves_count
+    offset += 66;
     let mut leaves_count: u64 = 0;
-    let mut j = 0;
-    while j < 8 {
-        let f0: u64 = (*journal_bytes.at(leaves_count_offset + j)).into();
-        let f1: u64 = BitShift::shl(f0, 8 * j.into());
+    let mut m = 0;
+    while m < 8 {
+        let f0: u64 = (*journal_bytes.at(offset + m)).into();
+        let f1: u64 = BitShift::shl(f0, 8 * m.into());
         leaves_count += f1;
-        j += 1;
+        m += 1;
     };
 
-    let batch_index_offset = leaves_count_offset + 8;
-    let mut batch_index: u64 = 0;
-    let mut k = 0;
-    while k < 8 {
-        let f0: u128 = (*journal_bytes.at(batch_index_offset + k)).into();
-        let f1: u128 = BitShift::shl(f0.into(), 8 * k.into());
-        batch_index += f1.try_into().unwrap();
-        k += 1;
-    };
-
-    let latest_mmr_block_offset = batch_index_offset + 8;
-    let mut latest_mmr_block: u64 = 0;
-    let mut l = 0;
-    while l < 8 {
-        let f0: u128 = (*journal_bytes.at(latest_mmr_block_offset + l)).into();
-        let f1: u128 = BitShift::shl(f0.into(), 8 * l.into());
-        latest_mmr_block += f1.try_into().unwrap();
-        l += 1;
-    };
-
-    (root_hash, leaves_count, batch_index, latest_mmr_block)
+    Journal { batch_index, latest_mmr_block, latest_mmr_block_hash, root_hash, leaves_count, }
 }
 
 trait BitShift<T> {
@@ -98,7 +137,7 @@ impl U128BitShift of BitShift<u128> {
 }
 
 fn pow<T, +Sub<T>, +Mul<T>, +Div<T>, +Rem<T>, +PartialEq<T>, +Into<u8, T>, +Drop<T>, +Copy<T>>(
-    base: T, exp: T
+    base: T, exp: T,
 ) -> T {
     if exp == 0_u8.into() {
         1_u8.into()
@@ -119,19 +158,37 @@ mod tests {
     fn decode_journal_test() {
         let journal_bytes = get_journal_bytes();
 
-        let (root_hash, leaves_count, batch_index, latest_mmr_block) = decode_journal(
-            journal_bytes
+        let journal = decode_journal(journal_bytes);
+        assert_eq!(journal.batch_index, 7083);
+        assert_eq!(journal.latest_mmr_block, 7253851);
+        assert_eq!(
+            journal.latest_mmr_block_hash,
+            0x858768dd79b8c6190fb224ff398345ffe4fcb9c4899c55e0fc0994b7d35177af
         );
         assert_eq!(
-            root_hash, 63221064195583864302708890759072807439606022947695579972969583236139473588457
+            journal.root_hash, 0x72aa9525dc9b7953631c0699d041fd4f23aa9f98c4a73aab27fbf2f0b9b451f8,
         );
-        assert_eq!(leaves_count, 170);
-        assert_eq!(batch_index, 20820);
-        assert_eq!(latest_mmr_block, 21319849);
+        assert_eq!(journal.leaves_count, 4);
     }
 
     fn get_journal_bytes() -> Span<u8> {
         array![
+            171,
+            27,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            91,
+            175,
+            110,
+            0,
+            0,
+            0,
+            0,
+            0,
             66,
             0,
             0,
@@ -139,91 +196,147 @@ mod tests {
             48,
             120,
             56,
-            98,
-            99,
             53,
-            100,
-            97,
-            98,
-            49,
-            97,
-            99,
-            51,
-            50,
-            49,
-            102,
-            100,
-            100,
-            50,
-            97,
             56,
             55,
-            55,
             54,
-            53,
-            97,
-            50,
+            56,
             100,
-            102,
+            100,
             55,
-            55,
+            57,
             98,
-            98,
+            56,
+            99,
+            54,
             49,
+            57,
+            48,
+            102,
+            98,
+            50,
+            50,
+            52,
+            102,
+            102,
+            51,
+            57,
+            56,
+            51,
+            52,
+            53,
+            102,
+            102,
             101,
             52,
-            57,
+            102,
+            99,
             98,
-            51,
-            51,
-            51,
-            101,
-            56,
-            54,
-            101,
-            54,
-            50,
-            100,
-            49,
-            54,
-            55,
-            49,
-            48,
-            54,
             57,
+            99,
             52,
+            56,
+            57,
+            57,
+            99,
+            53,
+            53,
+            101,
             48,
             102,
-            53,
+            99,
+            48,
+            57,
+            57,
+            52,
+            98,
+            55,
             100,
-            56,
+            51,
+            53,
+            49,
+            55,
+            55,
+            97,
+            102,
+            0,
+            0,
+            66,
+            0,
+            0,
+            0,
+            48,
+            120,
+            55,
+            50,
+            97,
+            97,
+            57,
+            53,
             50,
             53,
-            48,
-            101,
+            100,
+            99,
             57,
+            98,
+            55,
+            57,
+            53,
+            51,
+            54,
+            51,
+            49,
+            99,
+            48,
+            54,
+            57,
+            57,
+            100,
+            48,
+            52,
+            49,
+            102,
+            100,
+            52,
+            102,
+            50,
+            51,
+            97,
+            97,
+            57,
+            102,
+            57,
+            56,
+            99,
+            52,
+            97,
+            55,
+            51,
+            97,
+            97,
+            98,
+            50,
+            55,
+            102,
+            98,
+            102,
+            50,
+            102,
+            48,
+            98,
+            57,
+            98,
+            52,
+            53,
+            49,
+            102,
+            56,
             0,
             0,
-            170,
+            4,
             0,
             0,
             0,
-            0,
-            0,
-            0,
-            0,
-            84,
-            81,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            169,
-            80,
-            69,
-            1,
             0,
             0,
             0,

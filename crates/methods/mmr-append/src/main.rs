@@ -4,8 +4,6 @@ use risc0_zkvm::guest::env;
 use guest_mmr::core::GuestMMR;
 use guest_types::{CombinedInput, GuestOutput};
 
-const BATCH_SIZE: u64 = 1024;
-
 fn main() {
     // Read combined input
     let input: CombinedInput = env::read();
@@ -39,18 +37,34 @@ fn main() {
 
     let first_block_number = first_header.number as u64;
     let last_block_number = last_header.number as u64;
+    let last_block_hash = last_header.block_hash.clone();
 
-    let first_batch_index = first_block_number / BATCH_SIZE;
-    let last_batch_index = last_block_number / BATCH_SIZE;
+    let first_batch_index = first_block_number / input.batch_size();
+    let last_batch_index = last_block_number / input.batch_size();
 
     assert!(first_batch_index == last_batch_index, "Batch index mismatch");
 
+    if first_batch_index > 0 {
+        match (input.batch_link(), &first_header.parent_hash) {
+            (Some(batch_link), Some(parent_hash)) => {
+                assert!(batch_link == parent_hash, "Batch link mismatch");
+            }
+            (None, _) => {
+                assert!(false, "Missing batch link for non-genesis batch");
+            }
+            (Some(_), None) => {
+                assert!(false, "Missing parent hash in first header");
+            }
+        }
+    }
+
     // Create output
     let output = GuestOutput::new(
-        root_hash,
-        mmr.get_leaves_count(),
         first_batch_index,
         last_block_number,
+        last_block_hash,
+        root_hash,
+        mmr.get_leaves_count(),
     );
     // Commit the output
     env::commit(&output);
