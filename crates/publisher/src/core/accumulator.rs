@@ -4,48 +4,34 @@ use crate::utils::BatchResult;
 use ethereum::get_finalized_block_hash;
 use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
 use starknet_crypto::Felt;
-use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
+use starknet_handler::account::StarknetAccount;
 use tracing::{debug, error, info, warn};
 
+use super::MMRStateManager;
+
 pub struct AccumulatorBuilder<'a> {
-    rpc_url: &'a String,
     chain_id: u64,
     verifier_address: &'a String,
-    account_private_key: &'a String,
-    account_address: &'a String,
-    batch_processor: BatchProcessor,
+    batch_processor: BatchProcessor<'a>,
     current_batch: u64,
     total_batches: u64,
 }
 
 impl<'a> AccumulatorBuilder<'a> {
     pub async fn new(
-        rpc_url: &'a String,
         chain_id: u64,
         verifier_address: &'a String,
-        account_private_key: &'a String,
-        account_address: &'a String,
+        store_address: &'a String,
+        starknet_account: StarknetAccount,
         batch_size: u64,
         skip_proof_verification: bool,
     ) -> Result<Self, AccumulatorError> {
         let proof_generator = ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID)?;
+        let mmr_state_manager = MMRStateManager::new(starknet_account, store_address);
 
-        if rpc_url.trim().is_empty() {
-            return Err(AccumulatorError::InvalidInput("RPC URL cannot be empty"));
-        }
         if verifier_address.trim().is_empty() {
             return Err(AccumulatorError::InvalidInput(
                 "Verifier address cannot be empty",
-            ));
-        }
-        if account_private_key.trim().is_empty() {
-            return Err(AccumulatorError::InvalidInput(
-                "Account private key cannot be empty",
-            ));
-        }
-        if account_address.trim().is_empty() {
-            return Err(AccumulatorError::InvalidInput(
-                "Account address cannot be empty",
             ));
         }
         if batch_size == 0 {
@@ -55,15 +41,13 @@ impl<'a> AccumulatorBuilder<'a> {
         }
 
         Ok(Self {
-            rpc_url,
             chain_id,
             verifier_address,
-            account_private_key,
-            account_address,
             batch_processor: BatchProcessor::new(
                 batch_size,
                 proof_generator,
                 skip_proof_verification,
+                mmr_state_manager,
             )?,
             current_batch: 0,
             total_batches: 0,
@@ -254,22 +238,7 @@ impl<'a> AccumulatorBuilder<'a> {
     }
 
     async fn verify_proof(&self, calldata: Vec<Felt>) -> Result<(), AccumulatorError> {
-        debug!("Initializing Starknet provider");
-        let starknet_provider = StarknetProvider::new(&self.rpc_url).map_err(|e| {
-            error!(error = %e, "Failed to initialize Starknet provider");
-            e
-        })?;
-
-        debug!("Creating Starknet account");
-        let starknet_account = StarknetAccount::new(
-            starknet_provider.provider(),
-            &self.account_private_key,
-            &self.account_address,
-        )
-        .map_err(|e| {
-            error!(error = %e, "Failed to create Starknet account");
-            e
-        })?;
+        let starknet_account = self.batch_processor.mmr_state_manager().account();
 
         debug!("Verifying MMR proof");
         starknet_account

@@ -3,14 +3,33 @@ use crate::utils::validate_u256_hex;
 use guest_types::GuestOutput;
 use mmr::MMR;
 use mmr_utils::StoreManager;
-use starknet_handler::{u256_from_hex, MmrState};
+use starknet_handler::{account::StarknetAccount, u256_from_hex, MmrState};
 use store::SqlitePool;
 use tracing::{debug, error, info};
 
-pub struct MMRStateManager;
+pub struct MMRStateManager<'a> {
+    account: StarknetAccount,
+    store_address: &'a str,
+}
 
-impl MMRStateManager {
+impl<'a> MMRStateManager<'a> {
+    pub fn new(account: StarknetAccount, store_address: &'a str) -> Self {
+        Self {
+            account,
+            store_address,
+        }
+    }
+
+    pub fn account(&self) -> &StarknetAccount {
+        &self.account
+    }
+
+    pub fn store_address(&self) -> &'a str {
+        self.store_address
+    }
+
     pub async fn update_state(
+        &self,
         store_manager: StoreManager,
         mmr: &mut MMR,
         pool: &SqlitePool,
@@ -77,6 +96,10 @@ impl MMRStateManager {
                 })?,
                 leaves_count as u64,
             );
+
+            self.account
+                .update_mmr_state(self.store_address, &new_mmr_state)
+                .await?;
 
             info!("MMR state updated successfully (without verification)");
             Ok(new_mmr_state)

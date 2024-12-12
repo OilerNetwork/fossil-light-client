@@ -1,3 +1,5 @@
+use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
+
 use crate::{
     core::AccumulatorBuilder, errors::PublisherError, utils::Stark, validator::ValidatorBuilder,
 };
@@ -8,6 +10,7 @@ pub async fn prove_mmr_update(
     rpc_url: &String,
     chain_id: u64,
     verifier_address: &String,
+    store_address: &String,
     account_private_key: &String,
     account_address: &String,
     batch_size: u64,
@@ -15,12 +18,18 @@ pub async fn prove_mmr_update(
     end_block: u64,
     skip_proof_verification: bool,
 ) -> Result<(), PublisherError> {
-    let mut builder = AccumulatorBuilder::new(
-        rpc_url,
-        chain_id,
-        verifier_address,
+    let starknet_provider = StarknetProvider::new(rpc_url)?;
+    let starknet_account = StarknetAccount::new(
+        starknet_provider.provider(),
         account_private_key,
         account_address,
+    )?;
+
+    let mut builder = AccumulatorBuilder::new(
+        chain_id,
+        verifier_address,
+        store_address,
+        starknet_account,
         batch_size,
         skip_proof_verification,
     )

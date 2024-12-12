@@ -8,17 +8,19 @@ use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
 use tracing::{debug, error, info, warn};
 
-pub struct BatchProcessor {
+pub struct BatchProcessor<'a> {
     batch_size: u64,
     proof_generator: ProofGenerator<CombinedInput>,
+    mmr_state_manager: MMRStateManager<'a>,
     skip_proof_verification: bool,
 }
 
-impl BatchProcessor {
+impl<'a> BatchProcessor<'a> {
     pub fn new(
         batch_size: u64,
         proof_generator: ProofGenerator<CombinedInput>,
         skip_proof_verification: bool,
+        mmr_state_manager: MMRStateManager<'a>,
     ) -> Result<Self, AccumulatorError> {
         if batch_size == 0 {
             return Err(AccumulatorError::InvalidInput(
@@ -30,7 +32,16 @@ impl BatchProcessor {
             batch_size,
             proof_generator,
             skip_proof_verification,
+            mmr_state_manager,
         })
+    }
+
+    pub fn mmr_state_manager(&self) -> &MMRStateManager<'a> {
+        &self.mmr_state_manager
+    }
+
+    pub fn proof_generator(&self) -> &ProofGenerator<CombinedInput> {
+        &self.proof_generator
     }
 
     pub fn batch_size(&self) -> u64 {
@@ -190,19 +201,21 @@ impl BatchProcessor {
             (Some(guest_output), Some(proof))
         };
 
-        let new_mmr_state = MMRStateManager::update_state(
-            store_manager,
-            &mut mmr,
-            &pool,
-            adjusted_end_block,
-            guest_output.as_ref(),
-            &new_headers,
-        )
-        .await
-        .map_err(|e| {
-            error!(error = %e, "Failed to update MMR state");
-            e
-        })?;
+        let new_mmr_state = self
+            .mmr_state_manager
+            .update_state(
+                store_manager,
+                &mut mmr,
+                &pool,
+                adjusted_end_block,
+                guest_output.as_ref(),
+                &new_headers,
+            )
+            .await
+            .map_err(|e| {
+                error!(error = %e, "Failed to update MMR state");
+                e
+            })?;
 
         let new_leaves_count = mmr.leaves_count.get().await.map_err(|e| {
             error!(error = %e, "Failed to get new leaves count");
