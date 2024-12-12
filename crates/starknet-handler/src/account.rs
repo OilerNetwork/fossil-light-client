@@ -85,11 +85,13 @@ impl StarknetAccount {
     pub async fn update_mmr_state(
         &self,
         store_address: &str,
+        batch_index: u64,
         mmr_state: &MmrState,
     ) -> Result<Felt, StarknetHandlerError> {
         let selector = selector!("update_mmr_state");
 
         let mut calldata = vec![];
+        calldata.push(Felt::from(batch_index));
         mmr_state.encode(&mut calldata)?;
 
         let tx = self

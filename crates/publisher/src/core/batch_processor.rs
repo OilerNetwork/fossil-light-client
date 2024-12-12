@@ -207,6 +207,7 @@ impl<'a> BatchProcessor<'a> {
                 store_manager,
                 &mut mmr,
                 &pool,
+                batch_index,
                 adjusted_end_block,
                 guest_output.as_ref(),
                 &new_headers,

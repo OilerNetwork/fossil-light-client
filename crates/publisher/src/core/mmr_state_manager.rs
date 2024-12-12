@@ -33,6 +33,7 @@ impl<'a> MMRStateManager<'a> {
         store_manager: StoreManager,
         mmr: &mut MMR,
         pool: &SqlitePool,
+        batch_index: u64,
         latest_block_number: u64,
         guest_output: Option<&GuestOutput>,
         headers: &Vec<String>,
@@ -87,9 +88,19 @@ impl<'a> MMRStateManager<'a> {
                 error!(error = %e, "Failed to get leaves count");
                 e
             })?;
+            let latest_mmr_block_hash = u256_from_hex(
+                headers
+                    .last()
+                    .ok_or(AccumulatorError::InvalidInput("Headers list is empty"))?,
+            )
+            .map_err(|e| {
+                error!(error = %e, "Failed to convert root hash from hex");
+                e
+            })?;
 
             let new_mmr_state = MmrState::new(
                 latest_block_number,
+                latest_mmr_block_hash,
                 u256_from_hex(&root_hash.trim_start_matches("0x")).map_err(|e| {
                     error!(error = %e, "Failed to convert root hash from hex");
                     e
@@ -97,11 +108,15 @@ impl<'a> MMRStateManager<'a> {
                 leaves_count as u64,
             );
 
-            self.account
-                .update_mmr_state(self.store_address, &new_mmr_state)
+            let tx_hash = self
+                .account
+                .update_mmr_state(self.store_address, batch_index, &new_mmr_state)
                 .await?;
 
-            info!("MMR state updated successfully (without verification)");
+            info!(
+                tx_hash = ?tx_hash,
+                "MMR state updated successfully (without verification)"
+            );
             Ok(new_mmr_state)
         }
     }
@@ -192,12 +207,15 @@ impl<'a> MMRStateManager<'a> {
             return Err(AccumulatorError::InvalidInput("Root hash cannot be empty"));
         }
 
+        let latest_mmr_block_hash =
+            u256_from_hex(guest_output.latest_mmr_block_hash()).map_err(|e| {
+                error!(error = %e, "Failed to convert latest mmr block hash from hex");
+                e
+            })?;
         let new_state = MmrState::new(
             latest_block_number,
-            u256_from_hex(root_hash).map_err(|e| {
-                error!(error = %e, "Failed to convert root hash from hex");
-                e
-            })?,
+            latest_mmr_block_hash,
+            latest_mmr_block_hash,
             guest_output.leaves_count() as u64,
         );
 
