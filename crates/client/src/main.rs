@@ -10,14 +10,18 @@ use eyre::Result;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
+    /// Path to the environment file
+    #[arg(short, long)]
+    env_file: Option<String>,
+
     #[arg(long, default_value = "5")]
     polling_interval: u64,
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    initialize_logger_and_env()?;
     let args = Args::parse();
+    let _guard = initialize_logger_and_env(args.env_file.as_deref())?;
 
     tracing::info!("Starting Fossil Light Client...");
 

@@ -17,11 +17,18 @@ struct Args {
     /// Skip proof generation
     #[arg(long)]
     skip_proof: bool,
+
+    /// Path to the environment file
+    #[arg(short, long)]
+    env_file: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    initialize_logger_and_env()?;
+    let args = Args::parse();
+
+    let _guard = initialize_logger_and_env(args.env_file.as_deref())?;
+
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
     let l2_store_address = get_env_var("FOSSIL_STORE")?;
     let chain_id = get_env_var("CHAIN_ID")?.parse::<u64>()?;

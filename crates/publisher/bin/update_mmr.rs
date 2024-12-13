@@ -18,11 +18,19 @@ struct Args {
     /// Skip proof verification
     #[arg(short = 'p', long, default_value_t = false)]
     skip_proof: bool,
+
+    /// Path to the environment file
+    #[arg(short = 'f', long)]
+    env_file: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    initialize_logger_and_env()?;
+    // Parse CLI arguments first
+    let args = Args::parse();
+
+    // Initialize logger with optional env file
+    let _guard = initialize_logger_and_env(args.env_file.as_deref())?;
 
     let chain_id = get_env_var("CHAIN_ID")?.parse::<u64>()?;
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
@@ -32,9 +40,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
 
     info!("Starting Publisher...");
-
-    // Parse CLI arguments
-    let args = Args::parse();
 
     publisher::prove_mmr_update(
         &rpc_url,

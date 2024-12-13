@@ -4419,6 +4419,7 @@ dependencies = [
  "alloy 0.6.4",
  "alloy-contract 0.6.4",
  "alloy-sol-types",
+ "clap",
  "common",
  "eyre",
  "thiserror 2.0.4",
