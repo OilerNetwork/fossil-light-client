@@ -1,11 +1,17 @@
+use std::{thread::sleep, time::Duration};
+
 use crate::errors::AccumulatorError;
 use crate::utils::validate_u256_hex;
 use guest_types::GuestOutput;
 use mmr::MMR;
 use mmr_utils::StoreManager;
-use starknet_handler::{account::StarknetAccount, u256_from_hex, MmrState};
+use starknet_crypto::Felt;
+use starknet_handler::{account::StarknetAccount, u256_from_hex, MmrState, StarknetHandlerError};
 use store::SqlitePool;
 use tracing::{debug, error, info};
+
+const MAX_RETRIES: u32 = 3;
+const INITIAL_RETRY_DELAY_MS: u64 = 1000;
 
 pub struct MMRStateManager<'a> {
     account: StarknetAccount,
@@ -109,8 +115,7 @@ impl<'a> MMRStateManager<'a> {
             );
 
             let tx_hash = self
-                .account
-                .update_mmr_state(self.store_address, batch_index, &new_mmr_state)
+                .retry_update_mmr_state(batch_index, &new_mmr_state)
                 .await?;
 
             info!(
@@ -221,5 +226,46 @@ impl<'a> MMRStateManager<'a> {
 
         debug!("New MMR state created successfully");
         Ok(new_state)
+    }
+
+    async fn retry_update_mmr_state(
+        &self,
+        batch_index: u64,
+        new_mmr_state: &MmrState,
+    ) -> Result<Felt, AccumulatorError> {
+        let mut attempt = 0;
+        let mut last_error: Option<StarknetHandlerError> = None;
+
+        while attempt < MAX_RETRIES {
+            match self
+                .account
+                .update_mmr_state(self.store_address, batch_index, new_mmr_state)
+                .await
+            {
+                Ok(hash) => return Ok(hash),
+                Err(e) => {
+                    attempt += 1;
+                    last_error = Some(e);
+
+                    if attempt < MAX_RETRIES {
+                        let delay = INITIAL_RETRY_DELAY_MS * 2u64.pow(attempt - 1); // Exponential backoff
+                        error!(
+                            attempt = attempt,
+                            next_retry_in_ms = delay,
+                            error = %last_error.as_ref().unwrap(),
+                            "Failed to update MMR state, retrying..."
+                        );
+                        sleep(Duration::from_millis(delay));
+                    }
+                }
+            }
+        }
+
+        // Return the last error when all retries are exhausted
+        Err(AccumulatorError::StarknetHandler(
+            last_error.unwrap_or_else(|| {
+                StarknetHandlerError::TransactionError("Maximum retries exceeded".to_string())
+            }),
+        ))
     }
 }
