@@ -30,7 +30,7 @@ Required toolchain components:
 3. Dojo framework:
    ```bash
    curl -L https://install.dojoengine.org | bash
-   dojoup -v 1.0.0-alpha.16
+   dojoup 
    ```
 
 3. Foundry development framework:

@@ -14,7 +14,7 @@ fi
 ENV_TYPE="$1"
 case "$ENV_TYPE" in
 "local" | "sepolia" | "mainnet")
-    ENV_FILE="/app/.env.$ENV_TYPE"
+    ENV_FILE=".env.$ENV_TYPE"
     echo "Using environment: $ENV_TYPE ($ENV_FILE)"
     ;;
 *)
@@ -27,8 +27,9 @@ esac
 source "$ENV_FILE"
 export ACCOUNT_PRIVATE_KEY=${ACCOUNT_PRIVATE_KEY}
 
-ETHEREUM_DIR="/app/contracts/ethereum"
-CONFIG_DIR="/app/config"
+# Use relative paths instead of absolute Docker paths
+ETHEREUM_DIR="contracts/ethereum"
+CONFIG_DIR="config"
 
 # Define colors
 GREEN='\033[0;32m'
@@ -40,15 +41,18 @@ RED='\033[0;31m'
 
 # Function to update environment variables
 update_env_var() {
-    local var_name=$1
-    local var_value=$2
+    local env_file=$1
+    local var_name=$2
+    local var_value=$3
 
-    if grep -q "^$var_name=" "$ENV_FILE"; then
-        echo -e "${BLUE}$var_name already exists, replacing in $ENV_FILE...${NC}"
-        sed -i "s|^$var_name=.*|$var_name=$var_value|" "$ENV_FILE"
+    if grep -q "^$var_name=" "$env_file"; then
+        echo -e "${BLUE}$var_name exists, updating...${NC}"
+        # Create a temporary file in case sed -i doesn't work on your system
+        sed "s|^$var_name=.*|$var_name=$var_value|" "$env_file" > "${env_file}.tmp"
+        mv "${env_file}.tmp" "$env_file"
     else
-        echo -e "${BLUE}Appending $var_name to $ENV_FILE...${NC}"
-        echo "$var_name=$var_value" >>"$ENV_FILE"
+        echo -e "${BLUE}$var_name not found, appending...${NC}"
+        echo "$var_name=$var_value" >> "$env_file"
     fi
 }
 
@@ -84,7 +88,7 @@ deploy_contracts() {
     while [ $attempt -le $max_attempts ]; do
         echo -e "${BLUE}${BOLD}Deploying Ethereum contracts (Attempt $attempt/$max_attempts)...${NC}"
         
-        if forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ANVIL_URL; then
+        if forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ETH_RPC_URL; then
             return 0
         fi
         
@@ -100,23 +104,46 @@ deploy_contracts() {
     return 1
 }
 
+# Store the root directory path
+ROOT_DIR=$(pwd)
+
 # Deploy Ethereum contracts
 cd "$ETHEREUM_DIR"
 deploy_contracts || exit 1
 
+# Add debug logging
+echo -e "${YELLOW}Current directory: $(pwd)${NC}"
+echo -e "${YELLOW}Looking for file: logs/local_setup.json${NC}"
+
 # Read values from the JSON file and update env vars
-SN_MESSAGING=$(jq -r '.snMessaging_address' logs/local_setup.json)
-L1_MESSAGE_SENDER=$(jq -r '.l1MessageSender_address' logs/local_setup.json)
+if [ -f "logs/local_setup.json" ]; then
+    echo -e "${YELLOW}Found local_setup.json${NC}"
+    
+    SN_MESSAGING=$(jq -r '.snMessaging_address' logs/local_setup.json)
+    L1_MESSAGE_SENDER=$(jq -r '.l1MessageSender_address' logs/local_setup.json)
+    
+    echo -e "${YELLOW}Read values:${NC}"
+    echo -e "${YELLOW}SN_MESSAGING: $SN_MESSAGING${NC}"
+    echo -e "${YELLOW}L1_MESSAGE_SENDER: $L1_MESSAGE_SENDER${NC}"
+    
+    # Update the environment variables - use full paths
+    update_env_var "${ROOT_DIR}/${ENV_FILE}" "SN_MESSAGING" "$SN_MESSAGING"
+    update_env_var "${ROOT_DIR}/${ENV_FILE}" "L1_MESSAGE_SENDER" "$L1_MESSAGE_SENDER"
+    
+    # Verify the updates
+    echo -e "${YELLOW}Checking updated .env file:${NC}"
+    grep "SN_MESSAGING" "${ROOT_DIR}/${ENV_FILE}"
+    grep "L1_MESSAGE_SENDER" "${ROOT_DIR}/${ENV_FILE}"
+else
+    echo -e "${RED}Could not find logs/local_setup.json${NC}"
+    exit 1
+fi
 
-# Update the environment variables
-update_env_var "SN_MESSAGING" "$SN_MESSAGING"
-update_env_var "L1_MESSAGE_SENDER" "$L1_MESSAGE_SENDER"
+# Update the anvil.messaging.json config - use full paths
+update_json_config "${ROOT_DIR}/${CONFIG_DIR}/anvil.messaging.json" "$SN_MESSAGING"
 
-# Update the anvil.messaging.json config
-update_json_config "$CONFIG_DIR/anvil.messaging.json" "$SN_MESSAGING"
-
-# Source the updated environment variables
-source "$ENV_FILE"
+# Source the updated environment variables - use full path
+source "${ROOT_DIR}/${ENV_FILE}"
 
 echo -e "${BLUE}Using L1_MESSAGE_SENDER: $L1_MESSAGE_SENDER${NC}"
 echo -e "${BLUE}Using SN_MESSAGING: $SN_MESSAGING${NC}"

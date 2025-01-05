@@ -1,6 +1,6 @@
 use garaga_rs::{
     calldata::full_proof_with_hints::groth16::{
-        get_groth16_calldata, risc0_utils::get_risc0_vk, Groth16Proof,
+        get_groth16_calldata_felt, risc0_utils::get_risc0_vk, Groth16Proof,
     },
     definitions::CurveID,
 };
@@ -173,12 +173,12 @@ where
                     journal.clone(),
                 )
             } else {
-                Default::default()
+                Groth16Proof::from_risc0(vec![0u8; 32], vec![0u8; 32], vec![])
             };
 
             debug!("Generating calldata");
             let calldata = if !skip_proof_verification {
-                get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254).map_err(
+                get_groth16_calldata_felt(&groth16_proof, &get_risc0_vk(), CurveID::BN254).map_err(
                     |e| {
                         error!("Failed to generate calldata: {}", e);
                         ProofGeneratorError::CalldataError(e.to_string())

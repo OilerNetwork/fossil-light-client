@@ -10,7 +10,7 @@ dependencies = [
 
 [[package]]
 name = "garaga"
-version = "0.14.0"
+version = "0.15.3"
 
 [[package]]
 name = "l1_message_proxy"

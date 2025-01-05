@@ -36,19 +36,16 @@ RUN mkdir -p /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823/cc-1.2.2/
 # Debug the build context
 RUN echo "=== Build Context ===" && \
     pwd && \
-    ls -la && \
-    echo "=== Vendor Directory (if exists) ===" && \
-    ls -R vendor || echo "No vendor directory found!"
+    ls -la
 
-# Only proceed with copy if directory exists
-RUN mkdir -p /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823/cc-1.2.2/src/{target,windows,parallel}
+# Simply create the base directory and copy the vendor contents
+RUN mkdir -p /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823
 
-# Create the destination directory with correct permissions
-RUN mkdir -p /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823 && \
-    chmod 755 /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823
-
-# Copy the vendor directory with permissions preserved
+# Copy the vendor directory with permissions preserved - simplified
 COPY --chown=root:root vendor/ /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823/
+
+# Set permissions after copy
+RUN chmod -R 755 /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823
 
 # Debug and verify the copy
 RUN echo "=== Debug: Directory structure after copy ===" && \

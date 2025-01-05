@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
 # Install Dojo
 RUN curl -L https://install.dojoengine.org | bash
 ENV PATH="/root/.dojo/bin:${PATH}"
-RUN dojoup -v 1.0.0-alpha.16
+RUN dojoup 
 
 # Create config directory
 RUN mkdir -p /app/config
