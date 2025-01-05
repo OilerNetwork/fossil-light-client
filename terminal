@@ -1,6 +1,0 @@
-docker build -f docker/Dockerfile.build-mmr -t build-mmr .
-docker build --network=host --dns 8.8.8.8 --dns 8.8.4.4 -f docker/Dockerfile.anvil -t anvil .
-docker build -f docker/Dockerfile.client -t client .
-docker build -f docker/Dockerfile.deploy -t deploy .
-docker build -f docker/Dockerfile.katana -t katana .
-docker build -f docker/Dockerfile.relayer -t relayer . 

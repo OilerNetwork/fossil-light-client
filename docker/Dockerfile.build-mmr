@@ -10,9 +10,11 @@ RUN curl -L https://foundry.paradigm.xyz | bash && \
 # Add foundry binaries to PATH
 ENV PATH="/root/.foundry/bin:$PATH"
 
-# Set DATABASE_URL as build arg
-ARG DATABASE_URL
-ENV DATABASE_URL=${DATABASE_URL}
+# Copy .env file
+COPY .env .
+
+# Source DATABASE_URL from .env
+RUN set -a && . ./.env && set +a
 
 # Install the RISC Zero toolchain
 RUN curl -L https://risczero.com/install | bash && \
@@ -25,87 +27,10 @@ ENV PATH="/root/.risc0/bin:/root/.cargo/bin:$PATH"
 # Step 1: Copy Cargo.toml and Cargo.lock
 COPY Cargo.toml Cargo.lock ./
 
-# Step 2: Copy the workspace crates first
+# Step 2: Copy the workspace crates
 COPY crates ./crates
 
-# Step 3: Create necessary directories and copy pre-fetched dependencies
-RUN mkdir -p /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823/cc-1.2.2/src/target && \
-    mkdir -p /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823/cc-1.2.2/src/windows && \
-    mkdir -p /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823/cc-1.2.2/src/parallel
-
-# Debug the build context
-RUN echo "=== Build Context ===" && \
-    pwd && \
-    ls -la
-
-# Simply create the base directory and copy the vendor contents
-RUN mkdir -p /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823
-
-# Copy the vendor directory with permissions preserved - simplified
-COPY --chown=root:root vendor/ /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823/
-
-# Set permissions after copy
-RUN chmod -R 755 /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823
-
-# Debug and verify the copy
-RUN echo "=== Debug: Directory structure after copy ===" && \
-    find /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823 -type d && \
-    echo "=== Debug: All files in cc-1.2.2 ===" && \
-    find /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823/cc-1.2.2 -type f && \
-    echo "=== Debug: Setting final permissions ===" && \
-    chmod -R u+r,g+r /usr/local/cargo/registry/src/github.com-1ecc6299db9ec823
-
-# Create cargo config for vendored dependencies
-RUN mkdir -p /usr/local/cargo/registry && \
-    echo '[source.crates-io]\n\
-replace-with = "vendored-sources"\n\
-\n\
-[source."git+https://github.com/risc0/RustCrypto-hashes.git"]\n\
-git = "https://github.com/risc0/RustCrypto-hashes.git"\n\
-tag = "sha2-v0.10.8-risczero.0"\n\
-replace-with = "vendored-sources"\n\
-\n\
-[source."git+https://github.com/xJonathanLEI/starknet-rs.git"]\n\
-git = "https://github.com/xJonathanLEI/starknet-rs.git"\n\
-branch = "master"\n\
-replace-with = "vendored-sources"\n\
-\n\
-[source."git+https://github.com/ametel01/rust-accumulators.git"]\n\
-git = "https://github.com/ametel01/rust-accumulators.git"\n\
-branch = "feat/sha2-hasher"\n\
-replace-with = "vendored-sources"\n\
-\n\
-[source."git+https://github.com/ametel01/eth-rlp-verify.git"]\n\
-git = "https://github.com/ametel01/eth-rlp-verify.git"\n\
-replace-with = "vendored-sources"\n\
-\n\
-[source."git+https://github.com/ametel01/garaga.git"]\n\
-git = "https://github.com/ametel01/garaga.git"\n\
-replace-with = "vendored-sources"\n\
-\n\
-[source."git+https://github.com/risc0/risc0-ethereum.git"]\n\
-git = "https://github.com/risc0/risc0-ethereum"\n\
-tag = "v1.1.4"\n\
-replace-with = "vendored-sources"\n\
-\n\
-[source."git+https://github.com/lambdaclass/lambdaworks.git"]\n\
-git = "https://github.com/lambdaclass/lambdaworks.git"\n\
-replace-with = "vendored-sources"\n\
-\n\
-[source.vendored-sources]\n\
-directory = "/usr/local/cargo/registry/src/github.com-1ecc6299db9ec823"\n\
-\n\
-[net]\n\
-offline = true\n\
-\n\
-[patch.crates-io]\n\
-sha2 = { git = "https://github.com/risc0/RustCrypto-hashes.git", tag = "sha2-v0.10.8-risczero.0" }' > /usr/local/cargo/config.toml
-
-# Step 4: Prepare sqlx before building
-# RUN cargo install sqlx-cli --no-default-features --features native-tls,postgres
-# RUN cargo sqlx prepare --database-url="${DATABASE_URL}" -- --package publisher --bin build-mmr
-
-# Step 5: Build the application
+# Build the application
 RUN cargo build --release --package publisher --bin build-mmr
 
 # Stage 2: Create a minimal runtime image
