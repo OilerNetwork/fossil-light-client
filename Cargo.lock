@@ -1422,6 +1422,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "common",
+ "dotenv",
  "eyre",
  "mmr-utils",
  "publisher",
@@ -4154,7 +4155,9 @@ dependencies = [
  "alloy",
  "alloy-contract",
  "alloy-sol-types",
+ "clap",
  "common",
+ "dotenv",
  "eyre",
  "thiserror 2.0.9",
  "tokio",

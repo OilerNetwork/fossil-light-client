@@ -1,4 +1,4 @@
-use super::groth16_verifier_constants::{N_FREE_PUBLIC_INPUTS, vk, ic, precomputed_lines, T};
+use super::groth16_verifier_constants::{N_FREE_PUBLIC_INPUTS, T, ic, precomputed_lines, vk};
 
 #[starknet::interface]
 pub(crate) trait IRisc0Groth16VerifierBN254<TContractState> {
@@ -9,17 +9,14 @@ pub(crate) trait IRisc0Groth16VerifierBN254<TContractState> {
 
 #[starknet::contract]
 mod Risc0Groth16VerifierBN254 {
-    use starknet::SyscallResultTrait;
-    use garaga::definitions::{G1Point, G1G2Pair};
-    use garaga::groth16::{multi_pairing_check_bn254_3P_2F_with_extra_miller_loop_result};
+    use garaga::definitions::{G1G2Pair, G1Point};
     use garaga::ec_ops::{G1PointTrait, ec_safe_add};
     use garaga::ec_ops_g2::{G2PointTrait};
-    use garaga::utils::risc0::{compute_receipt_claim, journal_sha256};
+    use garaga::groth16::{multi_pairing_check_bn254_3P_2F_with_extra_miller_loop_result};
     use garaga::utils::calldata::deserialize_full_proof_with_hints_risc0;
-    use super::{N_FREE_PUBLIC_INPUTS, vk, ic, precomputed_lines, T};
-
-    const ECIP_OPS_CLASS_HASH: felt252 =
-        0x413a1ed3773531dc6862144e21a53f547e97bffae4544ab354f3818c78861ec;
+    use garaga::utils::risc0::{compute_receipt_claim, journal_sha256};
+    use starknet::SyscallResultTrait;
+    use super::{N_FREE_PUBLIC_INPUTS, T, ic, precomputed_lines, vk};
 
     #[storage]
     struct Storage {
@@ -74,7 +71,7 @@ mod Risc0Groth16VerifierBN254 {
             // Call the multi scalar multiplication endpoint on the Garaga ECIP ops contract
             // to obtain claim0 * IC[3] + claim1 * IC[4].
             let mut _msm_result_serialized = core::starknet::syscalls::library_call_syscall(
-                ECIP_OPS_CLASS_HASH.try_into().unwrap(),
+                self.ecip_ops_class_hash.read().try_into().unwrap(),
                 selector!("msm_g1_u128"),
                 msm_calldata.span(),
             )

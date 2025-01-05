@@ -17,10 +17,19 @@ struct Args {
     /// Skip proof verification
     #[arg(short, long, default_value_t = false)]
     skip_proof: bool,
+
+    /// Path to environment file (optional)
+    #[arg(short = 'e', long, default_value = ".env")]
+    env_file: String,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Parse CLI arguments first
+    let args = Args::parse();
+
+    // Initialize environment with specified file
+    dotenv::from_path(&args.env_file)?;
     initialize_logger_and_env()?;
 
     let chain_id = get_env_var("CHAIN_ID")?.parse::<u64>()?;
@@ -30,9 +39,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
 
     info!("Starting Publisher...");
-
-    // Parse CLI arguments
-    let args = Args::parse();
 
     info!("Initializing accumulator builder...");
     // Initialize accumulator builder with the batch size

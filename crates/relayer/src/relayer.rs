@@ -51,7 +51,7 @@ impl Relayer {
 
     pub async fn send_finalized_block_hash_to_l2(&self) -> Result<(), RelayerError> {
         // Create the provider
-        let provider_url = get_env_var("ANVIL_URL")?;
+        let provider_url = get_env_var("ETH_RPC_URL")?;
 
         let provider = ProviderBuilder::new()
             .with_recommended_fillers()

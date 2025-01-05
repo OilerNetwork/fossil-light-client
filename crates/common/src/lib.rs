@@ -49,8 +49,6 @@ where
 
 /// Function to initialize logging and environment variables
 pub fn initialize_logger_and_env() -> Result<(), UtilsError> {
-    dotenv::dotenv().ok();
-
     let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
         // Define default filter directives - adjust these based on your needs
         let directives = [

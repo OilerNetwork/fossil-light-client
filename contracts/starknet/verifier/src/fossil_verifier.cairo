@@ -47,7 +47,11 @@ mod FossilVerifier {
 
     #[external(v0)]
     fn verify_mmr_proof(ref self: ContractState, proof: Span<felt252>) -> bool {
-        let journal = self.bn254_verifier.read().verify_groth16_proof_bn254(proof).expect('failed verification');
+        let journal = self
+            .bn254_verifier
+            .read()
+            .verify_groth16_proof_bn254(proof)
+            .expect('failed verification');
 
         let (new_mmr_root, new_leaves_count, batch_index, latest_mmr_block) = decode_journal(
             journal,
@@ -57,7 +61,6 @@ mod FossilVerifier {
             .fossil_store
             .read()
             .update_mmr_state(batch_index, latest_mmr_block, new_leaves_count, new_mmr_root);
-
 
         self
             .emit(
