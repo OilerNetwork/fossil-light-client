@@ -6,11 +6,13 @@ name = "fossil_store"
 version = "0.1.0"
 dependencies = [
  "snforge_std",
+ "verifier",
 ]
 
 [[package]]
 name = "garaga"
 version = "0.15.3"
+source = "git+https://github.com/keep-starknet-strange/garaga.git#3c87bb06ef6a86fa1180fc97de9396317b582cde"
 
 [[package]]
 name = "l1_message_proxy"
