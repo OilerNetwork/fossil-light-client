@@ -24,6 +24,7 @@ mmr-utils = { path = "../mmr-utils" }
 starknet-handler = { path = "../starknet-handler" }
 
 eth-rlp-types = { workspace = true }
+# eth-rlp-verify = { workspace = true }
 
 garaga_rs = { git = "https://github.com/keep-starknet-strange/garaga.git",branch = "main" }
 mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }

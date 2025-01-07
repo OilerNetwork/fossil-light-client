@@ -26,14 +26,13 @@ scripts/katana/katana.log
 *.pb
 
 vendor/
+.env.*
 
 .env.local
 .env.sepolia
 .env.mainnet
 .env.docker
 docker/rebuild-all.sh
-
-scripts/deploy-contracts.bash.sh
 
 contracts/starknet/account-sepolia
 

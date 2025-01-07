@@ -7,7 +7,6 @@ use garaga_rs::{
 use risc0_ethereum_contracts::encode_seal;
 use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, VerifierContext};
 use serde::Deserialize;
-use starknet_crypto::Felt;
 use tokio::task;
 use tracing::{debug, error, info};
 
@@ -19,7 +18,6 @@ use crate::{
 pub struct ProofGenerator<T> {
     method_elf: &'static [u8],
     method_id: [u32; 8],
-    skip_proof_verification: bool,
     _phantom: std::marker::PhantomData<T>,
 }
 
@@ -30,7 +28,6 @@ where
     pub fn new(
         method_elf: &'static [u8],
         method_id: [u32; 8],
-        skip_proof_verification: bool,
     ) -> Result<Self, ProofGeneratorError> {
         if method_elf.is_empty() {
             return Err(ProofGeneratorError::InvalidInput(
@@ -47,7 +44,6 @@ where
         Ok(Self {
             method_elf,
             method_id,
-            skip_proof_verification,
             _phantom: std::marker::PhantomData,
         })
     }
@@ -116,12 +112,10 @@ where
             return Err(ProofGeneratorError::InvalidInput("Input cannot be empty"));
         }
 
-        info!("Generating Groth16 proof...");
         debug!("Input size: {} bytes", input_size);
 
         let method_elf = self.method_elf;
         let input = input.clone();
-        let skip_proof_verification = self.skip_proof_verification;
 
         let proof = task::spawn_blocking(move || -> Result<Groth16, ProofGeneratorError> {
             debug!("Building executor environment");
@@ -166,27 +160,18 @@ where
             let journal = receipt.journal.bytes.clone();
 
             debug!("Converting to Groth16 proof");
-            let groth16_proof = if !skip_proof_verification {
-                Groth16Proof::from_risc0(
-                    encoded_seal,
-                    image_id.as_bytes().to_vec(),
-                    journal.clone(),
-                )
-            } else {
-                Groth16Proof::from_risc0(vec![0u8; 32], vec![0u8; 32], vec![])
-            };
+            let groth16_proof = Groth16Proof::from_risc0(
+                encoded_seal,
+                image_id.as_bytes().to_vec(),
+                journal.clone(),
+            );
 
             debug!("Generating calldata");
-            let calldata = if !skip_proof_verification {
-                get_groth16_calldata_felt(&groth16_proof, &get_risc0_vk(), CurveID::BN254).map_err(
-                    |e| {
-                        error!("Failed to generate calldata: {}", e);
-                        ProofGeneratorError::CalldataError(e.to_string())
-                    },
-                )?
-            } else {
-                vec![Felt::ZERO]
-            };
+            let calldata = get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
+                .map_err(|e| {
+                    error!("Failed to generate calldata: {}", e);
+                    ProofGeneratorError::CalldataError(e.to_string())
+                })?;
 
             info!("Successfully generated Groth16 proof and calldata.");
             Ok(Groth16::new(receipt, calldata))

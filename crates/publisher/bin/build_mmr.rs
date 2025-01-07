@@ -1,6 +1,7 @@
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
 use publisher::core::AccumulatorBuilder;
+use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 use tracing::info;
 
 #[derive(Parser, Debug)]
@@ -35,25 +36,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let chain_id = get_env_var("CHAIN_ID")?.parse::<u64>()?;
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
     let verifier_address = get_env_var("FOSSIL_VERIFIER")?;
+    let store_address = get_env_var("FOSSIL_STORE")?;
     let private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
     let account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
 
-    info!("Starting Publisher...");
+    // Parse CLI arguments
+    let args = Args::parse();
 
-    info!("Initializing accumulator builder...");
-    // Initialize accumulator builder with the batch size
+    let starknet_provider = StarknetProvider::new(&rpc_url)?;
+    let starknet_account =
+        StarknetAccount::new(starknet_provider.provider(), &private_key, &account_address)?;
+
     let mut builder = AccumulatorBuilder::new(
-        &rpc_url,
         chain_id,
         &verifier_address,
-        &private_key,
-        &account_address,
+        &store_address,
+        starknet_account,
         args.batch_size,
         args.skip_proof,
     )
-    .await?;
+    .await
+    .map_err(|e| {
+        tracing::error!(error = %e, "Failed to create AccumulatorBuilder");
+        e
+    })?;
 
-    info!("Building MMR...");
     // Build MMR from finalized block to block #0 or up to the specified number of batches
     if let Some(num_batches) = args.num_batches {
         builder.build_with_num_batches(num_batches).await?;
@@ -61,7 +68,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         builder.build_from_finalized().await?;
     }
 
-    info!("MMR building completed");
     info!("Host finished");
 
     Ok(())

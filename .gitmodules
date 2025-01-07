@@ -2,6 +2,3 @@
 	path = contracts/ethereum/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std.git
 	shallow = true
-[submodule "contracts/starknet/garaga"]
-	path = contracts/starknet/garaga
-	url = git@github.com:keep-starknet-strange/garaga.git

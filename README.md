@@ -76,7 +76,7 @@ Configure the Starknet development environment with L1 messaging capabilities:
 
 3. Initialize Katana with L1 messaging bridge:
    ```bash
-   katana --messaging config/anvil.messaging.json --disable-fee --disable-validate
+   katana --messaging $ANVIL_CONFIG --disable-fee --disable-validate
    ```
 
 > **Technical Note:** The `--messaging` flag enables L1<>L2 message passing. `--disable-fee` and `--disable-validate` flags optimize for development environment.

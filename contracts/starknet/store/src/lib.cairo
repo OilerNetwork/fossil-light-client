@@ -89,6 +89,15 @@ mod Store {
             let global_latest_mmr_block = self.latest_mmr_block.read();
 
             if journal.latest_mmr_block > global_latest_mmr_block {
+                let min_update_interval = self.min_update_interval.read();
+                let actual_update_interval = journal.latest_mmr_block
+                    - self.latest_mmr_block.read();
+                assert!(
+                    actual_update_interval >= min_update_interval,
+                    "Update interval: {} must be greater than or equal to the minimum update interval: {}",
+                    actual_update_interval,
+                    min_update_interval
+                );
                 self.latest_mmr_block.write(journal.latest_mmr_block);
             }
 
@@ -106,8 +115,8 @@ mod Store {
                         latest_mmr_block: journal.latest_mmr_block,
                         latest_mmr_block_hash: journal.latest_mmr_block_hash,
                         leaves_count: journal.leaves_count,
-                        root_hash: journal.root_hash,
-                    },
+                        root_hash: journal.root_hash
+                    }
                 );
         }
 
