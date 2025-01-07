@@ -28,8 +28,14 @@ scripts/katana/katana.log
 vendor/
 .env.*
 
+.env.local
+.env.sepolia
+.env.mainnet
+.env.docker
 docker/rebuild-all.sh
 
 contracts/starknet/account-sepolia
 
 contracts/starknet/keystore
+
+terminal

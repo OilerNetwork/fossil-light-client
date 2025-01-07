@@ -1,5 +1,5 @@
 use garaga::definitions::{G1Point};
-use garaga::ec_ops::{MSMHint, MSMHintSmallScalar, DerivePointFromXHint};
+use garaga::ec_ops::{DerivePointFromXHint, MSMHint, MSMHintSmallScalar};
 
 #[starknet::interface]
 trait IUniversalECIP<TContractState> {
@@ -10,7 +10,7 @@ trait IUniversalECIP<TContractState> {
         derive_point_from_x_hint: DerivePointFromXHint,
         points: Span<G1Point>,
         scalars: Span<u256>,
-        curve_index: usize
+        curve_index: usize,
     ) -> G1Point;
 
     fn msm_g1_u128(
@@ -20,14 +20,14 @@ trait IUniversalECIP<TContractState> {
         derive_point_from_x_hint: DerivePointFromXHint,
         points: Span<G1Point>,
         scalars: Span<u128>,
-        curve_index: usize
+        curve_index: usize,
     ) -> G1Point;
 }
 
 #[starknet::contract]
 mod UniversalECIP {
     use garaga::definitions::{G1Point};
-    use garaga::ec_ops::{msm_g1, msm_g1_u128, MSMHint, MSMHintSmallScalar, DerivePointFromXHint};
+    use garaga::ec_ops::{DerivePointFromXHint, MSMHint, MSMHintSmallScalar, msm_g1, msm_g1_u128};
 
     #[storage]
     struct Storage {}
@@ -41,7 +41,7 @@ mod UniversalECIP {
             derive_point_from_x_hint: DerivePointFromXHint,
             points: Span<G1Point>,
             scalars: Span<u256>,
-            curve_index: usize
+            curve_index: usize,
         ) -> G1Point {
             msm_g1(
                 scalars_digits_decompositions,
@@ -49,7 +49,7 @@ mod UniversalECIP {
                 derive_point_from_x_hint,
                 points,
                 scalars,
-                curve_index
+                curve_index,
             )
         }
 
@@ -60,7 +60,7 @@ mod UniversalECIP {
             derive_point_from_x_hint: DerivePointFromXHint,
             points: Span<G1Point>,
             scalars: Span<u128>,
-            curve_index: usize
+            curve_index: usize,
         ) -> G1Point {
             msm_g1_u128(
                 scalars_digits_decompositions,
@@ -68,7 +68,7 @@ mod UniversalECIP {
                 derive_point_from_x_hint,
                 points,
                 scalars,
-                curve_index
+                curve_index,
             )
         }
     }

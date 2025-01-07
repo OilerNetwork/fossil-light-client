@@ -23,11 +23,11 @@ RUN mkdir -p /root/.local/bin
 ENV PATH="/root/.local/bin:${PATH}"
 
 # Install Scarb
-RUN curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh -s -- -v 2.8.5
+RUN curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh -s -- -v 2.9.1
 
 # Install Starkli
 RUN curl https://get.starkli.sh | sh && \
-    /root/.starkli/bin/starkliup -v 0.3.5
+    /root/.starkli/bin/starkliup 
 ENV PATH="/root/.starkli/bin:${PATH}"
 
 # Create Starkli directory structure

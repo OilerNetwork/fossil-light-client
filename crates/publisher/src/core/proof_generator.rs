@@ -1,6 +1,6 @@
 use garaga_rs::{
     calldata::full_proof_with_hints::groth16::{
-        get_groth16_calldata, risc0_utils::get_risc0_vk, Groth16Proof,
+        get_groth16_calldata_felt, risc0_utils::get_risc0_vk, Groth16Proof,
     },
     definitions::CurveID,
 };
@@ -167,11 +167,12 @@ where
             );
 
             debug!("Generating calldata");
-            let calldata = get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
-                .map_err(|e| {
-                    error!("Failed to generate calldata: {}", e);
-                    ProofGeneratorError::CalldataError(e.to_string())
-                })?;
+            let calldata =
+                get_groth16_calldata_felt(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
+                    .map_err(|e| {
+                        error!("Failed to generate calldata: {}", e);
+                        ProofGeneratorError::CalldataError(e.to_string())
+                    })?;
 
             info!("Successfully generated Groth16 proof and calldata.");
             Ok(Groth16::new(receipt, calldata))

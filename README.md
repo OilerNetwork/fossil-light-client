@@ -1,18 +1,179 @@
 # Fossil Light Client Local Testing Setup
 
-This README outlines the technical configuration for deploying and testing the `fossil-light-client` in a local development environment. The architecture comprises:
+This README outlines the technical configuration for deploying and testing the `fossil-light-client` in a local development environment.
 
-1. Anvil-based Ethereum devnet operating in mainnet fork mode
-2. Katana-based Starknet devnet with configured L1<>L2 messaging bridge
-3. Contract deployment pipeline for both L1 (Ethereum) and L2 (Starknet) networks
-4. Light Client binary implementation:
-   - Event listener for Fossil Store contract emissions
-   - State synchronization logic for light client updates
-5. Relayer binary implementation for L1->L2 finalized block hash propagation via messaging contract
+## Prerequisites: Installing Docker
 
-The system requires multiple concurrent processes, each isolated in separate terminal instances.
+Before getting started, you'll need Docker and Docker Compose installed on your system.
 
-## Dependencies
+### Installing Docker
+- **Windows & Mac**: Download and install [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- **Linux**: Follow the [official installation instructions](https://docs.docker.com/engine/install/) for your distribution
+  - After installation on Linux, remember to follow the [post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/) to run Docker without sudo
+
+### Installing Docker Buildx (Linux only)
+
+If you're on Linux, you'll need to install Docker Buildx:
+
+```bash
+# Create docker cli plugins directory
+mkdir -p ~/.docker/cli-plugins/
+
+# Download buildx binary
+curl -L https://github.com/docker/buildx/releases/download/v0.12.1/buildx-v0.12.1.linux-amd64 -o ~/.docker/cli-plugins/docker-buildx
+
+# Make it executable
+chmod +x ~/.docker/cli-plugins/docker-buildx
+```
+
+### Verifying Installation
+After installation, verify that Docker is properly installed:
+```bash
+docker --version
+docker compose version
+docker buildx version  # Should work after installing buildx
+```
+
+You should see version numbers for both commands. If you get any errors, consult the [Docker troubleshooting guide](https://docs.docker.com/troubleshoot/).
+
+## Quick Start with Docker
+
+The easiest way to get started is using Docker. This method handles all dependencies and environment setup automatically.
+
+### Prerequisites
+
+- Docker
+- Docker Compose
+- Docker Buildx (for Linux users)
+
+### Building the Images
+
+First, build all required Docker images:
+
+```bash
+# Make the build script executable
+chmod +x scripts/build-images.sh
+
+# Build all images
+# For normal build:
+./scripts/build-images.sh
+
+# For verbose build output:
+./scripts/build-images.sh --verbose  # or -v
+```
+
+This will build the following images:
+- anvil: Ethereum development node
+- katana: StarkNet development node
+- deploy: Deployment container for contracts
+- build-mmr: MMR builder service
+- relayer: Block hash relayer service
+- client: Fossil light client
+
+> **Note:** The `--verbose` flag shows detailed build progress and is useful for debugging build issues.
+
+### Running the Stack
+
+The application is split into two parts: core infrastructure and services. They need to be run in a specific sequence.
+
+#### 1. Start Core Infrastructure
+
+First, start the core infrastructure services (Ethereum node, StarkNet node, and deployments):
+
+```bash
+# Start anvil, katana, and run deployments
+docker-compose up -d
+
+# Wait for all deployments to complete
+# You can check logs with:
+docker-compose logs -f
+```
+
+#### 2. Run Services
+
+After the core infrastructure is running and deployments are complete, run the additional services in sequence:
+
+```bash
+# 1. Run MMR Builder
+docker-compose -f docker-compose.services.yml run --rm mmr-builder
+
+# 2. Start the Relayer
+docker-compose -f docker-compose.services.yml up -d relayer
+
+# 3. Start the Client
+docker-compose -f docker-compose.services.yml up -d client
+```
+
+### Monitoring
+
+You can monitor the services using:
+
+```bash
+# Check all running containers
+docker ps
+
+# View logs for specific services
+docker-compose logs -f               # For core infrastructure
+docker-compose -f docker-compose.services.yml logs -f  # For services
+
+# View logs for specific container
+docker logs -f <container-name>
+```
+
+### Cleanup
+
+To stop and remove all containers:
+
+```bash
+# Stop core infrastructure
+docker-compose down
+
+# Stop services
+docker-compose -f docker-compose.services.yml down
+
+# Remove the docker network
+docker network rm fossil-network
+```
+
+### Troubleshooting Docker Setup
+
+If you see warnings about orphaned containers:
+```bash
+docker-compose -f docker-compose.services.yml up -d --remove-orphans
+```
+
+To reset everything and start fresh:
+```bash
+# Stop and remove all containers
+docker-compose down
+docker-compose -f docker-compose.services.yml down
+
+# Remove all related containers (optional)
+docker rm $(docker ps -a -q --filter name=fossil-light-client)
+
+# Start again from step 1
+```
+
+#### Network Issues
+
+To check existing networks:
+```bash
+docker network ls
+```
+
+To clean up and recreate the network:
+```bash
+# Remove existing network (if any)
+docker network rm fossil-network
+
+# Network will be automatically created when running docker-compose up
+```
+
+## Advanced: Manual Setup with Local Tools
+
+If you need to run the components locally without Docker, follow these instructions.
+
+### Dependencies
 
 Required toolchain components:
 
@@ -30,18 +191,18 @@ Required toolchain components:
 3. Dojo framework:
    ```bash
    curl -L https://install.dojoengine.org | bash
-   dojoup -v 1.0.0-alpha.16
+   dojoup 
    ```
 
-3. Foundry development framework:
+4. Foundry development framework:
    ```bash
    curl -L https://foundry.paradigm.xyz | bash
    foundryup
    ```
 
-## Terminal 1: Anvil Ethereum Devnet Configuration
+### Manual Setup Instructions
 
-Initialize the Ethereum development environment with Anvil:
+#### Terminal 1: Anvil Ethereum Devnet Configuration
 
 1. Load environment configuration:
    ```bash
@@ -55,35 +216,21 @@ Initialize the Ethereum development environment with Anvil:
 
 > **Technical Note:** Configure `${ETH_RPC_URL}` in `anvil.env` with an RPC endpoint (Infura/Alchemy) for mainnet state replication.
 
-## Terminal 2: Katana Starknet Devnet Initialization
-
-Configure the Starknet development environment with L1 messaging capabilities:
+#### Terminal 2: Katana Starknet Devnet Initialization
 
 1. Source environment variables:
    ```bash
    source .env
    ```
 
-2. Configure `anvil.messaging.json` with fork block parameters from Anvil initialization output:
-   ```
-   Fork Configuration
-   ==================
-   Endpoint:       http://xxx.x.x.x:x
-   Block number:   21168847 <--- Required for messaging configuration
-   Block hash:     0x67bc863205b5cd53f11d78bccb7a722db1b598bb24f4e11239598825bfb3e4d3
-   Chain ID:       1
-   ```
+2. Configure `anvil.messaging.json` with fork block parameters from Anvil initialization output.
 
 3. Initialize Katana with L1 messaging bridge:
    ```bash
    katana --messaging $ANVIL_CONFIG --disable-fee --disable-validate
    ```
 
-> **Technical Note:** The `--messaging` flag enables L1<>L2 message passing. `--disable-fee` and `--disable-validate` flags optimize for development environment.
-
-## Terminal 3: Contract Deployment Pipeline
-
-Deploy the messaging infrastructure contracts:
+#### Terminal 3: Contract Deployment Pipeline
 
 1. Initialize environment:
    ```bash
@@ -95,22 +242,16 @@ Deploy the messaging infrastructure contracts:
    ./scripts/deploy.sh
    ```
 
-> **Technical Note:** Verify `deploy.sh` configuration for correct contract deployment parameters on Katana network.
+#### Terminal 4: Light Client Process
 
-## Terminal 4: Light Client Process
+Execute client binary:
+```bash
+cargo run --bin client --release
+```
 
-Initialize the Light Client service:
+#### Terminal 5: Block Hash Relayer Process
 
-1. Execute client binary:
-   ```bash
-   cargo run --bin client --release
-   ```
-
-## Terminal 5: Block Hash Relayer Process
-
-Initialize the L1->L2 block hash relay service:
-
-1. Execute relayer process:
-   ```bash
-   ./scripts/run_relayer.sh
-   ```
+Execute relayer process:
+```bash
+./scripts/run_relayer.sh
+```

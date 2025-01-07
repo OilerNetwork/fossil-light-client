@@ -11,7 +11,7 @@ pub mod L1MessageProxy {
 
     #[constructor]
     fn constructor(
-        ref self: ContractState, l1_messages_sender: EthAddress, store_address: ContractAddress
+        ref self: ContractState, l1_messages_sender: EthAddress, store_address: ContractAddress,
     ) {
         self.l1_messages_sender.write(l1_messages_sender);
         self.store_dispatcher.write(IFossilStoreDispatcher { contract_address: store_address });
@@ -24,15 +24,15 @@ pub mod L1MessageProxy {
         block_hash_low: felt252,
         block_hash_high: felt252,
         block_number_low: felt252,
-        block_number_high: felt252
+        block_number_high: felt252,
     ) {
         let block_hash = u256 {
-            low: block_hash_high.try_into().unwrap(), high: block_hash_low.try_into().unwrap()
+            low: block_hash_high.try_into().unwrap(), high: block_hash_low.try_into().unwrap(),
         };
         let block_number: u64 = block_number_low.try_into().unwrap();
         assert!(
             from_address == self.l1_messages_sender.read().into(),
-            "L1MessagesProxy: unauthorized sender"
+            "L1MessagesProxy: unauthorized sender",
         );
 
         let store = self.store_dispatcher.read();

@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
 # Install Dojo
 RUN curl -L https://install.dojoengine.org | bash
 ENV PATH="/root/.dojo/bin:${PATH}"
-RUN dojoup -v 1.0.0-alpha.16
+RUN dojoup 
 
 # Create config directory
 RUN mkdir -p /app/config
@@ -28,4 +28,4 @@ RUN katana --version
 EXPOSE 5050
 
 # Default command to run Katana
-CMD ["katana", "--messaging", "/app/config/anvil.messaging.json", "--disable-fee", "--disable-validate", "--host", "0.0.0.0"] 
+CMD ["katana", "--messaging", "/app/config/anvil.messaging.docker.json", "--dev", "--dev.no-fee", "--dev.no-account-validation", "--http.addr", "0.0.0.0"] 

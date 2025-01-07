@@ -1,10 +1,6 @@
 #[starknet::interface]
 pub trait IFossilStore<TContractState> {
-    fn initialize(
-        ref self: TContractState,
-        verifier_address: starknet::ContractAddress,
-        min_update_interval: u64
-    );
+    fn initialize(ref self: TContractState, verifier_address: starknet::ContractAddress, min_update_interval: u64);
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_mmr_state(ref self: TContractState, journal: verifier::Journal);
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
@@ -15,7 +11,7 @@ pub trait IFossilStore<TContractState> {
 #[starknet::contract]
 mod Store {
     use core::starknet::storage::{
-        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess
+        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
 
     #[starknet::storage_node]
@@ -39,10 +35,10 @@ mod Store {
     struct Storage {
         initialized: bool,
         verifier_address: starknet::ContractAddress,
-        min_update_interval: u64,
         latest_blockhash_from_l1: (u64, u256),
         latest_mmr_block: u64,
         mmr_batches: Map<u64, MMRBatch>,
+        min_update_interval: u64,
     }
 
     #[event]
@@ -69,11 +65,7 @@ mod Store {
 
     #[abi(embed_v0)]
     impl FossilStoreImpl of super::IFossilStore<ContractState> {
-        fn initialize(
-            ref self: ContractState,
-            verifier_address: starknet::ContractAddress,
-            min_update_interval: u64
-        ) {
+        fn initialize(ref self: ContractState, verifier_address: starknet::ContractAddress, min_update_interval: u64) {
             assert!(!self.initialized.read(), "Contract already initialized");
             self.initialized.write(true);
             self.verifier_address.write(verifier_address);
@@ -81,7 +73,7 @@ mod Store {
         }
 
         fn store_latest_blockhash_from_l1(
-            ref self: ContractState, block_number: u64, blockhash: u256
+            ref self: ContractState, block_number: u64, blockhash: u256,
         ) {
             self.latest_blockhash_from_l1.write((block_number, blockhash));
             self.emit(LatestBlockhashFromL1Stored { block_number, blockhash });
@@ -94,7 +86,7 @@ mod Store {
         fn update_mmr_state(ref self: ContractState, journal: verifier::Journal) {
             assert!(
                 starknet::get_caller_address() == self.verifier_address.read(),
-                "Only Fossil Verifier can update MMR state"
+                "Only Fossil Verifier can update MMR state",
             );
             let global_latest_mmr_block = self.latest_mmr_block.read();
 
