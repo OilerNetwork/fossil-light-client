@@ -3,6 +3,7 @@ use common::{get_env_var, initialize_logger_and_env};
 use publisher::core::AccumulatorBuilder;
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 use tracing::info;
+use dotenv::dotenv;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -18,10 +19,21 @@ struct Args {
     /// Skip proof verification
     #[arg(short, long, default_value_t = false)]
     skip_proof: bool,
+
+    /// Path to environment file
+    #[arg(short, long)]
+    env_file: Option<String>,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load environment variables from file if specified
+    if let Some(env_file) = Args::parse().env_file {
+        dotenv::from_path(env_file)?;
+    } else {
+        dotenv().ok();
+    }
+
     initialize_logger_and_env()?;
 
     let chain_id = get_env_var("CHAIN_ID")?.parse::<u64>()?;
