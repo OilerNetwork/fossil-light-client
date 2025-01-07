@@ -68,6 +68,33 @@ impl StarknetProvider {
     }
 
     #[instrument(skip(self), level = "debug")]
+    pub async fn get_min_mmr_block(
+        &self,
+        l2_store_address: &str,
+    ) -> Result<u64, StarknetHandlerError> {
+        debug!("Fetching min MMR block");
+
+        let entry_point_selector = selector!("get_min_mmr_block");
+
+        let data = self
+            .provider
+            .call(
+                FunctionCall {
+                    contract_address: Felt::from_hex(l2_store_address)?,
+                    entry_point_selector,
+                    calldata: vec![],
+                },
+                BlockId::Tag(BlockTag::Latest),
+            )
+            .await?;
+
+        let min_mmr_block = u64::decode(&data)?;
+        info!(min_mmr_block, "Retrieved minimum MMR block");
+
+        Ok(min_mmr_block)
+    }
+
+    #[instrument(skip(self), level = "debug")]
     pub async fn get_mmr_state(
         &self,
         l2_store_address: &str,

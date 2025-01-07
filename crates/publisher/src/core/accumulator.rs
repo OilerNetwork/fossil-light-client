@@ -381,15 +381,18 @@ impl<'a> AccumulatorBuilder<'a> {
         })?;
 
         let latest_mmr_block = provider
-            .get_latest_mmr_block(&self.batch_processor.mmr_state_manager().store_address())
+            .get_min_mmr_block(&self.batch_processor.mmr_state_manager().store_address())
             .await
             .map_err(|e| {
                 error!(error = %e, "Failed to get latest MMR block");
                 AccumulatorError::BlockchainError(format!("Failed to get latest MMR block: {}", e))
             })?;
 
-        info!("Building MMR from latest MMR block {}", latest_mmr_block);
-        self.process_blocks_from(latest_mmr_block).await
+        info!(
+            "Building MMR from minimum MMR block {} - 1",
+            latest_mmr_block
+        );
+        self.process_blocks_from(latest_mmr_block - 1).await
     }
 
     pub async fn build_from_latest_with_batches(
@@ -401,19 +404,20 @@ impl<'a> AccumulatorBuilder<'a> {
             AccumulatorError::BlockchainError(format!("Failed to create Starknet provider: {}", e))
         })?;
 
-        let latest_mmr_block = provider
-            .get_latest_mmr_block(&self.batch_processor.mmr_state_manager().store_address())
+        let min_mmr_block = provider
+            .get_min_mmr_block(&self.batch_processor.mmr_state_manager().store_address())
             .await
             .map_err(|e| {
-                error!(error = %e, "Failed to get latest MMR block");
-                AccumulatorError::BlockchainError(format!("Failed to get latest MMR block: {}", e))
+                error!(error = %e, "Failed to get minimum MMR block");
+                AccumulatorError::BlockchainError(format!("Failed to get minimum MMR block: {}", e))
             })?;
 
         info!(
             "Building MMR from latest MMR block {} with {} batches",
-            latest_mmr_block, num_batches
+            min_mmr_block - 1,
+            num_batches
         );
-        self.process_blocks_from_with_limit(latest_mmr_block, num_batches)
+        self.process_blocks_from_with_limit(min_mmr_block - 1, num_batches)
             .await
     }
 }
