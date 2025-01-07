@@ -167,7 +167,7 @@ where
             );
 
             debug!("Generating calldata");
-            let calldata = get_groth16_calldata(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
+            let calldata = get_groth16_calldata_felt(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
                 .map_err(|e| {
                     error!("Failed to generate calldata: {}", e);
                     ProofGeneratorError::CalldataError(e.to_string())

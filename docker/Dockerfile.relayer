@@ -33,9 +33,7 @@ FROM alpine:latest
 WORKDIR /app
 
 # Update repositories and install SSL certificates
-RUN echo "https://mirror.ette.biz/alpine/v3.19/main" > /etc/apk/repositories && \
-    echo "https://mirror.ette.biz/alpine/v3.19/community" >> /etc/apk/repositories && \
-    apk update && \
+RUN apk update && \
     apk add --no-cache ca-certificates openssl bash
 
 # Copy the compiled binary from the builder stage to /usr/local/bin

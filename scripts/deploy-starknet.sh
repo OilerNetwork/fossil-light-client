@@ -5,6 +5,7 @@ set -e
 
 # Store the original directory (works both in container and local environment)
 ORIGINAL_DIR="$(pwd)"
+UPDATE_INTERVAL=0
 
 # Update the environment file with new addresses
 update_env_var() {
@@ -116,7 +117,7 @@ echo -e "${GREEN}Contract deployed at: ${BOLD}$FOSSIL_VERIFIER_ADDRESS${NC}"
 echo
 
 echo -e "${YELLOW}Initializing Fossil Store contract...${NC}"
-starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w
+starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS $UPDATE_INTERVAL --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w
 echo -e "${GREEN}Fossil Store contract initialized${NC}"
 echo
 

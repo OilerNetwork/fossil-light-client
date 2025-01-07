@@ -1,6 +1,6 @@
 #[starknet::interface]
 pub trait IFossilStore<TContractState> {
-    fn initialize(ref self: TContractState, verifier_address: starknet::ContractAddress);
+    fn initialize(ref self: TContractState, verifier_address: starknet::ContractAddress, min_update_interval: u64);
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_mmr_state(ref self: TContractState, journal: verifier::Journal);
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
@@ -38,6 +38,7 @@ mod Store {
         latest_blockhash_from_l1: (u64, u256),
         latest_mmr_block: u64,
         mmr_batches: Map<u64, MMRBatch>,
+        min_update_interval: u64,
     }
 
     #[event]
@@ -64,10 +65,11 @@ mod Store {
 
     #[abi(embed_v0)]
     impl FossilStoreImpl of super::IFossilStore<ContractState> {
-        fn initialize(ref self: ContractState, verifier_address: starknet::ContractAddress) {
+        fn initialize(ref self: ContractState, verifier_address: starknet::ContractAddress, min_update_interval: u64) {
             assert!(!self.initialized.read(), "Contract already initialized");
             self.initialized.write(true);
             self.verifier_address.write(verifier_address);
+            self.min_update_interval.write(min_update_interval);
         }
 
         fn store_latest_blockhash_from_l1(

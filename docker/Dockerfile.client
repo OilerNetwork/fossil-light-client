@@ -3,6 +3,19 @@ FROM rust:latest AS builder
 
 WORKDIR /app
 
+# Install required dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Configure cargo to use git CLI for fetching
+RUN mkdir -p /root/.cargo && \
+    echo '[net]\ngit-fetch-with-cli = true' > /root/.cargo/config.toml
+
 # Copy .env file
 COPY .env .
 
