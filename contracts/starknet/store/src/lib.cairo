@@ -1,9 +1,6 @@
 #[starknet::interface]
 pub trait IFossilStore<TContractState> {
-    fn initialize(
-        ref self: TContractState,
-        verifier_address: starknet::ContractAddress,
-    );
+    fn initialize(ref self: TContractState, verifier_address: starknet::ContractAddress);
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_mmr_state(
         ref self: TContractState,
@@ -67,10 +64,7 @@ mod Store {
 
     #[abi(embed_v0)]
     impl FossilStoreImpl of super::IFossilStore<ContractState> {
-        fn initialize(
-            ref self: ContractState,
-            verifier_address: starknet::ContractAddress,
-        ) {
+        fn initialize(ref self: ContractState, verifier_address: starknet::ContractAddress) {
             assert!(!self.initialized.read(), "Contract already initialized");
             self.initialized.write(true);
             self.verifier_address.write(verifier_address);
