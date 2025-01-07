@@ -24,10 +24,8 @@ RUN curl -L https://risczero.com/install | bash && \
 
 ENV PATH="/root/.risc0/bin:/root/.cargo/bin:$PATH"
 
-# Step 1: Copy Cargo.toml and Cargo.lock
+# Copy source code
 COPY Cargo.toml Cargo.lock ./
-
-# Step 2: Copy the workspace crates
 COPY crates ./crates
 
 # Build the application
@@ -52,12 +50,11 @@ RUN apt-get update && apt-get install -y \
 # Add foundry binaries to PATH
 ENV PATH="/root/.foundry/bin:$PATH"
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /app/target/release/build-mmr .
+# Copy the compiled binary from the builder stage to /usr/local/bin
+COPY --from=builder /app/target/release/build-mmr /usr/local/bin/build-mmr
 
 # Make the binary executable
-RUN chmod +x /app/build-mmr
+RUN chmod +x /usr/local/bin/build-mmr
 
 # Define the entrypoint
-ENTRYPOINT ["/app/build-mmr"]
-CMD ["-n", "1"]
+ENTRYPOINT ["/usr/local/bin/build-mmr"]

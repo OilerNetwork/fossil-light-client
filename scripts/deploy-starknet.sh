@@ -5,7 +5,6 @@ set -e
 
 # Store the original directory (works both in container and local environment)
 ORIGINAL_DIR="$(pwd)"
-UPDATE_INTERVAL=40
 
 # Update the environment file with new addresses
 update_env_var() {
@@ -24,14 +23,14 @@ update_env_var() {
 # Check if environment argument is provided
 if [ -z "$1" ]; then
     echo "Usage: $0 <environment>"
-    echo "Available environments: local, sepolia, mainnet"
+    echo "Available environments: local, sepolia, mainnet, docker"
     exit 1
 fi
 
 # Validate environment argument
 ENV_TYPE="$1"
 case "$ENV_TYPE" in
-    "local" | "sepolia" | "mainnet")
+    "local" | "sepolia" | "mainnet" | "docker")
         ENV_FILE="$ORIGINAL_DIR/.env.$ENV_TYPE"
         echo "Using environment: $ENV_TYPE ($ENV_FILE)"
     ;;
@@ -117,7 +116,7 @@ echo -e "${GREEN}Contract deployed at: ${BOLD}$FOSSIL_VERIFIER_ADDRESS${NC}"
 echo
 
 echo -e "${YELLOW}Initializing Fossil Store contract...${NC}"
-starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS $UPDATE_INTERVAL --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w
+starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w
 echo -e "${GREEN}Fossil Store contract initialized${NC}"
 echo
 

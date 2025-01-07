@@ -28,4 +28,4 @@ RUN katana --version
 EXPOSE 5050
 
 # Default command to run Katana
-CMD ["katana", "--messaging", "/app/config/anvil.messaging.json", "--disable-fee", "--disable-validate", "--host", "0.0.0.0"] 
+CMD ["katana", "--messaging", "/app/config/anvil.messaging.docker.json", "--dev", "--dev.no-fee", "--dev.no-account-validation", "--http.addr", "0.0.0.0"] 

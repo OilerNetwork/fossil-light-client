@@ -3,7 +3,6 @@ pub trait IFossilStore<TContractState> {
     fn initialize(
         ref self: TContractState,
         verifier_address: starknet::ContractAddress,
-        min_update_interval: u64,
     );
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_mmr_state(
@@ -41,7 +40,6 @@ mod Store {
     struct Storage {
         initialized: bool,
         verifier_address: starknet::ContractAddress,
-        min_update_interval: u64,
         latest_blockhash_from_l1: (u64, u256),
         latest_mmr_block: u64,
         mmr_batches: Map<u64, MMRBatch>,
@@ -72,12 +70,10 @@ mod Store {
         fn initialize(
             ref self: ContractState,
             verifier_address: starknet::ContractAddress,
-            min_update_interval: u64,
         ) {
             assert!(!self.initialized.read(), "Contract already initialized");
             self.initialized.write(true);
             self.verifier_address.write(verifier_address);
-            self.min_update_interval.write(min_update_interval);
         }
 
         fn store_latest_blockhash_from_l1(
@@ -102,18 +98,9 @@ mod Store {
                 starknet::get_caller_address() == self.verifier_address.read(),
                 "Only Fossil Verifier can update MMR state",
             );
-
-            let min_update_interval = self.min_update_interval.read();
             let stored_latest_mmr_block = self.latest_mmr_block.read();
 
             if latest_mmr_block > stored_latest_mmr_block {
-                let actual_update_interval = latest_mmr_block - stored_latest_mmr_block;
-                assert!(
-                    actual_update_interval >= min_update_interval,
-                    "Update interval: {} must be greater than or equal to the minimum update interval: {}",
-                    actual_update_interval,
-                    min_update_interval,
-                );
                 self.latest_mmr_block.write(latest_mmr_block);
             }
 

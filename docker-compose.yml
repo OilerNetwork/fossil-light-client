@@ -1,12 +1,12 @@
 services:
   anvil:
-    image: fossil-anvil:latest
+    image: anvil:latest
     networks:
       - fossil
     ports:
       - "8545:8545"
     env_file:
-      - ${ENV_FILE:-.env.local}
+      - ${ENV_FILE:-.env.docker}
     healthcheck:
       test: ["CMD", "cast", "block-number"]
       interval: 5s
@@ -14,27 +14,35 @@ services:
       retries: 5
 
   deploy-ethereum:
-    image: fossil-deploy:latest
+    image: deploy:latest
     networks:
       - fossil
     env_file:
-      - ${ENV_FILE:-.env.local}
+      - ${ENV_FILE:-.env.docker}
     volumes:
       - .:/app
     depends_on:
       anvil:
         condition: service_healthy
-    command: ["./scripts/deploy-ethereum.sh", "local"]
+    command: ["./scripts/deploy-ethereum.sh", "docker"]
 
   katana:
-    image: fossil-katana:latest
+    image: katana:latest
     networks:
       - fossil
     ports:
       - "5050:5050"
     volumes:
       - ./config:/app/config
-    command: ["katana", "--messaging", "/app/config/anvil.messaging.json", "--disable-fee", "--disable-validate", "--host", "0.0.0.0"]
+    command: 
+      - katana
+      - --messaging
+      - /app/config/anvil.messaging.docker.json
+      - --dev
+      - --dev.no-fee
+      - --dev.no-account-validation
+      - --http.addr
+      - 0.0.0.0
     depends_on:
       anvil:
         condition: service_healthy
@@ -47,66 +55,19 @@ services:
       retries: 5
 
   deploy-starknet:
-    image: fossil-deploy:latest
+    image: deploy:latest
     networks:
       - fossil
     env_file:
-      - ${ENV_FILE:-.env.local}
+      - ${ENV_FILE:-.env.docker}
     volumes:
       - .:/app
     depends_on:
       katana:
         condition: service_healthy
-    command: ["./scripts/deploy-starknet.sh", "local"]
+    command: ["./scripts/deploy-starknet.sh", "docker"]
 
-  mmr-builder:
-    image: fossil-build-mmr:latest
-    networks:
-      - fossil
-    env_file:
-      - ${ENV_FILE:-.env.local}
-    environment:
-      - RUST_BACKTRACE=1
-      - ANVIL_URL=http://anvil:8545
-    depends_on:
-      deploy-starknet:
-        condition: service_completed_successfully
-    restart: on-failure:3
 
-  client:
-    image: fossil-client:latest
-    networks:
-      - fossil
-    env_file:
-      - ${ENV_FILE:-.env.local}
-    volumes:
-      - .:/app
-    command: ["client"]
-    depends_on:
-      deploy-starknet:
-        condition: service_completed_successfully
-      mmr-builder:
-        condition: service_completed_successfully
-
-  relayer:
-    image: fossil-relayer:latest
-    networks:
-      - fossil
-    env_file:
-      - ${ENV_FILE:-.env.local}
-    volumes:
-      - ./scripts:/app/scripts
-    command: ["/bin/sh", "/app/scripts/run_relayer.sh"]
-    depends_on:
-      deploy-starknet:
-        condition: service_completed_successfully
-      mmr-builder:
-        condition: service_completed_successfully
-    healthcheck:
-      test: ["CMD-SHELL", "pgrep -f run_relayer.sh"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
 
 networks:
   fossil:

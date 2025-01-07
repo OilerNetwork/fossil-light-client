@@ -3,7 +3,7 @@
 set -e
 
 # Use RELAYER_INTERVAL from environment, default to 720 if not set
-INTERVAL_MINUTES=${RELAYER_INTERVAL:-720}
+INTERVAL_MINUTES=${RELAYER_INTERVAL:-3}
 MAX_RETRIES=3
 RETRY_DELAY=10  # seconds
 
@@ -11,7 +11,7 @@ run_with_retry() {
     attempt=1
     while [ $attempt -le $MAX_RETRIES ]; do
         echo "Starting relayer (attempt $attempt/$MAX_RETRIES)..."
-        if /usr/local/bin/relayer; then
+        if relayer -e /app/.env.docker; then
             return 0
         fi
         

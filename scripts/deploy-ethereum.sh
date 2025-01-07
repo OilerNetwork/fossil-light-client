@@ -13,7 +13,7 @@ fi
 # Validate environment argument
 ENV_TYPE="$1"
 case "$ENV_TYPE" in
-"local" | "sepolia" | "mainnet")
+"local" | "sepolia" | "mainnet" | "docker")
     ENV_FILE=".env.$ENV_TYPE"
     echo "Using environment: $ENV_TYPE ($ENV_FILE)"
     ;;
@@ -139,8 +139,24 @@ else
     exit 1
 fi
 
-# Update the anvil.messaging.json config - use full paths
-update_json_config "${ROOT_DIR}/${CONFIG_DIR}/anvil.messaging.json" "$SN_MESSAGING"
+# Get the fork block number from anvil logs if in docker mode
+if [ "$ENV_TYPE" = "docker" ]; then
+    # Wait briefly for anvil to start and output its logs
+    sleep 2
+    
+    # Get block number from docker logs
+    BLOCK_NUMBER=$(docker logs anvil-1 2>&1 | grep "Block number:" | awk '{print $3}')
+    
+    if [ -n "$BLOCK_NUMBER" ]; then
+        echo -e "${YELLOW}Found fork block number: $BLOCK_NUMBER${NC}"
+        update_json_config "${ROOT_DIR}/${CONFIG_DIR}/anvil.messaging.docker.json" "$SN_MESSAGING" "$BLOCK_NUMBER"
+    else
+        echo -e "${RED}Could not find fork block number in anvil logs${NC}"
+        update_json_config "${ROOT_DIR}/${CONFIG_DIR}/anvil.messaging.docker.json" "$SN_MESSAGING" "0"
+    fi
+else
+    update_json_config "${ROOT_DIR}/${CONFIG_DIR}/anvil.messaging.json" "$SN_MESSAGING" "0"
+fi
 
 # Source the updated environment variables - use full path
 source "${ROOT_DIR}/${ENV_FILE}"

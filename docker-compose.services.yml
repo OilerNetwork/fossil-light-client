@@ -1,0 +1,49 @@
+services:
+  mmr-builder:
+    image: build-mmr:latest
+    networks:
+      - fossil
+    env_file:
+      - ${ENV_FILE:-.env.docker}
+    environment:
+      - RUST_BACKTRACE=1
+      - ANVIL_URL=http://anvil:8545
+    volumes:
+      - .:/app
+      - ./config:/app/config
+    command: ["-b", "4", "-n", "1", "-e", ".env.docker"]
+
+  relayer:
+    image: relayer:latest
+    networks:
+      - fossil
+    env_file:
+      - ${ENV_FILE:-.env.docker}
+    environment:
+      - RELAYER_INTERVAL=3
+    volumes:
+      - .:/app
+      - ./config:/app/config
+    entrypoint: ["/bin/sh"]
+    command: ["/app/scripts/run_relayer.sh"]
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep relayer"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  client:
+    image: client:latest
+    env_file:
+      - ${ENV_FILE:-.env.docker}
+    volumes:
+      - ./config:/app/config
+      - ./.env.docker:/app/.env.docker
+    networks:
+      - fossil
+    command: ["client", "-e", ".env.docker"]
+
+networks:
+  fossil:
+    name: fossil-network
+    external: true 

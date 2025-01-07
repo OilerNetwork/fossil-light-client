@@ -114,3 +114,104 @@ Initialize the L1->L2 block hash relay service:
    ```bash
    ./scripts/run_relayer.sh
    ```
+
+## Running with Docker
+
+The application is split into two parts: core infrastructure and services. They need to be run in a specific sequence.
+
+### 1. Start Core Infrastructure
+
+First, start the core infrastructure services (Ethereum node, StarkNet node, and deployments):
+
+```bash
+# Start anvil, katana, and run deployments
+docker-compose up -d
+
+# Wait for all deployments to complete
+# You can check logs with:
+docker-compose logs -f
+```
+
+### 2. Run Services
+
+After the core infrastructure is running and deployments are complete, run the additional services in sequence:
+
+```bash
+# 1. Run MMR Builder
+docker-compose -f docker-compose.services.yml run --rm mmr-builder
+
+# 2. Start the Relayer
+docker-compose -f docker-compose.services.yml up -d relayer
+
+# 3. Start the Client
+docker-compose -f docker-compose.services.yml up -d client
+```
+
+### Monitoring
+
+You can monitor the services using:
+
+```bash
+# Check all running containers
+docker ps
+
+# View logs for specific services
+docker-compose logs -f               # For core infrastructure
+docker-compose -f docker-compose.services.yml logs -f  # For services
+
+# View logs for specific container
+docker logs -f <container-name>
+```
+
+### Cleanup
+
+To stop and remove all containers:
+
+```bash
+# Stop core infrastructure
+docker-compose down
+
+# Stop services
+docker-compose -f docker-compose.services.yml down
+
+# Remove the docker network
+docker network rm fossil-network
+```
+
+### Troubleshooting
+
+If you see warnings about orphaned containers, you can clean them up using:
+
+```bash
+docker-compose -f docker-compose.services.yml up -d --remove-orphans
+```
+
+To reset everything and start fresh:
+
+```bash
+# Stop and remove all containers
+docker-compose down
+docker-compose -f docker-compose.services.yml down
+
+# Remove all related containers (optional)
+docker rm $(docker ps -a -q --filter name=fossil-light-client)
+
+# Start again from step 1
+```
+
+# Network Issues
+
+To check existing networks:
+
+```bash
+docker network ls
+```
+
+To clean up and recreate the network:
+
+```bash
+# Remove existing network (if any)
+docker network rm fossil-network
+
+# Network will be automatically created when running docker-compose up
+```

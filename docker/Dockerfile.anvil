@@ -24,7 +24,7 @@ if [ -z "$ETH_RPC_URL" ]; then\n\
     echo "Error: ETH_RPC_URL environment variable is not set"\n\
     exit 1\n\
 fi\n\
-anvil --fork-url "$ETH_RPC_URL" --block-time 12 --host 0.0.0.0\n\
+anvil --fork-url "$FORK_URL" --block-time 12 --host 0.0.0.0\n\
 ' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Default command to run Anvil
