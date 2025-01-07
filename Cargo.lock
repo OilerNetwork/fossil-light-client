@@ -5352,6 +5352,7 @@ dependencies = [
  "starknet",
  "starknet-crypto",
  "thiserror 2.0.9",
+ "tokio",
  "tracing",
  "url",
 ]
