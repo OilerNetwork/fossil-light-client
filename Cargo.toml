@@ -22,7 +22,7 @@ debug = 1
 lto = true
 
 [workspace.dependencies]
-eth-rlp-types = { git = "https://github.com/NethermindEth/eth-rlp-types.git" }
+eth-rlp-types = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", package = "eth-rlp-types" }
 eth-rlp-verify = { git = "https://github.com/NethermindEth/eth-rlp-verify.git" }
 starknet = { git = "https://github.com/xJonathanLEI/starknet-rs.git", branch = "master" }
 starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs.git", branch = "master" }
