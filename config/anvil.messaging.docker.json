@@ -1,7 +1,7 @@
 {
   "chain": "ethereum",
   "rpc_url": "http://localhost:8545",
-  "contract_address": "0xE37675Bb1cc1c90dB0Deed8033CAb650770e79cE",
+  "contract_address": "0x4D0b3D04571c52a19cb6C26afd256C3043FC0f14",
   "sender_address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "private_key": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
   "interval": 2,

@@ -26,6 +26,7 @@ pub async fn prove_mmr_update(
     )?;
 
     let mut builder = AccumulatorBuilder::new(
+        rpc_url,
         chain_id,
         verifier_address,
         store_address,

@@ -242,12 +242,67 @@ Required toolchain components:
    ./scripts/deploy.sh
    ```
 
+#### Terminal 4: MMR Builder Options
+
+The MMR builder supports several options for controlling how the MMR is built:
+
+```bash
+# Build MMR with default settings (from latest finalized block)
+cargo run --bin build_mmr --release
+
+# Build from a specific start block
+cargo run --bin build_mmr --release -- --start-block <BLOCK_NUMBER>
+
+# Build from the latest onchain MMR block
+cargo run --bin build_mmr --release -- --from-latest
+
+# Control batch size
+cargo run --bin build_mmr --release -- --batch-size <SIZE>
+
+# Process specific number of batches
+cargo run --bin build_mmr --release -- --num-batches <COUNT>
+
+# Skip proof verification
+cargo run --bin build_mmr --release -- --skip-proof
+
+# Combine options (examples)
+cargo run --bin build_mmr --release -- --from-latest --num-batches 10
+cargo run --bin build_mmr --release -- --start-block 1000 --batch-size 512
+```
+
+Available options:
+- `--start-block, -s`: Start building from this block number
+- `--from-latest, -l`: Start building from the latest onchain MMR block
+- `--batch-size`: Number of blocks per batch (default: 1024)
+- `--num-batches, -n`: Number of batches to process
+- `--skip-proof, -p`: Skip proof verification
+- `--env-file, -e`: Path to environment file (default: .env)
+
+Note: `--from-latest` and `--start-block` cannot be used together.
+
 #### Terminal 4: Light Client Process
 
 Execute client binary:
 ```bash
 cargo run --bin client --release
 ```
+
+The client supports the following options:
+
+```bash
+# Run with default settings (5 second polling interval)
+cargo run --bin client --release
+
+# Run with custom polling interval (in seconds)
+cargo run --bin client --release -- --polling-interval 10
+
+# Use a specific environment file
+cargo run --bin client --release -- --env-file .env.local
+```
+
+Available options:
+- `--polling-interval`: Time between polls in seconds (default: 5)
+- `--env-file, -e`: Path to environment file (default: .env)
 
 #### Terminal 5: Block Hash Relayer Process
 
