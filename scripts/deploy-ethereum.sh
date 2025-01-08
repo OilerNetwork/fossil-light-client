@@ -15,7 +15,14 @@ ENV_TYPE="$1"
 case "$ENV_TYPE" in
 "local" | "sepolia" | "mainnet" | "docker")
     ENV_FILE=".env.$ENV_TYPE"
-    echo "Using environment: $ENV_TYPE ($ENV_FILE)"
+    # Add support for updating both files in docker mode
+    if [ "$ENV_TYPE" = "docker" ]; then
+        ENV_FILES=(".env.docker" ".env.local")
+        echo "Using environment: $ENV_TYPE (updating both ${ENV_FILES[*]})"
+    else
+        ENV_FILES=("$ENV_FILE")
+        echo "Using environment: $ENV_TYPE ($ENV_FILE)"
+    fi
     ;;
 *)
     echo "Invalid environment. Must be one of: local, sepolia, mainnet"
@@ -23,8 +30,8 @@ case "$ENV_TYPE" in
     ;;
 esac
 
-# Source the appropriate environment file
-source "$ENV_FILE"
+# Source the primary environment file
+source "${ENV_FILES[0]}"
 export ACCOUNT_PRIVATE_KEY=${ACCOUNT_PRIVATE_KEY}
 
 # Use relative paths instead of absolute Docker paths
@@ -127,13 +134,15 @@ if [ -f "logs/local_setup.json" ]; then
     echo -e "${YELLOW}L1_MESSAGE_SENDER: $L1_MESSAGE_SENDER${NC}"
     
     # Update the environment variables - use full paths
-    update_env_var "${ROOT_DIR}/${ENV_FILE}" "SN_MESSAGING" "$SN_MESSAGING"
-    update_env_var "${ROOT_DIR}/${ENV_FILE}" "L1_MESSAGE_SENDER" "$L1_MESSAGE_SENDER"
-    
-    # Verify the updates
-    echo -e "${YELLOW}Checking updated .env file:${NC}"
-    grep "SN_MESSAGING" "${ROOT_DIR}/${ENV_FILE}"
-    grep "L1_MESSAGE_SENDER" "${ROOT_DIR}/${ENV_FILE}"
+    for env_file in "${ENV_FILES[@]}"; do
+        update_env_var "${ROOT_DIR}/${env_file}" "SN_MESSAGING" "$SN_MESSAGING"
+        update_env_var "${ROOT_DIR}/${env_file}" "L1_MESSAGE_SENDER" "$L1_MESSAGE_SENDER"
+        
+        # Verify the updates
+        echo -e "${YELLOW}Checking updated ${env_file}:${NC}"
+        grep "SN_MESSAGING" "${ROOT_DIR}/${env_file}"
+        grep "L1_MESSAGE_SENDER" "${ROOT_DIR}/${env_file}"
+    done
 else
     echo -e "${RED}Could not find logs/local_setup.json${NC}"
     exit 1
@@ -159,7 +168,7 @@ else
 fi
 
 # Source the updated environment variables - use full path
-source "${ROOT_DIR}/${ENV_FILE}"
+source "${ROOT_DIR}/${ENV_FILES[0]}"
 
 echo -e "${BLUE}Using L1_MESSAGE_SENDER: $L1_MESSAGE_SENDER${NC}"
 echo -e "${BLUE}Using SN_MESSAGING: $SN_MESSAGING${NC}"
