@@ -229,25 +229,31 @@ impl<'a> BatchProcessor<'a> {
         })?;
         let batch_is_complete = new_leaves_count as u64 >= self.batch_size;
 
-        // Upload current state to IPFS regardless of completion
-        let ipfs_hash = self.ipfs_manager.upload_db(&temp_file_path).await.map_err(|e| {
-            error!(error = %e, "Failed to upload batch file to IPFS");
-            AccumulatorError::StorageError(format!("Failed to upload to IPFS: {}", e))
-        })?;
-        info!("Uploaded batch file to IPFS with hash: {}", ipfs_hash);
+        // Only upload to IPFS if the batch is complete
+        let ipfs_hash = if batch_is_complete {
+            // Upload current state to IPFS
+            let hash = self.ipfs_manager.upload_db(&temp_file_path).await.map_err(|e| {
+                error!(error = %e, "Failed to upload batch file to IPFS");
+                AccumulatorError::StorageError(format!("Failed to upload to IPFS: {}", e))
+            })?;
+            info!("Uploaded batch file to IPFS with hash: {}", hash);
 
-        if batch_is_complete {
-            info!("Batch {} is now complete", batch_index);
+            // Clean up the temporary file
             if let Err(e) = std::fs::remove_file(&temp_file_path) {
                 warn!(error = %e, "Failed to remove temporary batch file");
             }
-        }
+            
+            Some(hash)
+        } else {
+            None
+        };
 
         Ok(Some(BatchResult::new(
             start_block,
             adjusted_end_block,
             new_mmr_state,
             proof,
+            ipfs_hash,
         )))
     }
 
