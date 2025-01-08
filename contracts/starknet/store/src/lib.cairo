@@ -1,6 +1,10 @@
 #[starknet::interface]
 pub trait IFossilStore<TContractState> {
-    fn initialize(ref self: TContractState, verifier_address: starknet::ContractAddress, min_update_interval: u64);
+    fn initialize(
+        ref self: TContractState,
+        verifier_address: starknet::ContractAddress,
+        min_update_interval: u64,
+    );
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_mmr_state(ref self: TContractState, journal: verifier::Journal);
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
@@ -67,7 +71,11 @@ mod Store {
 
     #[abi(embed_v0)]
     impl FossilStoreImpl of super::IFossilStore<ContractState> {
-        fn initialize(ref self: ContractState, verifier_address: starknet::ContractAddress, min_update_interval: u64) {
+        fn initialize(
+            ref self: ContractState,
+            verifier_address: starknet::ContractAddress,
+            min_update_interval: u64,
+        ) {
             assert!(!self.initialized.read(), "Contract already initialized");
             self.initialized.write(true);
             self.verifier_address.write(verifier_address);
@@ -100,7 +108,7 @@ mod Store {
                     actual_update_interval >= min_update_interval,
                     "Update interval: {} must be greater than or equal to the minimum update interval: {}",
                     actual_update_interval,
-                    min_update_interval
+                    min_update_interval,
                 );
                 self.latest_mmr_block.write(journal.latest_mmr_block);
             }
@@ -130,8 +138,8 @@ mod Store {
                         latest_mmr_block: journal.latest_mmr_block,
                         latest_mmr_block_hash: journal.latest_mmr_block_hash,
                         leaves_count: journal.leaves_count,
-                        root_hash: journal.root_hash
-                    }
+                        root_hash: journal.root_hash,
+                    },
                 );
         }
 
