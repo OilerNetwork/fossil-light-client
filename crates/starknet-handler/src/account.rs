@@ -1,7 +1,7 @@
 use starknet::macros::selector;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
-    core::chain_id,
+    core::{chain_id, codec::Encode},
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
     signers::{LocalWallet, SigningKey},
 };
@@ -55,9 +55,18 @@ impl StarknetAccount {
         &self,
         verifier_address: &str,
         proof: Vec<Felt>,
+        ipfs_hash: Option<String>,
     ) -> Result<Felt, StarknetHandlerError> {
         const MAX_RETRIES: u32 = 3;
         const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
+
+        let mut calldata = vec![];
+
+        proof.encode(&mut calldata)?;
+        if let Some(hash) = ipfs_hash {
+            let hash_felt = Felt::from_hex(&hash).map_err(StarknetHandlerError::FeltConversion)?;
+            hash_felt.encode(&mut calldata)?;
+        }
 
         let selector = selector!("verify_mmr_proof");
         let call = starknet::core::types::Call {
