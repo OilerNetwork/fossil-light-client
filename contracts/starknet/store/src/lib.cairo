@@ -1,11 +1,16 @@
 #[starknet::interface]
 pub trait IFossilStore<TContractState> {
-    fn initialize(ref self: TContractState, verifier_address: starknet::ContractAddress, min_update_interval: u64);
+    fn initialize(
+        ref self: TContractState,
+        verifier_address: starknet::ContractAddress,
+        min_update_interval: u64,
+    );
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_mmr_state(ref self: TContractState, journal: verifier::Journal);
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
     fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
     fn get_latest_mmr_block(self: @TContractState) -> u64;
+    fn get_min_mmr_block(self: @TContractState) -> u64;
 }
 
 #[starknet::contract]
@@ -38,6 +43,7 @@ mod Store {
         latest_blockhash_from_l1: (u64, u256),
         latest_mmr_block: u64,
         mmr_batches: Map<u64, MMRBatch>,
+        min_mmr_block: u64,
         min_update_interval: u64,
     }
 
@@ -65,7 +71,11 @@ mod Store {
 
     #[abi(embed_v0)]
     impl FossilStoreImpl of super::IFossilStore<ContractState> {
-        fn initialize(ref self: ContractState, verifier_address: starknet::ContractAddress, min_update_interval: u64) {
+        fn initialize(
+            ref self: ContractState,
+            verifier_address: starknet::ContractAddress,
+            min_update_interval: u64,
+        ) {
             assert!(!self.initialized.read(), "Contract already initialized");
             self.initialized.write(true);
             self.verifier_address.write(verifier_address);
@@ -98,7 +108,7 @@ mod Store {
                     actual_update_interval >= min_update_interval,
                     "Update interval: {} must be greater than or equal to the minimum update interval: {}",
                     actual_update_interval,
-                    min_update_interval
+                    min_update_interval,
                 );
                 self.latest_mmr_block.write(journal.latest_mmr_block);
             }
@@ -106,6 +116,17 @@ mod Store {
             let mut curr_state = self.mmr_batches.entry(journal.batch_index);
 
             curr_state.latest_mmr_block.write(journal.latest_mmr_block);
+
+            let min_mmr_block = self.min_mmr_block.read();
+            let lowest_batch_block = journal.latest_mmr_block - journal.leaves_count + 1;
+            if min_mmr_block != 0 {
+                if lowest_batch_block < min_mmr_block {
+                    self.min_mmr_block.write(lowest_batch_block);
+                }
+            } else {
+                self.min_mmr_block.write(lowest_batch_block);
+            }
+
             curr_state.latest_mmr_block_hash.write(journal.latest_mmr_block_hash);
             curr_state.leaves_count.write(journal.leaves_count);
             curr_state.root_hash.write(journal.root_hash);
@@ -117,8 +138,8 @@ mod Store {
                         latest_mmr_block: journal.latest_mmr_block,
                         latest_mmr_block_hash: journal.latest_mmr_block_hash,
                         leaves_count: journal.leaves_count,
-                        root_hash: journal.root_hash
-                    }
+                        root_hash: journal.root_hash,
+                    },
                 );
         }
 
@@ -135,6 +156,10 @@ mod Store {
 
         fn get_latest_mmr_block(self: @ContractState) -> u64 {
             self.latest_mmr_block.read()
+        }
+
+        fn get_min_mmr_block(self: @ContractState) -> u64 {
+            self.min_mmr_block.read()
         }
     }
 }

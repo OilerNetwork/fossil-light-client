@@ -5,11 +5,13 @@ use ethereum::get_finalized_block_hash;
 use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
 use starknet_crypto::Felt;
 use starknet_handler::account::StarknetAccount;
+use starknet_handler::provider::StarknetProvider;
 use tracing::{debug, error, info, warn};
 
 use super::MMRStateManager;
 
 pub struct AccumulatorBuilder<'a> {
+    starknet_rpc_url: &'a String,
     chain_id: u64,
     verifier_address: &'a String,
     batch_processor: BatchProcessor<'a>,
@@ -19,6 +21,7 @@ pub struct AccumulatorBuilder<'a> {
 
 impl<'a> AccumulatorBuilder<'a> {
     pub async fn new(
+        starknet_rpc_url: &'a String,
         chain_id: u64,
         verifier_address: &'a String,
         store_address: &'a String,
@@ -41,6 +44,7 @@ impl<'a> AccumulatorBuilder<'a> {
         }
 
         Ok(Self {
+            starknet_rpc_url,
             chain_id,
             verifier_address,
             batch_processor: BatchProcessor::new(
@@ -240,7 +244,7 @@ impl<'a> AccumulatorBuilder<'a> {
     async fn verify_proof(&self, calldata: Vec<Felt>) -> Result<(), AccumulatorError> {
         let starknet_account = self.batch_processor.mmr_state_manager().account();
 
-        debug!("Verifying MMR proof");
+        info!("Verifying MMR proof");
         starknet_account
             .verify_mmr_proof(&self.verifier_address, calldata)
             .await
@@ -249,7 +253,171 @@ impl<'a> AccumulatorBuilder<'a> {
                 e
             })?;
 
-        debug!("MMR proof verified successfully");
+        info!("MMR proof verified successfully");
         Ok(())
+    }
+
+    pub async fn build_from_block(&mut self, start_block: u64) -> Result<(), AccumulatorError> {
+        info!("Building MMR from block {}", start_block);
+        self.process_blocks_from(start_block).await
+    }
+
+    pub async fn build_from_block_with_batches(
+        &mut self,
+        start_block: u64,
+        num_batches: u64,
+    ) -> Result<(), AccumulatorError> {
+        info!(
+            "Building MMR from block {} with {} batches",
+            start_block, num_batches
+        );
+        self.process_blocks_from_with_limit(start_block, num_batches)
+            .await
+    }
+
+    async fn process_blocks_from(&mut self, start_block: u64) -> Result<(), AccumulatorError> {
+        let (finalized_block_number, _) = get_finalized_block_hash().await?;
+        if start_block > finalized_block_number {
+            return Err(AccumulatorError::InvalidInput(
+                "Start block cannot be greater than finalized block",
+            ));
+        }
+
+        debug!(
+            "Processing blocks from {} with batch size {}",
+            start_block,
+            self.batch_processor.batch_size()
+        );
+
+        let mut current_end = start_block;
+
+        while current_end > 0 {
+            let start = self.batch_processor.calculate_start_block(current_end)?;
+            let batch_result = self
+                .batch_processor
+                .process_batch(self.chain_id, start, current_end)
+                .await?;
+
+            if let Some(result) = batch_result {
+                self.handle_batch_result(&result).await?;
+            }
+
+            current_end = start.saturating_sub(1);
+        }
+
+        Ok(())
+    }
+
+    async fn process_blocks_from_with_limit(
+        &mut self,
+        start_block: u64,
+        num_batches: u64,
+    ) -> Result<(), AccumulatorError> {
+        if num_batches == 0 {
+            return Err(AccumulatorError::InvalidInput(
+                "Number of batches must be greater than 0",
+            ));
+        }
+
+        let (finalized_block_number, _) = get_finalized_block_hash().await.map_err(|e| {
+            error!(error = %e, "Failed to get finalized block hash");
+            AccumulatorError::BlockchainError(format!("Failed to get finalized block: {}", e))
+        })?;
+
+        if start_block > finalized_block_number {
+            return Err(AccumulatorError::InvalidInput(
+                "Start block cannot be greater than finalized block",
+            ));
+        }
+
+        self.total_batches = num_batches;
+        self.current_batch = 0;
+        let mut current_end = start_block;
+
+        for batch_num in 0..num_batches {
+            if current_end == 0 {
+                warn!("Reached block 0 before completing all batches");
+                break;
+            }
+
+            let start = self.batch_processor.calculate_start_block(current_end)?;
+            debug!(batch_num, start, current_end, "Processing batch");
+
+            let result = self
+                .batch_processor
+                .process_batch(self.chain_id, start, current_end)
+                .await
+                .map_err(|e| {
+                    error!(
+                        error = %e,
+                        batch_num,
+                        start,
+                        current_end,
+                        "Failed to process batch"
+                    );
+                    e
+                })?;
+
+            if let Some(batch_result) = result {
+                self.handle_batch_result(&batch_result).await?;
+                self.current_batch += 1;
+                info!(
+                    progress = format!("{}/{}", self.current_batch, self.total_batches),
+                    "Batch processed successfully"
+                );
+            }
+
+            current_end = start.saturating_sub(1);
+        }
+
+        info!("MMR build completed successfully");
+        Ok(())
+    }
+
+    pub async fn build_from_latest(&mut self) -> Result<(), AccumulatorError> {
+        let provider = StarknetProvider::new(&self.starknet_rpc_url).map_err(|e| {
+            error!(error = %e, "Failed to create Starknet provider");
+            AccumulatorError::BlockchainError(format!("Failed to create Starknet provider: {}", e))
+        })?;
+
+        let latest_mmr_block = provider
+            .get_min_mmr_block(&self.batch_processor.mmr_state_manager().store_address())
+            .await
+            .map_err(|e| {
+                error!(error = %e, "Failed to get latest MMR block");
+                AccumulatorError::BlockchainError(format!("Failed to get latest MMR block: {}", e))
+            })?;
+
+        info!(
+            "Building MMR from minimum MMR block {} - 1",
+            latest_mmr_block
+        );
+        self.process_blocks_from(latest_mmr_block - 1).await
+    }
+
+    pub async fn build_from_latest_with_batches(
+        &mut self,
+        num_batches: u64,
+    ) -> Result<(), AccumulatorError> {
+        let provider = StarknetProvider::new(&self.starknet_rpc_url).map_err(|e| {
+            error!(error = %e, "Failed to create Starknet provider");
+            AccumulatorError::BlockchainError(format!("Failed to create Starknet provider: {}", e))
+        })?;
+
+        let min_mmr_block = provider
+            .get_min_mmr_block(&self.batch_processor.mmr_state_manager().store_address())
+            .await
+            .map_err(|e| {
+                error!(error = %e, "Failed to get minimum MMR block");
+                AccumulatorError::BlockchainError(format!("Failed to get minimum MMR block: {}", e))
+            })?;
+
+        info!(
+            "Building MMR from latest MMR block {} with {} batches",
+            min_mmr_block - 1,
+            num_batches
+        );
+        self.process_blocks_from_with_limit(min_mmr_block - 1, num_batches)
+            .await
     }
 }

@@ -16,12 +16,20 @@ struct Args {
     num_batches: Option<u64>,
 
     /// Skip proof verification
-    #[arg(short, long, default_value_t = false)]
+    #[arg(short = 'p', long, default_value_t = false)]
     skip_proof: bool,
 
     /// Path to environment file (optional)
     #[arg(short = 'e', long, default_value = ".env")]
     env_file: String,
+
+    /// Start building from this block number. If not specified, starts from the latest finalized block.
+    #[arg(short = 's', long)]
+    start_block: Option<u64>,
+
+    /// Start building from the latest MMR block
+    #[arg(short = 'l', long, default_value_t = false)]
+    from_latest: bool,
 }
 
 #[tokio::main]
@@ -40,14 +48,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
     let account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
 
-    // Parse CLI arguments
-    let args = Args::parse();
-
     let starknet_provider = StarknetProvider::new(&rpc_url)?;
     let starknet_account =
         StarknetAccount::new(starknet_provider.provider(), &private_key, &account_address)?;
 
     let mut builder = AccumulatorBuilder::new(
+        &rpc_url,
         chain_id,
         &verifier_address,
         &store_address,
@@ -61,11 +67,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         e
     })?;
 
-    // Build MMR from finalized block to block #0 or up to the specified number of batches
-    if let Some(num_batches) = args.num_batches {
-        builder.build_with_num_batches(num_batches).await?;
-    } else {
-        builder.build_from_finalized().await?;
+    // Build MMR from specified start block or finalized block
+    match (args.from_latest, args.start_block, args.num_batches) {
+        (true, Some(_), _) => {
+            return Err("Cannot specify both --from-latest and --start-block".into());
+        }
+        (true, None, Some(num_batches)) => {
+            builder.build_from_latest_with_batches(num_batches).await?
+        }
+        (true, None, None) => builder.build_from_latest().await?,
+        (false, Some(start_block), Some(num_batches)) => {
+            builder
+                .build_from_block_with_batches(start_block, num_batches)
+                .await?
+        }
+        (false, Some(start_block), None) => builder.build_from_block(start_block).await?,
+        (false, None, Some(num_batches)) => builder.build_with_num_batches(num_batches).await?,
+        (false, None, None) => builder.build_from_finalized().await?,
     }
 
     info!("Host finished");

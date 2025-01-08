@@ -10,7 +10,7 @@ jobs:
           submodules: true
       - uses: software-mansion/setup-scarb@v1
         with:
-          scarb-version: "2.8.5"
+          scarb-version: "2.9.1"
       - run: cd contracts/starknet && scarb fmt --check
       - run: cd contracts/starknet && scarb build
     #   - run: snforge test

@@ -77,7 +77,7 @@ impl<'a> BatchProcessor<'a> {
 
         info!(
             batch_index,
-            num_blocks = adjusted_end_block - start_block + 1,
+            num_blocks = adjusted_end_block - start_block,
             "Processing batch"
         );
 
@@ -151,7 +151,7 @@ impl<'a> BatchProcessor<'a> {
         let batch_link: Option<String> = if batch_index > 0 {
             Some(
                 db_connection
-                    .get_block_header_by_number(batch_start - 1)
+                    .get_block_header_by_number(start_block - 1)
                     .await?
                     .ok_or_else(|| {
                         AccumulatorError::InvalidInput("Previous block header not found")
@@ -207,7 +207,6 @@ impl<'a> BatchProcessor<'a> {
                 store_manager,
                 &mut mmr,
                 &pool,
-                batch_index,
                 adjusted_end_block,
                 guest_output.as_ref(),
                 &new_headers,

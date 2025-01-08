@@ -33,7 +33,6 @@ impl<'a> MMRStateManager<'a> {
         store_manager: StoreManager,
         mmr: &mut MMR,
         pool: &SqlitePool,
-        batch_index: u64,
         latest_block_number: u64,
         guest_output: Option<&GuestOutput>,
         headers: &Vec<String>,
@@ -108,15 +107,7 @@ impl<'a> MMRStateManager<'a> {
                 leaves_count as u64,
             );
 
-            let tx_hash = self
-                .account
-                .update_mmr_state(self.store_address, batch_index, &new_mmr_state)
-                .await?;
-
-            info!(
-                tx_hash = ?tx_hash,
-                "MMR state updated successfully (without verification)"
-            );
+            info!("No verification option selected, MMR state not updated onchain");
             Ok(new_mmr_state)
         }
     }

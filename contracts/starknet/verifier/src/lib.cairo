@@ -96,7 +96,7 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
         m += 1;
     };
 
-    Journal { batch_index, latest_mmr_block, latest_mmr_block_hash, root_hash, leaves_count, }
+    Journal { batch_index, latest_mmr_block, latest_mmr_block_hash, root_hash, leaves_count }
 }
 
 trait BitShift<T> {
@@ -163,7 +163,7 @@ mod tests {
         assert_eq!(journal.latest_mmr_block, 7253851);
         assert_eq!(
             journal.latest_mmr_block_hash,
-            0x858768dd79b8c6190fb224ff398345ffe4fcb9c4899c55e0fc0994b7d35177af
+            0x858768dd79b8c6190fb224ff398345ffe4fcb9c4899c55e0fc0994b7d35177af,
         );
         assert_eq!(
             journal.root_hash, 0x72aa9525dc9b7953631c0699d041fd4f23aa9f98c4a73aab27fbf2f0b9b451f8,
@@ -340,7 +340,7 @@ mod tests {
             0,
             0,
             0,
-            0
+            0,
         ]
             .span()
     }

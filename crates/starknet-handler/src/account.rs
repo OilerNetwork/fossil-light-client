@@ -1,17 +1,17 @@
 use starknet::macros::selector;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
-    core::{chain_id, codec::Encode},
+    core::chain_id,
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
     signers::{LocalWallet, SigningKey},
 };
 use starknet_crypto::Felt;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tracing::{debug, info, instrument, warn};
 
 use common::felt;
 
-use crate::{MmrState, StarknetHandlerError};
+use crate::StarknetHandlerError;
 
 pub struct StarknetAccount {
     account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,
@@ -56,54 +56,50 @@ impl StarknetAccount {
         verifier_address: &str,
         proof: Vec<Felt>,
     ) -> Result<Felt, StarknetHandlerError> {
-        debug!(
-            verifier_address = %verifier_address,
-            proof_length = proof.len(),
-            "Verifying MMR proof"
-        );
+        const MAX_RETRIES: u32 = 3;
+        const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 
         let selector = selector!("verify_mmr_proof");
+        let call = starknet::core::types::Call {
+            selector,
+            calldata: proof.clone(),
+            to: felt(verifier_address)?,
+        };
 
-        debug!("Executing verification transaction");
-        let tx = self
-            .account
-            .execute_v1(vec![starknet::core::types::Call {
-                selector,
-                calldata: proof,
-                to: felt(verifier_address)?,
-            }])
-            .send()
-            .await?;
+        let mut attempt = 0;
+        loop {
+            debug!(
+                verifier_address = %verifier_address,
+                proof_length = proof.len(),
+                attempt = attempt + 1,
+                "Verifying MMR proof"
+            );
 
-        info!(
-            tx_hash = ?tx.transaction_hash,
-            "MMR proof onchain verification successful."
-        );
-        Ok(tx.transaction_hash)
-    }
+            match self.account.execute_v1(vec![call.clone()]).send().await {
+                Ok(tx) => {
+                    info!(
+                        tx_hash = ?tx.transaction_hash,
+                        "MMR proof onchain verification successful."
+                    );
+                    return Ok(tx.transaction_hash);
+                }
+                Err(e) => {
+                    if attempt >= MAX_RETRIES {
+                        warn!("Max retries reached for MMR proof verification");
+                        return Err(e.into());
+                    }
 
-    pub async fn update_mmr_state(
-        &self,
-        store_address: &str,
-        batch_index: u64,
-        mmr_state: &MmrState,
-    ) -> Result<Felt, StarknetHandlerError> {
-        let selector = selector!("update_mmr_state");
+                    let backoff = INITIAL_BACKOFF * 2u32.pow(attempt);
+                    warn!(
+                        error = ?e,
+                        retry_in = ?backoff,
+                        "MMR proof verification failed, retrying..."
+                    );
 
-        let mut calldata = vec![];
-        calldata.push(Felt::from(batch_index));
-        mmr_state.encode(&mut calldata)?;
-
-        let tx = self
-            .account
-            .execute_v1(vec![starknet::core::types::Call {
-                selector,
-                calldata,
-                to: felt(store_address)?,
-            }])
-            .send()
-            .await?;
-
-        Ok(tx.transaction_hash)
+                    tokio::time::sleep(backoff).await;
+                    attempt += 1;
+                }
+            }
+        }
     }
 }
