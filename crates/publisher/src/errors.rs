@@ -59,6 +59,8 @@ pub enum AccumulatorError {
         "Invalid block range: start block {start_block} is greater than end block {end_block}"
     )]
     InvalidBlockRange { start_block: u64, end_block: u64 },
+    #[error("Storage error: {0}")]
+    StorageError(String),
 }
 
 #[derive(thiserror::Error, Debug)]
