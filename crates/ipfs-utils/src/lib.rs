@@ -1,40 +1,131 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use ipfs_api::{IpfsApi, IpfsClient};
 use std::io::Cursor;
 use std::path::Path;
+use thiserror::Error;
+use tracing::{error, info};
+
+#[derive(Error, Debug)]
+pub enum IpfsError {
+    #[error("Failed to connect to IPFS node: {0}")]
+    ConnectionError(String),
+    #[error("File operation failed: {0}")]
+    FileError(#[from] std::io::Error),
+    #[error("IPFS operation failed: {0}")]
+    IpfsError(#[from] ipfs_api::Error),
+    #[error("Invalid IPFS hash: {0}")]
+    InvalidHash(String),
+}
 
 pub struct IpfsManager {
     client: IpfsClient,
+    max_file_size: usize, // Add configurable limits
+}
+
+impl Default for IpfsManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl IpfsManager {
     pub fn new() -> Self {
+        Self {
+            client: IpfsClient::default(),
+            max_file_size: 50 * 1024 * 1024, // 50MB default limit
+        }
+    }
+
+    pub fn with_endpoint() -> Result<Self> {
         let client = IpfsClient::default();
-        Self { client }
+
+        Ok(Self {
+            client,
+            max_file_size: 50 * 1024 * 1024,
+        })
+    }
+
+    pub fn set_max_file_size(&mut self, size: usize) {
+        self.max_file_size = size;
     }
 
     /// Upload a .db file to IPFS
     pub async fn upload_db(&self, file_path: &Path) -> Result<String> {
-        let data = std::fs::read(file_path)?;
-        // Convert Vec<u8> to Cursor<Vec<u8>> which implements Read
+        info!("Uploading database file to IPFS: {:?}", file_path);
+
+        // Validate file exists and check size
+        let metadata = std::fs::metadata(file_path).context("Failed to read file metadata")?;
+
+        if metadata.len() as usize > self.max_file_size {
+            return Err(anyhow::anyhow!(
+                "File size {} exceeds maximum allowed size {}",
+                metadata.len(),
+                self.max_file_size
+            ));
+        }
+
+        let data = std::fs::read(file_path).context("Failed to read file")?;
+
         let cursor = Cursor::new(data);
-        let res = self.client.add(cursor).await?;
+        let res = self
+            .client
+            .add(cursor)
+            .await
+            .context("Failed to upload file to IPFS")?;
+
+        info!("Successfully uploaded file. CID: {}", res.hash);
         Ok(res.hash)
     }
 
     /// Fetch a .db file from IPFS using its hash
     pub async fn fetch_db(&self, hash: &str, output_path: &Path) -> Result<()> {
-        // Collect all chunks from the stream
+        info!("Fetching database from IPFS. Hash: {}", hash);
+
+        // Basic hash validation
+        if !hash.starts_with("Qm") {
+            return Err(IpfsError::InvalidHash(hash.to_string()).into());
+        }
+
+        // Create parent directories if they don't exist
+        if let Some(parent) = output_path.parent() {
+            std::fs::create_dir_all(parent).context("Failed to create parent directories")?;
+        }
+
         let mut stream = self.client.cat(hash);
-        let mut bytes = Vec::new();
+        let mut bytes = Vec::with_capacity(1024 * 1024); // Preallocate 1MB
+        let mut total_size = 0;
 
         while let Some(chunk) = stream.next().await {
-            let chunk = chunk?;
+            let chunk = chunk.context("Failed to read chunk from IPFS")?;
+            total_size += chunk.len();
+
+            if total_size > self.max_file_size {
+                error!("Downloaded file size exceeds maximum allowed size");
+                return Err(anyhow::anyhow!(
+                    "Downloaded file size exceeds maximum allowed size"
+                ));
+            }
+
             bytes.extend_from_slice(&chunk);
         }
 
-        std::fs::write(output_path, bytes)?;
+        // Atomic write using temporary file
+        let temp_path = output_path.with_extension("tmp");
+        std::fs::write(&temp_path, &bytes).context("Failed to write temporary file")?;
+
+        std::fs::rename(temp_path, output_path).context("Failed to rename temporary file")?;
+
+        info!("Successfully fetched file to {:?}", output_path);
+        Ok(())
+    }
+
+    /// Check if IPFS node is available
+    pub async fn check_connection(&self) -> Result<()> {
+        self.client
+            .version()
+            .await
+            .context("Failed to connect to IPFS node")?;
         Ok(())
     }
 }
@@ -126,8 +217,8 @@ mod tests {
         std::fs::write(&test_file, b"test content").unwrap();
         let hash = ipfs.upload_db(&test_file).await.unwrap();
 
-        // Try to fetch to an invalid path (directory that doesn't exist)
-        let invalid_path = PathBuf::from("nonexistent_dir/test.db");
+        // Try to fetch to a path with invalid permissions
+        let invalid_path = PathBuf::from("/root/test.db");
         let result = ipfs.fetch_db(&hash, &invalid_path).await;
         assert!(result.is_err());
 

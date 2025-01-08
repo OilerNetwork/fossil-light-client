@@ -3151,10 +3151,12 @@ dependencies = [
  "async-trait",
  "bytes",
  "futures-util",
+ "http 1.2.0",
  "ipfs-api",
  "reqwest 0.12.12",
  "serde",
  "serde_json",
+ "thiserror 2.0.9",
  "tokio",
  "tracing",
 ]

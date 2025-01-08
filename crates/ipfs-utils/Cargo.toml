@@ -7,7 +7,9 @@ license = "MIT"
 
 [dependencies]
 tracing = { workspace = true }
+thiserror = {workspace = true}
 
+http = "1.2.0" 
 ipfs-api = "0.17.0"
 tokio = { version = "1.28", features = ["full"] }
 anyhow = "1.0"
