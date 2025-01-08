@@ -1,0 +1,19 @@
+[package]
+name = "ipfs-utils"
+version = "0.1.0"
+edition = "2021"
+description = "IPFS utilities for handling MMR database files"
+license = "MIT"
+
+[dependencies]
+tracing = { workspace = true }
+
+ipfs-api = "0.17.0"
+tokio = { version = "1.28", features = ["full"] }
+anyhow = "1.0"
+async-trait = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+reqwest = { version = "0.12.12", features = ["json", "multipart"] }
+futures-util = "0.3"
+bytes = "1.0"
