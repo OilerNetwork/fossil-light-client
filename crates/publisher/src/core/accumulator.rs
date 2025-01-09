@@ -375,7 +375,7 @@ impl<'a> AccumulatorBuilder<'a> {
             current_end = start.saturating_sub(1);
         }
 
-        info!("MMR build completed successfully");
+        info!("MMR accumulation completed successfully");
         Ok(())
     }
 
@@ -416,6 +416,11 @@ impl<'a> AccumulatorBuilder<'a> {
                 error!(error = %e, "Failed to get minimum MMR block");
                 AccumulatorError::BlockchainError(format!("Failed to get minimum MMR block: {}", e))
             })?;
+
+        if min_mmr_block == 0 {
+            error!("No MMR has been built yet (min_mmr_block = 0)");
+            std::process::exit(1);
+        }
 
         info!(
             "Building MMR from latest MMR block {} with {} batches",

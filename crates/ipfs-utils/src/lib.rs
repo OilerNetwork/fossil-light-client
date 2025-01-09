@@ -52,7 +52,10 @@ impl IpfsManager {
 
     /// Upload a .db file to IPFS
     pub async fn upload_db(&self, file_path: &Path) -> Result<String> {
-        info!("Uploading database file to IPFS: {:?}", file_path);
+        info!(
+            "Uploading database file to IPFS: {:?}",
+            file_path.file_name().unwrap_or_default()
+        );
 
         // Validate file exists and check size
         let metadata = std::fs::metadata(file_path).context("Failed to read file metadata")?;
@@ -146,7 +149,6 @@ mod tests {
 
         // Upload the file and print the CID
         let hash = ipfs.upload_db(&test_file).await.unwrap();
-        println!("File CID: {}", hash);
 
         // Fetch the file
         let output_file = PathBuf::from("fetched_test.db");

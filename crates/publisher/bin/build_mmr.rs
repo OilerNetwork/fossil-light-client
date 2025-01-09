@@ -2,7 +2,6 @@ use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
 use publisher::core::AccumulatorBuilder;
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
-use tracing::info;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -85,8 +84,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         (false, None, Some(num_batches)) => builder.build_with_num_batches(num_batches).await?,
         (false, None, None) => builder.build_from_finalized().await?,
     }
-
-    info!("Host finished");
 
     Ok(())
 }

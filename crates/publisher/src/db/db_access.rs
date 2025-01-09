@@ -1,10 +1,10 @@
-use std::sync::Arc;
-
 use common::get_env_var;
-use dotenv::dotenv;
 use eth_rlp_types::BlockHeader;
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use std::sync::Arc;
+use tokio::time::{sleep, Duration};
+use tracing::{error, info};
 
 use crate::errors::{AccumulatorError, PublisherError};
 
@@ -15,9 +15,52 @@ pub struct DbConnection {
 
 // Use Arc to allow thread-safe cloning
 impl DbConnection {
-    pub async fn new() -> Result<Arc<Self>, AccumulatorError> {
-        dotenv().ok();
+    const MAX_RETRIES: u32 = 3;
+    const RETRY_DELAY: Duration = Duration::from_secs(5);
 
+    /// Creates a new database connection with retries
+    pub async fn new() -> Result<Arc<Self>, AccumulatorError> {
+        let mut attempt = 0;
+        let mut last_error = None;
+
+        while attempt < Self::MAX_RETRIES {
+            match Self::try_connect().await {
+                Ok(db) => {
+                    if attempt > 0 {
+                        info!(
+                            "Successfully connected to database after {} attempts",
+                            attempt + 1
+                        );
+                    }
+                    return Ok(db);
+                }
+                Err(e) => {
+                    attempt += 1;
+                    last_error = Some(e);
+
+                    if attempt < Self::MAX_RETRIES {
+                        error!(
+                            error = %last_error.as_ref().unwrap(),
+                            attempt,
+                            "Database connection failed, retrying in {} seconds...",
+                            Self::RETRY_DELAY.as_secs()
+                        );
+                        sleep(Self::RETRY_DELAY).await;
+                    }
+                }
+            }
+        }
+
+        error!(
+            error = %last_error.as_ref().unwrap(),
+            "Failed to connect to database after {} attempts",
+            Self::MAX_RETRIES
+        );
+        Err(last_error.unwrap())
+    }
+
+    /// Internal method to attempt a database connection
+    async fn try_connect() -> Result<Arc<Self>, AccumulatorError> {
         let database_url = get_env_var("DATABASE_URL")?;
 
         let pool = PgPoolOptions::new()

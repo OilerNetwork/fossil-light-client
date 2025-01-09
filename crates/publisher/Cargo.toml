@@ -35,10 +35,10 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 sqlx = { workspace = true }
-dotenv = { workspace = true }
 starknet-crypto = { workspace = true }
 starknet = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
+dotenv = { workspace = true }
 
 risc0-zkvm = { version = "1.2.0" }
 starknet-types-core = "0.1.7"

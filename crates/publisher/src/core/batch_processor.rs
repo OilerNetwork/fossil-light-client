@@ -84,6 +84,8 @@ impl<'a> BatchProcessor<'a> {
         info!(
             batch_index,
             num_blocks = adjusted_end_block - start_block + 1,
+            start_block,
+            end_block,
             "Processing batch"
         );
 
@@ -242,7 +244,6 @@ impl<'a> BatchProcessor<'a> {
                     error!(error = %e, "Failed to upload batch file to IPFS");
                     AccumulatorError::StorageError(format!("Failed to upload to IPFS: {}", e))
                 })?;
-            info!("Uploaded batch file to IPFS with hash: {}", hash);
 
             // Clean up the temporary file
             if let Err(e) = std::fs::remove_file(&temp_file_path) {
