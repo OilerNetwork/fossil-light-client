@@ -10,12 +10,16 @@ use eyre::Result;
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
-    #[arg(long, default_value = "5")]
+    #[arg(short, long, default_value = "5")]
     polling_interval: u64,
 
     /// Path to environment file (optional)
     #[arg(short = 'e', long, default_value = ".env")]
     env_file: String,
+
+    /// Number of blocks to process in each batch
+    #[arg(short, long, default_value = "1024")]
+    batch_size: u64,
 }
 
 #[tokio::main]
@@ -28,7 +32,7 @@ async fn main() -> Result<()> {
 
     tracing::info!("Starting Fossil Light Client...");
 
-    let mut client = LightClient::new(args.polling_interval).await?;
+    let mut client = LightClient::new(args.polling_interval, args.batch_size).await?;
     client.run().await?;
     Ok(())
 }

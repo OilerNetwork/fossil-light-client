@@ -9,8 +9,6 @@ use starknet_handler::provider::StarknetProvider;
 use tokio::time::{self, Duration};
 use tracing::{error, info, instrument, warn};
 
-const BATCH_SIZE: u64 = 1024;
-
 #[derive(thiserror::Error, Debug)]
 pub enum LightClientError {
     #[error("Starknet handler error: {0}")]
@@ -44,11 +42,12 @@ pub struct LightClient {
     starknet_private_key: String,
     starknet_account_address: String,
     polling_interval: Duration,
+    batch_size: u64,
 }
 
 impl LightClient {
     /// Creates a new instance of the light client.
-    pub async fn new(polling_interval: u64) -> Result<Self, LightClientError> {
+    pub async fn new(polling_interval: u64, batch_size: u64) -> Result<Self, LightClientError> {
         if polling_interval == 0 {
             error!("Polling interval must be greater than zero");
             return Err(LightClientError::PollingIntervalError);
@@ -81,6 +80,7 @@ impl LightClient {
             starknet_private_key,
             starknet_account_address,
             polling_interval: Duration::from_secs(polling_interval),
+            batch_size,
         })
     }
 
@@ -211,7 +211,7 @@ impl LightClient {
             &self.l2_store_addr,
             &self.starknet_private_key,
             &self.starknet_account_address,
-            BATCH_SIZE,
+            self.batch_size,
             latest_mmr_block + 1,
             latest_relayed_block,
             false,

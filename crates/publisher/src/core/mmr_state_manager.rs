@@ -105,6 +105,7 @@ impl<'a> MMRStateManager<'a> {
                     e
                 })?,
                 leaves_count as u64,
+                None,
             );
 
             info!("No verification option selected, MMR state not updated onchain");
@@ -208,6 +209,7 @@ impl<'a> MMRStateManager<'a> {
             latest_mmr_block_hash,
             latest_mmr_block_hash,
             guest_output.leaves_count() as u64,
+            None,
         );
 
         debug!("New MMR state created successfully");

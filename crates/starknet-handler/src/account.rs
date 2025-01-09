@@ -57,7 +57,6 @@ impl StarknetAccount {
         proof: Vec<Felt>,
         ipfs_hash: Option<String>,
     ) -> Result<Felt, StarknetHandlerError> {
-        println!("proof: {:?}", &proof[..8.min(proof.len())]);
         const MAX_RETRIES: u32 = 3;
         const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 
@@ -73,8 +72,6 @@ impl StarknetAccount {
             None => Option::<ByteArray>::None.encode(&mut hash_calldata)?,
         };
         calldata.extend(hash_calldata);
-
-        println!("calldata: {:?}", &calldata[..8.min(calldata.len())]);
 
         let selector = selector!("verify_mmr_proof");
         let call = starknet::core::types::Call {
