@@ -63,7 +63,7 @@ pub struct BatchResult {
     end_block: u64,
     new_mmr_state: MmrState,
     proof: Option<Groth16>,
-    ipfs_hash: Option<String>
+    ipfs_hash: Option<String>,
 }
 
 impl BatchResult {
@@ -72,14 +72,14 @@ impl BatchResult {
         end_block: u64,
         new_mmr_state: MmrState,
         proof: Option<Groth16>,
-        ipfs_hash: Option<String>
+        ipfs_hash: Option<String>,
     ) -> Self {
         Self {
             start_block,
             end_block,
             new_mmr_state,
             proof,
-            ipfs_hash
+            ipfs_hash,
         }
     }
 

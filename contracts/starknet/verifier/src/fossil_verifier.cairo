@@ -1,6 +1,8 @@
 #[starknet::interface]
 pub trait IFossilVerifier<TContractState> {
-    fn verify_mmr_proof(ref self: TContractState, proof: Span<felt252>, ipfs_hash: Option<ByteArray>) -> bool;
+    fn verify_mmr_proof(
+        ref self: TContractState, proof: Span<felt252>, ipfs_hash: Option<ByteArray>,
+    ) -> bool;
     fn get_verifier_address(self: @TContractState) -> starknet::ContractAddress;
     fn get_fossil_store_address(self: @TContractState) -> starknet::ContractAddress;
 }
@@ -46,7 +48,10 @@ mod FossilVerifier {
     }
 
     #[external(v0)]
-    fn verify_mmr_proof(ref self: ContractState, proof: Span<felt252>, ipfs_hash: Option<ByteArray>) -> bool {
+    fn verify_mmr_proof(
+        ref self: ContractState, mut proof: Span<felt252>, ipfs_hash: Option<ByteArray>,
+    ) -> bool {
+        let _ = proof.pop_front();
         let journal = self
             .bn254_verifier
             .read()
@@ -55,7 +60,11 @@ mod FossilVerifier {
 
         let journal = decode_journal(journal);
 
-        self.fossil_store.read().update_mmr_state(journal, ipfs_hash);
+        if let Option::Some(ipfs_hash) = ipfs_hash {
+            self.fossil_store.read().update_mmr_state(journal, Option::Some(ipfs_hash));
+        } else {
+            self.fossil_store.read().update_mmr_state(journal, Option::None);
+        }
 
         self
             .emit(

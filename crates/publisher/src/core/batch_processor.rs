@@ -7,8 +7,8 @@ use guest_types::{CombinedInput, GuestOutput, MMRInput};
 use ipfs_utils::IpfsManager;
 use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
-use tracing::{debug, error, info, warn};
 use std::path::PathBuf;
+use tracing::{debug, error, info, warn};
 
 pub struct BatchProcessor<'a> {
     batch_size: u64,
@@ -88,14 +88,16 @@ impl<'a> BatchProcessor<'a> {
         );
 
         let batch_file_name = format!("batch_{}.db", batch_index);
-        let temp_file_path = PathBuf::from(get_or_create_db_path(&batch_file_name).map_err(|e| {
-            error!(error = %e, "Failed to get or create DB path");
-            e
-        })?);
+        let temp_file_path =
+            PathBuf::from(get_or_create_db_path(&batch_file_name).map_err(|e| {
+                error!(error = %e, "Failed to get or create DB path");
+                e
+            })?);
         debug!("Using temporary batch file: {}", temp_file_path.display());
 
-        let (store_manager, mut mmr, pool) =
-            initialize_mmr(temp_file_path.to_str().unwrap()).await.map_err(|e| {
+        let (store_manager, mut mmr, pool) = initialize_mmr(temp_file_path.to_str().unwrap())
+            .await
+            .map_err(|e| {
                 error!(error = %e, "Failed to initialize MMR");
                 e
             })?;
@@ -232,17 +234,21 @@ impl<'a> BatchProcessor<'a> {
         // Only upload to IPFS if the batch is complete
         let ipfs_hash = if batch_is_complete {
             // Upload current state to IPFS
-            let hash = self.ipfs_manager.upload_db(&temp_file_path).await.map_err(|e| {
-                error!(error = %e, "Failed to upload batch file to IPFS");
-                AccumulatorError::StorageError(format!("Failed to upload to IPFS: {}", e))
-            })?;
+            let hash = self
+                .ipfs_manager
+                .upload_db(&temp_file_path)
+                .await
+                .map_err(|e| {
+                    error!(error = %e, "Failed to upload batch file to IPFS");
+                    AccumulatorError::StorageError(format!("Failed to upload to IPFS: {}", e))
+                })?;
             info!("Uploaded batch file to IPFS with hash: {}", hash);
 
             // Clean up the temporary file
             if let Err(e) = std::fs::remove_file(&temp_file_path) {
                 warn!(error = %e, "Failed to remove temporary batch file");
             }
-            
+
             Some(hash)
         } else {
             None

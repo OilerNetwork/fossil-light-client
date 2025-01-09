@@ -9,15 +9,16 @@ UPDATE_INTERVAL=0
 
 # Update the environment file with new addresses
 update_env_var() {
-    local var_name=$1
-    local var_value=$2
+    local env_file=$1
+    local var_name=$2
+    local var_value=$3
     
-    if grep -q "^$var_name=" "$ENV_FILE"; then
-        echo -e "${BLUE}$var_name already exists, replacing in $ENV_FILE...${NC}"
-        sed -i "s|^$var_name=.*|$var_name=$var_value|" "$ENV_FILE"
+    if grep -q "^$var_name=" "$env_file"; then
+        echo -e "${BLUE}$var_name already exists, replacing in $env_file...${NC}"
+        sed -i "s|^$var_name=.*|$var_name=$var_value|" "$env_file"
     else
-        echo -e "${BLUE}Appending $var_name to $ENV_FILE...${NC}"
-        echo "$var_name=$var_value" >>"$ENV_FILE"
+        echo -e "${BLUE}Appending $var_name to $env_file...${NC}"
+        echo "$var_name=$var_value" >>"$env_file"
     fi
 }
 
@@ -31,17 +32,18 @@ fi
 # Validate environment argument
 ENV_TYPE="$1"
 case "$ENV_TYPE" in
-    "local" | "sepolia" | "mainnet" | "docker")
-        if [ "$ENV_TYPE" = "docker" ]; then
-            ENV_FILES=(".env.docker" ".env.local")
-            echo "Using environment: $ENV_TYPE (updating both ${ENV_FILES[*]})"
-        else
-            ENV_FILES=(".env.$ENV_TYPE")
-            echo "Using environment: $ENV_TYPE (${ENV_FILES[0]})"
-        fi
+    "local" | "sepolia" | "mainnet")
+        ENV_FILES=("$ORIGINAL_DIR/.env.$ENV_TYPE")
+        echo "Using environment: $ENV_TYPE (${ENV_FILES[0]})"
+    ;;
+    "docker")
+        # Update docker env first, then copy values to local env
+        ENV_FILES=("$ORIGINAL_DIR/.env.docker")
+        SECONDARY_ENV="$ORIGINAL_DIR/.env.local"
+        echo "Using environment: $ENV_TYPE (updating ${ENV_FILES[0]} and will sync to $SECONDARY_ENV)"
     ;;
     *)
-        echo "Invalid environment. Must be one of: local, sepolia, mainnet"
+        echo "Invalid environment. Must be one of: local, sepolia, mainnet, docker"
         exit 1
     ;;
 esac
@@ -132,11 +134,24 @@ echo -e "\n${GREEN}${BOLD}All contracts deployed!${NC}"
 
 # Update the environment files with the new addresses
 for env_file in "${ENV_FILES[@]}"; do
-    update_env_var "L2_MSG_PROXY" "$L1MESSAGEPROXY_ADDRESS"
-    update_env_var "FOSSIL_STORE" "$FOSSILSTORE_ADDRESS"
-    update_env_var "STARKNET_VERIFIER" "$VERIFIER_ADDRESS"
-    update_env_var "FOSSIL_VERIFIER" "$FOSSIL_VERIFIER_ADDRESS"
+    if [ ! -f "$env_file" ]; then
+        echo -e "${RED}Warning: $env_file not found, skipping...${NC}"
+        continue
+    fi
+    update_env_var "$env_file" "L2_MSG_PROXY" "$L1MESSAGEPROXY_ADDRESS"
+    update_env_var "$env_file" "FOSSIL_STORE" "$FOSSILSTORE_ADDRESS"
+    update_env_var "$env_file" "STARKNET_VERIFIER" "$VERIFIER_ADDRESS"
+    update_env_var "$env_file" "FOSSIL_VERIFIER" "$FOSSIL_VERIFIER_ADDRESS"
 done
+
+# If in docker mode, sync the addresses to .env.local
+if [ "$ENV_TYPE" = "docker" ] && [ -f "$SECONDARY_ENV" ]; then
+    echo -e "${BLUE}Syncing addresses to $SECONDARY_ENV...${NC}"
+    update_env_var "$SECONDARY_ENV" "L2_MSG_PROXY" "$L1MESSAGEPROXY_ADDRESS"
+    update_env_var "$SECONDARY_ENV" "FOSSIL_STORE" "$FOSSILSTORE_ADDRESS"
+    update_env_var "$SECONDARY_ENV" "STARKNET_VERIFIER" "$VERIFIER_ADDRESS"
+    update_env_var "$SECONDARY_ENV" "FOSSIL_VERIFIER" "$FOSSIL_VERIFIER_ADDRESS"
+fi
 
 # Return to original directory
 cd "$ORIGINAL_DIR"
@@ -147,3 +162,14 @@ source "${ENV_FILES[0]}"
 sleep 5
 
 echo -e "${GREEN}${BOLD}Environment variables successfully updated in ${ENV_FILES[0]}${NC}"
+
+# Reset ownership of generated files back to the host user
+if [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ]; then
+    chown -R $HOST_UID:$HOST_GID \
+        "$ORIGINAL_DIR/contracts/starknet/target" \
+        "$ORIGINAL_DIR/logs" \
+        "$ORIGINAL_DIR/config" \
+        "$ORIGINAL_DIR/.env.local" \
+        "$ORIGINAL_DIR/.env.docker" \
+        "$ORIGINAL_DIR/.env"
+fi
