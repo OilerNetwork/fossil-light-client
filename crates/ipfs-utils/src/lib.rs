@@ -134,6 +134,7 @@ impl IpfsManager {
 }
 
 #[cfg(test)]
+#[cfg(feature = "ipfs-integration-tests")]
 mod tests {
     use super::*;
     use std::path::PathBuf;
