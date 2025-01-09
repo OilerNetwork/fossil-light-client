@@ -6,7 +6,7 @@ pub mod provider;
 use starknet::accounts::single_owner::SignError;
 use starknet::accounts::AccountError;
 use starknet::core::codec::{Decode, Encode};
-use starknet::core::types::U256;
+use starknet::core::types::{ByteArray, U256};
 use starknet::signers::local_wallet::SignError as LocalWalletSignError;
 use thiserror::Error;
 use tracing::{debug, instrument};
@@ -41,6 +41,7 @@ pub struct MmrState {
     latest_mmr_block_hash: U256,
     root_hash: U256,
     leaves_count: u64,
+    ipfs_hash: Option<ByteArray>,
 }
 
 impl MmrState {
@@ -50,6 +51,7 @@ impl MmrState {
         latest_mmr_block_hash: U256,
         root_hash: U256,
         leaves_count: u64,
+        ipfs_hash: Option<ByteArray>,
     ) -> Self {
         debug!(latest_mmr_block, leaves_count, "Creating new MMR state");
         Self {
@@ -57,6 +59,7 @@ impl MmrState {
             latest_mmr_block_hash,
             root_hash,
             leaves_count,
+            ipfs_hash,
         }
     }
 
@@ -78,6 +81,10 @@ impl MmrState {
 
     pub fn leaves_count(&self) -> u64 {
         self.leaves_count
+    }
+
+    pub fn ipfs_hash(&self) -> Option<ByteArray> {
+        self.ipfs_hash.clone()
     }
 }
 

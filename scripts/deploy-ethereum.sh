@@ -15,7 +15,14 @@ ENV_TYPE="$1"
 case "$ENV_TYPE" in
 "local" | "sepolia" | "mainnet" | "docker")
     ENV_FILE=".env.$ENV_TYPE"
-    echo "Using environment: $ENV_TYPE ($ENV_FILE)"
+    # Add support for updating both files in docker mode
+    if [ "$ENV_TYPE" = "docker" ]; then
+        ENV_FILES=(".env.docker" ".env.local")
+        echo "Using environment: $ENV_TYPE (updating both ${ENV_FILES[*]})"
+    else
+        ENV_FILES=("$ENV_FILE")
+        echo "Using environment: $ENV_TYPE ($ENV_FILE)"
+    fi
     ;;
 *)
     echo "Invalid environment. Must be one of: local, sepolia, mainnet"
@@ -23,8 +30,8 @@ case "$ENV_TYPE" in
     ;;
 esac
 
-# Source the appropriate environment file
-source "$ENV_FILE"
+# Source the primary environment file
+source "${ENV_FILES[0]}"
 export ACCOUNT_PRIVATE_KEY=${ACCOUNT_PRIVATE_KEY}
 
 # Use relative paths instead of absolute Docker paths
@@ -60,11 +67,13 @@ update_env_var() {
 update_json_config() {
     local json_file=$1
     local contract_address=$2
+    local block_number=$3
     
     # Create temp file in the same directory to avoid permission issues
     local tmp_file="${json_file}.tmp"
     
-    if ! jq --arg addr "$contract_address" '.contract_address = $addr' "$json_file" > "$tmp_file"; then
+    if ! jq --arg addr "$contract_address" --arg block "$block_number" \
+        '.contract_address = $addr | .from_block = ($block|tonumber)' "$json_file" > "$tmp_file"; then
         echo -e "${RED}Failed to update JSON file${NC}"
         rm -f "$tmp_file"
         return 1
@@ -76,7 +85,7 @@ update_json_config() {
         return 1
     fi
     
-    echo -e "${BLUE}Updated contract address in $json_file${NC}"
+    echo -e "${BLUE}Updated contract address and from_block in $json_file${NC}"
 }
 
 # Function to deploy with retries
@@ -127,31 +136,30 @@ if [ -f "logs/local_setup.json" ]; then
     echo -e "${YELLOW}L1_MESSAGE_SENDER: $L1_MESSAGE_SENDER${NC}"
     
     # Update the environment variables - use full paths
-    update_env_var "${ROOT_DIR}/${ENV_FILE}" "SN_MESSAGING" "$SN_MESSAGING"
-    update_env_var "${ROOT_DIR}/${ENV_FILE}" "L1_MESSAGE_SENDER" "$L1_MESSAGE_SENDER"
-    
-    # Verify the updates
-    echo -e "${YELLOW}Checking updated .env file:${NC}"
-    grep "SN_MESSAGING" "${ROOT_DIR}/${ENV_FILE}"
-    grep "L1_MESSAGE_SENDER" "${ROOT_DIR}/${ENV_FILE}"
+    for env_file in "${ENV_FILES[@]}"; do
+        update_env_var "${ROOT_DIR}/${env_file}" "SN_MESSAGING" "$SN_MESSAGING"
+        update_env_var "${ROOT_DIR}/${env_file}" "L1_MESSAGE_SENDER" "$L1_MESSAGE_SENDER"
+        
+        # Verify the updates
+        echo -e "${YELLOW}Checking updated ${env_file}:${NC}"
+        grep "SN_MESSAGING" "${ROOT_DIR}/${env_file}"
+        grep "L1_MESSAGE_SENDER" "${ROOT_DIR}/${env_file}"
+    done
 else
     echo -e "${RED}Could not find logs/local_setup.json${NC}"
     exit 1
 fi
 
-# Get the fork block number from anvil logs if in docker mode
+# Get the fork block number from cast if in docker mode
 if [ "$ENV_TYPE" = "docker" ]; then
-    # Wait briefly for anvil to start and output its logs
-    sleep 2
-    
-    # Get block number from docker logs
-    BLOCK_NUMBER=$(docker logs anvil-1 2>&1 | grep "Block number:" | awk '{print $3}')
+    # Use cast to get the current block number
+    BLOCK_NUMBER=$(cast block-number --rpc-url "$ETH_RPC_URL")
     
     if [ -n "$BLOCK_NUMBER" ]; then
         echo -e "${YELLOW}Found fork block number: $BLOCK_NUMBER${NC}"
         update_json_config "${ROOT_DIR}/${CONFIG_DIR}/anvil.messaging.docker.json" "$SN_MESSAGING" "$BLOCK_NUMBER"
     else
-        echo -e "${RED}Could not find fork block number in anvil logs${NC}"
+        echo -e "${RED}Could not get block number using cast${NC}"
         update_json_config "${ROOT_DIR}/${CONFIG_DIR}/anvil.messaging.docker.json" "$SN_MESSAGING" "0"
     fi
 else
@@ -159,8 +167,18 @@ else
 fi
 
 # Source the updated environment variables - use full path
-source "${ROOT_DIR}/${ENV_FILE}"
+source "${ROOT_DIR}/${ENV_FILES[0]}"
 
 echo -e "${BLUE}Using L1_MESSAGE_SENDER: $L1_MESSAGE_SENDER${NC}"
 echo -e "${BLUE}Using SN_MESSAGING: $SN_MESSAGING${NC}"
-echo -e "${GREEN}${BOLD}Ethereum deployment completed successfully!${NC}" 
+echo -e "${GREEN}${BOLD}Ethereum deployment completed successfully!${NC}"
+
+# Reset ownership of generated files back to the host user
+if [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ]; then
+    chown -R $HOST_UID:$HOST_GID \
+        "$ROOT_DIR/contracts/ethereum/"{cache,out} \
+        "$ROOT_DIR/logs" \
+        "$ROOT_DIR/config" \
+        "$ROOT_DIR/.env.local" \
+        "$ROOT_DIR/.env.docker"
+fi 

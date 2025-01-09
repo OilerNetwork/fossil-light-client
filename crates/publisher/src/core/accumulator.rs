@@ -231,7 +231,8 @@ impl<'a> AccumulatorBuilder<'a> {
         // Skip verification if explicitly disabled or if no proof is available
         if !self.batch_processor.skip_proof_verification() {
             if let Some(proof) = batch_result.proof() {
-                self.verify_proof(proof.calldata()).await?;
+                self.verify_proof(proof.calldata(), batch_result.ipfs_hash())
+                    .await?;
             } else {
                 debug!("Skipping proof verification - no proof available");
             }
@@ -241,12 +242,16 @@ impl<'a> AccumulatorBuilder<'a> {
         Ok(())
     }
 
-    async fn verify_proof(&self, calldata: Vec<Felt>) -> Result<(), AccumulatorError> {
+    async fn verify_proof(
+        &self,
+        calldata: Vec<Felt>,
+        ipfs_hash: Option<String>,
+    ) -> Result<(), AccumulatorError> {
         let starknet_account = self.batch_processor.mmr_state_manager().account();
 
         info!("Verifying MMR proof");
         starknet_account
-            .verify_mmr_proof(&self.verifier_address, calldata)
+            .verify_mmr_proof(&self.verifier_address, calldata, ipfs_hash)
             .await
             .map_err(|e| {
                 error!(error = %e, "Failed to verify MMR proof");
@@ -370,7 +375,7 @@ impl<'a> AccumulatorBuilder<'a> {
             current_end = start.saturating_sub(1);
         }
 
-        info!("MMR build completed successfully");
+        info!("MMR accumulation completed successfully");
         Ok(())
     }
 
@@ -411,6 +416,11 @@ impl<'a> AccumulatorBuilder<'a> {
                 error!(error = %e, "Failed to get minimum MMR block");
                 AccumulatorError::BlockchainError(format!("Failed to get minimum MMR block: {}", e))
             })?;
+
+        if min_mmr_block == 0 {
+            error!("No MMR has been built yet (min_mmr_block = 0)");
+            std::process::exit(1);
+        }
 
         info!(
             "Building MMR from latest MMR block {} with {} batches",

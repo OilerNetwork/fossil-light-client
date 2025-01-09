@@ -11,6 +11,7 @@ members = [
     "crates/ethereum",
     "crates/mmr-utils", 
     "crates/guest-mmr",
+    "crates/ipfs-utils"
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.

@@ -19,6 +19,9 @@ services:
       - fossil
     env_file:
       - ${ENV_FILE:-.env.docker}
+    environment:
+      - HOST_UID=${UID:-1000}
+      - HOST_GID=${GID:-1000}
     volumes:
       - .:/app
     depends_on:
@@ -60,6 +63,9 @@ services:
       - fossil
     env_file:
       - ${ENV_FILE:-.env.docker}
+    environment:
+      - HOST_UID=${UID:-1000}
+      - HOST_GID=${GID:-1000}
     volumes:
       - .:/app
     depends_on:

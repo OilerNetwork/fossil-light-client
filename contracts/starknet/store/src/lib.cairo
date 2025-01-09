@@ -6,7 +6,9 @@ pub trait IFossilStore<TContractState> {
         min_update_interval: u64,
     );
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
-    fn update_mmr_state(ref self: TContractState, journal: verifier::Journal);
+    fn update_mmr_state(
+        ref self: TContractState, journal: verifier::Journal, ipfs_hash: Option<ByteArray>,
+    );
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
     fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
     fn get_latest_mmr_block(self: @TContractState) -> u64;
@@ -25,15 +27,17 @@ mod Store {
         latest_mmr_block_hash: u256,
         leaves_count: u64,
         root_hash: u256,
+        ipfs_hash: ByteArray,
     }
 
-    #[derive(Copy, Drop, Serde, Debug)]
+    #[derive(Drop, Serde, Debug)]
     pub struct MMRSnapshot {
         batch_index: u64,
         latest_mmr_block: u64,
         latest_mmr_block_hash: u256,
         root_hash: u256,
         leaves_count: u64,
+        ipfs_hash: ByteArray,
     }
 
     #[storage]
@@ -93,7 +97,9 @@ mod Store {
             self.latest_blockhash_from_l1.read()
         }
 
-        fn update_mmr_state(ref self: ContractState, journal: verifier::Journal) {
+        fn update_mmr_state(
+            ref self: ContractState, journal: verifier::Journal, ipfs_hash: Option<ByteArray>,
+        ) {
             assert!(
                 starknet::get_caller_address() == self.verifier_address.read(),
                 "Only Fossil Verifier can update MMR state",
@@ -130,6 +136,10 @@ mod Store {
             curr_state.latest_mmr_block_hash.write(journal.latest_mmr_block_hash);
             curr_state.leaves_count.write(journal.leaves_count);
             curr_state.root_hash.write(journal.root_hash);
+            match ipfs_hash {
+                Option::Some(hash) => curr_state.ipfs_hash.write(hash),
+                Option::None => {},
+            }
 
             self
                 .emit(
@@ -151,6 +161,7 @@ mod Store {
                 latest_mmr_block_hash: curr_state.latest_mmr_block_hash.read(),
                 leaves_count: curr_state.leaves_count.read(),
                 root_hash: curr_state.root_hash.read(),
+                ipfs_hash: curr_state.ipfs_hash.read(),
             }
         }
 

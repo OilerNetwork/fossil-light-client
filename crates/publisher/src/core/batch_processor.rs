@@ -4,8 +4,10 @@ use crate::errors::AccumulatorError;
 use crate::utils::BatchResult;
 use common::get_or_create_db_path;
 use guest_types::{CombinedInput, GuestOutput, MMRInput};
+use ipfs_utils::IpfsManager;
 use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
+use std::path::PathBuf;
 use tracing::{debug, error, info, warn};
 
 pub struct BatchProcessor<'a> {
@@ -13,6 +15,7 @@ pub struct BatchProcessor<'a> {
     proof_generator: ProofGenerator<CombinedInput>,
     mmr_state_manager: MMRStateManager<'a>,
     skip_proof_verification: bool,
+    ipfs_manager: IpfsManager,
 }
 
 impl<'a> BatchProcessor<'a> {
@@ -28,11 +31,14 @@ impl<'a> BatchProcessor<'a> {
             ));
         }
 
+        let ipfs_manager = IpfsManager::new();
+
         Ok(Self {
             batch_size,
             proof_generator,
             skip_proof_verification,
             mmr_state_manager,
+            ipfs_manager,
         })
     }
 
@@ -77,19 +83,23 @@ impl<'a> BatchProcessor<'a> {
 
         info!(
             batch_index,
-            num_blocks = adjusted_end_block - start_block,
+            num_blocks = adjusted_end_block - start_block + 1,
+            start_block,
+            end_block,
             "Processing batch"
         );
 
-        let batch_file_name =
-            get_or_create_db_path(&format!("batch_{}.db", batch_index)).map_err(|e| {
+        let batch_file_name = format!("batch_{}.db", batch_index);
+        let temp_file_path =
+            PathBuf::from(get_or_create_db_path(&batch_file_name).map_err(|e| {
                 error!(error = %e, "Failed to get or create DB path");
                 e
-            })?;
-        debug!("Using batch file: {}", batch_file_name);
+            })?);
+        debug!("Using temporary batch file: {}", temp_file_path.display());
 
-        let (store_manager, mut mmr, pool) =
-            initialize_mmr(&batch_file_name).await.map_err(|e| {
+        let (store_manager, mut mmr, pool) = initialize_mmr(temp_file_path.to_str().unwrap())
+            .await
+            .map_err(|e| {
                 error!(error = %e, "Failed to initialize MMR");
                 e
             })?;
@@ -223,15 +233,34 @@ impl<'a> BatchProcessor<'a> {
         })?;
         let batch_is_complete = new_leaves_count as u64 >= self.batch_size;
 
-        if batch_is_complete {
-            info!("Batch {} is now complete", batch_index);
-        }
+        // Only upload to IPFS if the batch is complete
+        let ipfs_hash = if batch_is_complete {
+            // Upload current state to IPFS
+            let hash = self
+                .ipfs_manager
+                .upload_db(&temp_file_path)
+                .await
+                .map_err(|e| {
+                    error!(error = %e, "Failed to upload batch file to IPFS");
+                    AccumulatorError::StorageError(format!("Failed to upload to IPFS: {}", e))
+                })?;
+
+            // Clean up the temporary file
+            if let Err(e) = std::fs::remove_file(&temp_file_path) {
+                warn!(error = %e, "Failed to remove temporary batch file");
+            }
+
+            Some(hash)
+        } else {
+            None
+        };
 
         Ok(Some(BatchResult::new(
             start_block,
             adjusted_end_block,
             new_mmr_state,
             proof,
+            ipfs_hash,
         )))
     }
 

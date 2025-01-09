@@ -39,3 +39,5 @@ contracts/starknet/account-sepolia
 contracts/starknet/keystore
 
 terminal
+
+logs/anvil.log
