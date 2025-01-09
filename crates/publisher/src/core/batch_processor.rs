@@ -83,7 +83,7 @@ impl<'a> BatchProcessor<'a> {
 
         info!(
             batch_index,
-            num_blocks = adjusted_end_block - start_block,
+            num_blocks = adjusted_end_block - start_block + 1,
             "Processing batch"
         );
 
