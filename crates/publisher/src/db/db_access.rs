@@ -1,3 +1,4 @@
+use crate::errors::{DbError, PublisherError};
 use common::get_env_var;
 use eth_rlp_types::BlockHeader;
 use mmr_utils::{create_database_file, ensure_directory_exists};
@@ -5,8 +6,6 @@ use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{error, info};
-
-use crate::errors::{AccumulatorError, PublisherError};
 
 #[derive(Debug)]
 pub struct DbConnection {
@@ -19,9 +18,8 @@ impl DbConnection {
     const RETRY_DELAY: Duration = Duration::from_secs(5);
 
     /// Creates a new database connection with retries
-    pub async fn new() -> Result<Arc<Self>, AccumulatorError> {
+    pub async fn new() -> Result<Arc<Self>, DbError> {
         let mut attempt = 0;
-        let mut last_error = None;
 
         while attempt < Self::MAX_RETRIES {
             match Self::try_connect().await {
@@ -36,31 +34,30 @@ impl DbConnection {
                 }
                 Err(e) => {
                     attempt += 1;
-                    last_error = Some(e);
-
                     if attempt < Self::MAX_RETRIES {
                         error!(
-                            error = %last_error.as_ref().unwrap(),
+                            error = %e,
                             attempt,
                             "Database connection failed, retrying in {} seconds...",
                             Self::RETRY_DELAY.as_secs()
                         );
                         sleep(Self::RETRY_DELAY).await;
+                    } else {
+                        return Err(DbError::Connection(format!(
+                            "Failed to connect after {} attempts: {}",
+                            Self::MAX_RETRIES,
+                            e
+                        )));
                     }
                 }
             }
         }
 
-        error!(
-            error = %last_error.as_ref().unwrap(),
-            "Failed to connect to database after {} attempts",
-            Self::MAX_RETRIES
-        );
-        Err(last_error.unwrap())
+        unreachable!()
     }
 
     /// Internal method to attempt a database connection
-    async fn try_connect() -> Result<Arc<Self>, AccumulatorError> {
+    async fn try_connect() -> Result<Arc<Self>, DbError> {
         let database_url = get_env_var("DATABASE_URL")?;
 
         let pool = PgPoolOptions::new()
@@ -70,7 +67,8 @@ impl DbConnection {
             .idle_timeout(std::time::Duration::from_secs(10 * 60))
             .acquire_timeout(std::time::Duration::from_secs(30))
             .connect(&database_url)
-            .await?;
+            .await
+            .map_err(DbError::Database)?;
 
         Ok(Arc::new(Self { pool }))
     }
@@ -79,9 +77,9 @@ impl DbConnection {
         &self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<Vec<BlockHeader>, AccumulatorError> {
+    ) -> Result<Vec<BlockHeader>, DbError> {
         if start_block > end_block {
-            return Err(AccumulatorError::InvalidBlockRange {
+            return Err(DbError::InvalidBlockRange {
                 start_block,
                 end_block,
             });
@@ -115,7 +113,7 @@ impl DbConnection {
     pub async fn get_block_header_by_number(
         &self,
         block_number: u64,
-    ) -> Result<Option<BlockHeader>, AccumulatorError> {
+    ) -> Result<Option<BlockHeader>, DbError> {
         let temp_header = sqlx::query_as!(
             TempBlockHeader,
             r#"

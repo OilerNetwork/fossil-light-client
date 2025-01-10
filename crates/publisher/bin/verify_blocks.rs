@@ -1,6 +1,6 @@
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
-use publisher::{db::DbConnection, prove_headers_integrity_and_inclusion};
+use publisher::prove_headers_integrity_and_inclusion;
 use tokio;
 
 #[derive(Parser, Debug)]
@@ -28,18 +28,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    // Fetch block headers
-    let db_connection = DbConnection::new().await?;
-    let headers = db_connection
-        .get_block_headers_by_block_range(args.start_block, args.end_block)
-        .await?;
-
     // Verify blocks
     match prove_headers_integrity_and_inclusion(
         &rpc_url,
         &l2_store_address,
         chain_id,
-        &headers,
+        args.start_block,
+        args.end_block,
         Some(args.skip_proof),
     )
     .await

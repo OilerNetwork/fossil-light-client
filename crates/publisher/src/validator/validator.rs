@@ -1,3 +1,4 @@
+use crate::db::DbConnection;
 use crate::errors::ValidatorError;
 use crate::{core::ProofGenerator, utils::Stark};
 use common::get_or_create_db_path;
@@ -11,7 +12,6 @@ use starknet_handler::u256_from_hex;
 use std::collections::HashMap;
 use store::SqlitePool;
 use tracing::error;
-// use eth_rlp_verify::are_blocks_and_chain_valid;
 
 pub struct ValidatorBuilder<'a> {
     rpc_url: &'a str,
@@ -50,11 +50,24 @@ impl<'a> ValidatorBuilder<'a> {
 
     pub async fn verify_blocks_integrity_and_inclusion(
         &self,
-        headers: &Vec<eth_rlp_types::BlockHeader>,
+        start_block: u64,
+        end_block: u64,
     ) -> Result<Vec<Stark>, ValidatorError> {
-        self.validate_headers(headers)?;
+        let db_connection = DbConnection::new().await.map_err(|e| {
+            error!(error = %e, "Failed to create DB connection");
+            e
+        })?;
+        let headers = db_connection
+            .get_block_headers_by_block_range(start_block, end_block)
+            .await
+            .map_err(|e| {
+                error!(error = %e, "Failed to fetch block headers");
+                e
+            })?;
 
-        let mmrs = self.initialize_mmrs_for_headers(headers).await?;
+        self.validate_headers(&headers)?;
+
+        let mmrs = self.initialize_mmrs_for_headers(&headers).await?;
 
         if self.skip_proof {
             tracing::info!("Skipping MMR root verification as skip_proof is enabled");
@@ -63,8 +76,8 @@ impl<'a> ValidatorBuilder<'a> {
             self.verify_mmr_roots(&mmrs).await?;
         }
 
-        let block_indexes = self.collect_block_indexes(headers, &mmrs).await?;
-        self.generate_proofs_for_batches(headers, &mmrs, &block_indexes)
+        let block_indexes = self.collect_block_indexes(&headers, &mmrs).await?;
+        self.generate_proofs_for_batches(&headers, &mmrs, &block_indexes)
             .await
     }
 

@@ -61,6 +61,8 @@ pub enum AccumulatorError {
     InvalidBlockRange { start_block: u64, end_block: u64 },
     #[error("Storage error: {0}")]
     StorageError(String),
+    #[error("Database connection failed: {0}")]
+    DbConnection(#[from] DbError),
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -87,6 +89,8 @@ pub enum ValidatorError {
     InvalidMmrRoot { expected: U256, actual: U256 },
     #[error("Failed to parse Felt value: {0}")]
     FeltParsing(#[from] FromStrError),
+    #[error("Database connection failed: {0}")]
+    DbConnection(#[from] DbError),
 }
 
 #[derive(Error, Debug)]
@@ -109,4 +113,18 @@ pub enum ProofGeneratorError {
     Join(#[from] tokio::task::JoinError),
     #[error("Risc0 serde error: {0}")]
     Risc0Serde(#[from] risc0_zkvm::serde::Error),
+}
+
+#[derive(Error, Debug)]
+pub enum DbError {
+    #[error("Database error: {0}")]
+    Database(#[from] sqlx::Error),
+    #[error(
+        "Invalid block range: start block {start_block} is greater than end block {end_block}"
+    )]
+    InvalidBlockRange { start_block: u64, end_block: u64 },
+    #[error("Environment variable error: {0}")]
+    EnvVar(#[from] UtilsError),
+    #[error("Connection error: {0}")]
+    Connection(String),
 }

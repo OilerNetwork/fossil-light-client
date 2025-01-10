@@ -1,6 +1,12 @@
 #!/bin/bash
 
+# Add error handling and verbose output
+set -e  # Exit on any error
+set -x  # Print commands being executed
+
+# Run clippy while ignoring tests and dependencies
 cargo clippy \
+    --no-deps \
     -p common \
     -p ethereum \
     -p guest-types \
@@ -8,6 +14,7 @@ cargo clippy \
     -p relayer \
     -p starknet-handler \
     -p guest-mmr \
+    -p state-proof-api \
     -- \
     -W clippy::single_match \
     -W clippy::single_match_else \
