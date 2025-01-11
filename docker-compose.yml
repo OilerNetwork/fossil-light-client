@@ -1,6 +1,6 @@
 services:
   anvil:
-    image: anvil:latest
+    image: fossil-anvil:latest
     networks:
       - fossil
     ports:
@@ -14,7 +14,7 @@ services:
       retries: 5
 
   deploy-ethereum:
-    image: deploy:latest
+    image: fossil-deploy:latest
     networks:
       - fossil
     env_file:
@@ -30,7 +30,7 @@ services:
     command: ["./scripts/deploy-ethereum.sh", "docker"]
 
   katana:
-    image: katana:latest
+    image: fossil-katana:latest
     networks:
       - fossil
     ports:
@@ -58,7 +58,7 @@ services:
       retries: 5
 
   deploy-starknet:
-    image: deploy:latest
+    image: fossil-deploy:latest
     networks:
       - fossil
     env_file:

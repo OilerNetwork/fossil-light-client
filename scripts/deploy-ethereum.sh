@@ -173,12 +173,33 @@ echo -e "${BLUE}Using L1_MESSAGE_SENDER: $L1_MESSAGE_SENDER${NC}"
 echo -e "${BLUE}Using SN_MESSAGING: $SN_MESSAGING${NC}"
 echo -e "${GREEN}${BOLD}Ethereum deployment completed successfully!${NC}"
 
-# Reset ownership of generated files back to the host user
+# Before the ownership change, add directory creation
+# Create necessary directories if they don't exist
+mkdir -p "$ROOT_DIR/logs"
+mkdir -p "$ROOT_DIR/contracts/ethereum/cache"
+mkdir -p "$ROOT_DIR/contracts/ethereum/out"
+mkdir -p "$ROOT_DIR/config"
+
+# Make the ownership change more robust by checking if directories exist
 if [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ]; then
-    chown -R $HOST_UID:$HOST_GID \
-        "$ROOT_DIR/contracts/ethereum/"{cache,out} \
+    for dir in \
+        "$ROOT_DIR/contracts/ethereum/cache" \
+        "$ROOT_DIR/contracts/ethereum/out" \
         "$ROOT_DIR/logs" \
-        "$ROOT_DIR/config" \
+        "$ROOT_DIR/config"
+    do
+        if [ -d "$dir" ]; then
+            chown -R $HOST_UID:$HOST_GID "$dir"
+        fi
+    done
+    
+    # Handle env files separately
+    for file in \
         "$ROOT_DIR/.env.local" \
         "$ROOT_DIR/.env.docker"
+    do
+        if [ -f "$file" ]; then
+            chown $HOST_UID:$HOST_GID "$file"
+        fi
+    done
 fi 

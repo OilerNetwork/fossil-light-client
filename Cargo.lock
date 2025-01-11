@@ -5822,6 +5822,8 @@ dependencies = [
  "axum",
  "axum-server",
  "bincode",
+ "clap",
+ "common",
  "publisher",
  "serde",
  "tokio",
