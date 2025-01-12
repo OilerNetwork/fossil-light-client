@@ -12,8 +12,8 @@ name = "build-mmr"
 path = "bin/build_mmr.rs"
 
 [[bin]]
-name = "verify-blocks"
-path = "bin/verify_blocks.rs"
+name = "extract-fees"
+path = "bin/extract_fees.rs"
 
 [dependencies]
 guest-types = { path = "../guest-types" }

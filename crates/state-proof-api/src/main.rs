@@ -7,7 +7,7 @@ use axum::{
 use axum_server::Server;
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
-use publisher::api::operations::prove_headers_integrity_and_inclusion;
+use publisher::api::operations::extract_fees;
 use serde::Deserialize;
 use std::net::SocketAddr;
 
@@ -82,7 +82,7 @@ async fn verify_blocks(
     // Use query parameter if provided, otherwise use CLI default
     let skip_proof = params.skip_proof_verification.unwrap_or(default_skip_proof);
 
-    match prove_headers_integrity_and_inclusion(
+    match extract_fees(
         &rpc_url,
         &l2_store_address,
         chain_id,

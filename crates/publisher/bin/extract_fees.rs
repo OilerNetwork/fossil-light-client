@@ -1,6 +1,6 @@
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
-use publisher::prove_headers_integrity_and_inclusion;
+use publisher::extract_fees;
 use tokio;
 
 #[derive(Parser, Debug)]
@@ -33,7 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
     // Verify blocks
-    match prove_headers_integrity_and_inclusion(
+    match extract_fees(
         &rpc_url,
         &l2_store_address,
         chain_id,

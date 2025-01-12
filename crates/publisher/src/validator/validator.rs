@@ -3,7 +3,7 @@ use crate::errors::ValidatorError;
 use crate::{core::ProofGenerator, utils::Stark};
 use common::get_or_create_db_path;
 use guest_types::{BlocksValidityInput, GuestProof, MMRInput};
-use methods::{BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID};
+use methods::{VALIDATE_BLOCKS_AND_EXTRACT_FEES_ELF, VALIDATE_BLOCKS_AND_EXTRACT_FEES_ID};
 use mmr::{PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, StoreManager};
 use starknet::core::types::U256;
@@ -36,7 +36,10 @@ impl<'a> ValidatorBuilder<'a> {
             ));
         }
 
-        let proof_generator = ProofGenerator::new(BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID)?;
+        let proof_generator = ProofGenerator::new(
+            VALIDATE_BLOCKS_AND_EXTRACT_FEES_ELF,
+            VALIDATE_BLOCKS_AND_EXTRACT_FEES_ID,
+        )?;
 
         Ok(Self {
             rpc_url,
@@ -48,7 +51,7 @@ impl<'a> ValidatorBuilder<'a> {
         })
     }
 
-    pub async fn verify_blocks_integrity_and_inclusion(
+    pub async fn validate_blocks_and_extract_fees(
         &self,
         start_block: u64,
         end_block: u64,

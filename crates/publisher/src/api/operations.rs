@@ -53,7 +53,7 @@ pub async fn prove_mmr_update(
     Ok(())
 }
 
-pub async fn prove_headers_integrity_and_inclusion(
+pub async fn extract_fees(
     rpc_url: &String,
     l2_store_address: &String,
     chain_id: u64,
@@ -73,7 +73,7 @@ pub async fn prove_headers_integrity_and_inclusion(
             })?;
 
     let result = validator
-        .verify_blocks_integrity_and_inclusion(start_block, end_block)
+        .validate_blocks_and_extract_fees(start_block, end_block)
         .await
         .map_err(|e| {
             tracing::error!(error = %e, "Failed to verify blocks validity and inclusion");
