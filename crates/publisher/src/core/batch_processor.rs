@@ -233,22 +233,24 @@ impl<'a> BatchProcessor<'a> {
         })?;
         let batch_is_complete = new_leaves_count as u64 >= self.batch_size;
 
+        // Save to permanent path directly instead of using a temp file
+        let permanent_path =
+            PathBuf::from(get_or_create_db_path(&batch_file_name).map_err(|e| {
+                error!(error = %e, "Failed to get DB path");
+                e
+            })?);
+
         // Only upload to IPFS if the batch is complete
         let ipfs_hash = if batch_is_complete {
             // Upload current state to IPFS
             let hash = self
                 .ipfs_manager
-                .upload_db(&temp_file_path)
+                .upload_db(&permanent_path) // Use permanent_path instead of temp_file_path
                 .await
                 .map_err(|e| {
                     error!(error = %e, "Failed to upload batch file to IPFS");
                     AccumulatorError::StorageError(format!("Failed to upload to IPFS: {}", e))
                 })?;
-
-            // Clean up the temporary file
-            if let Err(e) = std::fs::remove_file(&temp_file_path) {
-                warn!(error = %e, "Failed to remove temporary batch file");
-            }
 
             Some(hash)
         } else {

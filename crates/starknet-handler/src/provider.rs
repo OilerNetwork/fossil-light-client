@@ -2,7 +2,7 @@ use starknet::providers::Provider;
 use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
 
-use crate::{MmrState, StarknetHandlerError};
+use crate::{MmrSnapshot, StarknetHandlerError};
 use starknet::macros::selector;
 use starknet::{
     core::{
@@ -99,7 +99,7 @@ impl StarknetProvider {
         &self,
         l2_store_address: &str,
         batch_index: u64,
-    ) -> Result<MmrState, StarknetHandlerError> {
+    ) -> Result<MmrSnapshot, StarknetHandlerError> {
         debug!(batch_index, "Fetching MMR state");
 
         let entry_point_selector = selector!("get_mmr_state");
@@ -116,7 +116,7 @@ impl StarknetProvider {
             )
             .await?;
 
-        let mmr_state = MmrState::decode(&data)?;
+        let mmr_state = MmrSnapshot::decode(&data)?;
         info!("Retrieved MMR state");
 
         Ok(mmr_state)

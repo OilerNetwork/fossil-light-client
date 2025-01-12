@@ -120,10 +120,10 @@ impl<'a> ValidatorBuilder<'a> {
     ) -> Result<(), ValidatorError> {
         let mmr_elements_count = mmr.elements_count.get().await?;
         let bag = mmr.bag_the_peaks(Some(mmr_elements_count)).await?;
-        let mmr_root = u256_from_hex(
-            &mmr.calculate_root_hash(&bag, mmr_elements_count)?
-                .to_string(),
-        )?;
+        let mmr_root_hex = mmr
+            .calculate_root_hash(&bag, mmr_elements_count)?
+            .to_string();
+        let mmr_root = u256_from_hex(&mmr_root_hex)?;
 
         let onchain_root = onchain_roots_map
             .get(batch_index)

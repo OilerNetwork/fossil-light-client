@@ -22,7 +22,6 @@ async fn test_mmr_proofs() {
     }
 
     for (i, index) in indices.iter().enumerate() {
-        println!("Verifying proof for hash: {}", hashes[i]);
         let proof = mmr.get_proof(*index, None).await.unwrap();
         assert!(mmr
             .verify_proof(proof, hashes[i].clone(), None)

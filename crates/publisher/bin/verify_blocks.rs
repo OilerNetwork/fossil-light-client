@@ -14,6 +14,10 @@ struct Args {
     #[arg(long, short)]
     end_block: u64,
 
+    /// Batch size
+    #[arg(long, short, default_value_t = 1024)]
+    batch_size: u64,
+
     /// Skip proof generation
     #[arg(long)]
     skip_proof: bool,
@@ -33,6 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         &rpc_url,
         &l2_store_address,
         chain_id,
+        args.batch_size,
         args.start_block,
         args.end_block,
         Some(args.skip_proof),

@@ -6,7 +6,7 @@ use axum::{
 };
 use axum_server::Server;
 use clap::Parser;
-use common::get_env_var;
+use common::{get_env_var, initialize_logger_and_env};
 use publisher::api::operations::prove_headers_integrity_and_inclusion;
 use serde::Deserialize;
 use std::net::SocketAddr;
@@ -17,6 +17,10 @@ struct Args {
     /// Environment file to use (.env.local, .env.docker, etc)
     #[arg(short, long, default_value = ".env.local")]
     env_file: String,
+
+    /// Batch size to use
+    #[arg(short, long, default_value_t = 1024)]
+    batch_size: u64,
 
     /// Skip proof verification by default
     #[arg(long, default_value = "false")]
@@ -33,10 +37,12 @@ struct BlockRangeParams {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt::init();
-
     // Parse command line arguments
     let args = Args::parse();
+
+    // Initialize environment with specified file
+    dotenv::from_path(&args.env_file)?;
+    initialize_logger_and_env()?;
 
     // Get required environment variables
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
@@ -52,6 +58,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             l2_store_address,
             chain_id,
             args.skip_proof_verification,
+            args.batch_size,
         ));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
@@ -69,7 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn verify_blocks(
-    axum::extract::State((rpc_url, l2_store_address, chain_id, default_skip_proof)): axum::extract::State<(String, String, u64, bool)>,
+    axum::extract::State((rpc_url, l2_store_address, chain_id, default_skip_proof, batch_size)): axum::extract::State<(String, String, u64, bool, u64)>,
     Query(params): Query<BlockRangeParams>,
 ) -> Response {
     // Use query parameter if provided, otherwise use CLI default
@@ -79,6 +86,7 @@ async fn verify_blocks(
         &rpc_url,
         &l2_store_address,
         chain_id,
+        batch_size,
         params.from_block,
         params.to_block,
         Some(skip_proof),

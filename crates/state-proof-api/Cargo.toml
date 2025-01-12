@@ -7,6 +7,7 @@ edition = "2021"
 common = { path = "../common" }
 
 clap = { workspace = true }
+dotenv = { workspace = true }
 
 axum = "0.8"
 axum-server = "0.7"

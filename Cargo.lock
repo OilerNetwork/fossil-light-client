@@ -5824,6 +5824,7 @@ dependencies = [
  "bincode",
  "clap",
  "common",
+ "dotenv",
  "publisher",
  "serde",
  "tokio",
