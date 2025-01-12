@@ -1,4 +1,6 @@
 use clap::Parser;
+use common::initialize_logger_and_env;
+use methods::VALIDATE_BLOCKS_AND_EXTRACT_FEES_ID;
 use publisher::utils::Stark;
 use reqwest::Client;
 
@@ -24,14 +26,13 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    initialize_logger_and_env()?;
     let args = Args::parse();
-    
+
     let client = Client::new();
     let url = format!(
-        "{}/verify-blocks?from_block={}&to_block={}", 
-        args.api_url,
-        args.from_block,
-        args.to_block
+        "{}/verify-blocks?from_block={}&to_block={}",
+        args.api_url, args.from_block, args.to_block
     );
 
     // Add skip_proof_verification to URL if provided
@@ -42,19 +43,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let response = client.get(&url).send().await?;
-    
+
     if !response.status().is_success() {
         let error_text = response.text().await?;
-        eprintln!("API request failed: {}", error_text);
+        tracing::error!("API request failed: {}", error_text);
         std::process::exit(1);
     }
 
     let bytes = response.bytes().await?;
-    let stark: Stark = bincode::deserialize(&bytes)?;
+    tracing::info!("Received {} bytes from API", bytes.len());
 
-    println!("Successfully retrieved and deserialized proof:");
-    println!("Image ID length: {}", stark.image_id().unwrap().len());
-    println!("Receipt: {:?}", stark.receipt());
+    match bincode::deserialize::<Vec<Stark>>(&bytes) {
+        Ok(stark_vec) => {
+            tracing::info!(
+                "Successfully retrieved and deserialized {} proofs:",
+                stark_vec.len()
+            );
+            for (_i, stark) in stark_vec.iter().enumerate() {
+                let decoded_journal = stark.receipt().journal.decode::<Vec<String>>()?;
+                let fees: Vec<u64> = decoded_journal
+                    .iter()
+                    .map(|hex| u64::from_str_radix(&hex[2..], 16))
+                    .collect::<Result<_, _>>()?;
+                tracing::info!("Decoded fees: {:?}", fees);
+                stark
+                    .receipt()
+                    .verify(VALIDATE_BLOCKS_AND_EXTRACT_FEES_ID)?;
+                tracing::info!(
+                    "Stark proof for block fees in range {} to {} verified successfully",
+                    args.from_block,
+                    args.to_block
+                );
+            }
+        }
+        Err(e) => {
+            tracing::error!("Failed to deserialize response: {}", e);
+            tracing::error!(
+                "First 100 bytes of response: {:?}",
+                &bytes.get(..100.min(bytes.len()))
+            );
+            tracing::error!("Detailed error: {:?}", e);
+            return Err(e.into());
+        }
+    }
 
     Ok(())
 }
