@@ -1,5 +1,7 @@
+use axum::body::Body;
 use axum::{
-    extract::Query,
+    extract::{Query, State},
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
     Router,
@@ -8,8 +10,9 @@ use axum_server::Server;
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
 use publisher::api::operations::extract_fees;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -35,6 +38,20 @@ struct BlockRangeParams {
     skip_proof_verification: Option<bool>,
 }
 
+#[derive(Clone)]
+struct AppState {
+    rpc_url: String,
+    l2_store_address: String,
+    chain_id: u64,
+    skip_proof_verification: bool,
+    batch_size: u64,
+}
+
+#[derive(Serialize)]
+struct ErrorResponse {
+    error: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command line arguments
@@ -51,15 +68,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .parse::<u64>()
         .expect("CHAIN_ID must be a valid number");
 
+    let state = AppState {
+        rpc_url,
+        l2_store_address,
+        chain_id,
+        skip_proof_verification: args.skip_proof_verification,
+        batch_size: args.batch_size,
+    };
+
     let app = Router::new()
         .route("/verify-blocks", get(verify_blocks))
-        .with_state((
-            rpc_url,
-            l2_store_address,
-            chain_id,
-            args.skip_proof_verification,
-            args.batch_size,
-        ));
+        .with_state(Arc::new(state));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     tracing::info!("listening on {}", addr);
@@ -68,6 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "default skip_proof_verification: {}",
         args.skip_proof_verification
     );
+
     Server::bind(addr)
         .serve(app.into_make_service())
         .await
@@ -76,38 +96,64 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn verify_blocks(
-    axum::extract::State((rpc_url, l2_store_address, chain_id, default_skip_proof, batch_size)): axum::extract::State<(String, String, u64, bool, u64)>,
+    State(state): State<Arc<AppState>>,
     Query(params): Query<BlockRangeParams>,
-) -> Response {
+) -> impl IntoResponse {
     // Use query parameter if provided, otherwise use CLI default
-    let skip_proof = params.skip_proof_verification.unwrap_or(default_skip_proof);
+    let skip_proof = params
+        .skip_proof_verification
+        .unwrap_or(state.skip_proof_verification);
 
-    match extract_fees(
-        &rpc_url,
-        &l2_store_address,
-        chain_id,
-        batch_size,
+    let result = match extract_fees(
+        &state.rpc_url,
+        &state.l2_store_address,
+        state.chain_id,
+        state.batch_size,
         params.from_block,
         params.to_block,
         Some(skip_proof),
     )
     .await
     {
-        Ok(result) => {
-            let bytes = bincode::serialize(&result).unwrap();
-            (
-                [(axum::http::header::CONTENT_TYPE, "application/octet-stream")],
-                bytes,
-            )
-                .into_response()
-        }
+        Ok(result) => match bincode::serialize(&result) {
+            Ok(bytes) => {
+                let mut headers = HeaderMap::new();
+                headers.insert(
+                    header::CONTENT_TYPE,
+                    "application/octet-stream".parse().unwrap(),
+                );
+                Response::builder()
+                    .status(StatusCode::OK)
+                    .header(header::CONTENT_TYPE, "application/octet-stream")
+                    .body(Body::from(bytes))
+                    .unwrap()
+            }
+            Err(e) => {
+                tracing::error!("Failed to serialize response: {}", e);
+                let error_json = serde_json::to_vec(&ErrorResponse {
+                    error: format!("Failed to serialize response: {}", e),
+                })
+                .unwrap_or_default();
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(error_json.into())
+                    .unwrap()
+            }
+        },
         Err(e) => {
             tracing::error!("Error verifying blocks: {}", e);
-            (
-                [(axum::http::header::CONTENT_TYPE, "text/plain")],
-                format!("error: {}", e),
-            )
-                .into_response()
+            let error_json = serde_json::to_vec(&ErrorResponse {
+                error: e.to_string(),
+            })
+            .unwrap_or_default();
+            Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(error_json.into())
+                .unwrap()
         }
-    }
+    };
+
+    result
 }
