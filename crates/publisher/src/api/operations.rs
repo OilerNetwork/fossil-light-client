@@ -76,11 +76,12 @@ pub async fn extract_fees(
         .validate_blocks_and_extract_fees(start_block, end_block)
         .await
         .map_err(|e| {
-            tracing::error!(error = %e, "Failed to verify blocks validity and inclusion");
+            tracing::error!(error = %e, "Failed to verify blocks validity and extract fees");
             e
         })?;
+    println!("result len: {:?}", result.len());
 
-    tracing::info!("Successfully verified blocks validity and inclusion");
+    tracing::info!("Successfully verified blocks validity and extracted fees");
 
     Ok(result)
 }

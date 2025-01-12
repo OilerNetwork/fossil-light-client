@@ -55,7 +55,7 @@ impl StarknetAccount {
         &self,
         verifier_address: &str,
         proof: Vec<Felt>,
-        ipfs_hash: Option<String>,
+        ipfs_hash: String,
     ) -> Result<Felt, StarknetHandlerError> {
         const MAX_RETRIES: u32 = 3;
         const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
@@ -65,12 +65,7 @@ impl StarknetAccount {
 
         proof.encode(&mut calldata)?;
 
-        match ipfs_hash {
-            Some(hash) => {
-                Option::Some(ByteArray::from(hash.as_str())).encode(&mut hash_calldata)?
-            }
-            None => Option::<ByteArray>::None.encode(&mut hash_calldata)?,
-        };
+        ByteArray::from(ipfs_hash.as_str()).encode(&mut hash_calldata)?;
         calldata.extend(hash_calldata);
 
         let selector = selector!("verify_mmr_proof");

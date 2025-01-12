@@ -59,12 +59,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "Successfully retrieved and deserialized {} proofs:",
                 stark_vec.len()
             );
+            let mut all_fees: Vec<u64> = Vec::new();
             for (_i, stark) in stark_vec.iter().enumerate() {
                 let decoded_journal = stark.receipt().journal.decode::<Vec<String>>()?;
                 let fees: Vec<u64> = decoded_journal
                     .iter()
                     .map(|hex| u64::from_str_radix(&hex[2..], 16))
                     .collect::<Result<_, _>>()?;
+                all_fees.extend(fees.iter());
                 tracing::info!("Decoded fees: {:?}", fees);
                 stark
                     .receipt()
@@ -75,6 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     args.to_block
                 );
             }
+            tracing::info!("All consolidated fees: {:?}", all_fees);
         }
         Err(e) => {
             tracing::error!("Failed to deserialize response: {}", e);

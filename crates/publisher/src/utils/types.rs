@@ -63,7 +63,7 @@ pub struct BatchResult {
     end_block: u64,
     new_mmr_state: MmrState,
     proof: Option<Groth16>,
-    ipfs_hash: Option<String>,
+    ipfs_hash: String,
 }
 
 impl BatchResult {
@@ -72,7 +72,7 @@ impl BatchResult {
         end_block: u64,
         new_mmr_state: MmrState,
         proof: Option<Groth16>,
-        ipfs_hash: Option<String>,
+        ipfs_hash: String,
     ) -> Self {
         Self {
             start_block,
@@ -99,7 +99,7 @@ impl BatchResult {
         self.proof.clone()
     }
 
-    pub fn ipfs_hash(&self) -> Option<String> {
+    pub fn ipfs_hash(&self) -> String {
         self.ipfs_hash.clone()
     }
 }
