@@ -6,9 +6,7 @@ pub trait IFossilStore<TContractState> {
         min_update_interval: u64,
     );
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
-    fn update_mmr_state(
-        ref self: TContractState, journal: verifier::Journal, ipfs_hash: ByteArray,
-    );
+    fn update_mmr_state(ref self: TContractState, journal: verifier::Journal, ipfs_hash: ByteArray);
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
     fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
     fn get_latest_mmr_block(self: @TContractState) -> u64;

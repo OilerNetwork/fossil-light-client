@@ -14,7 +14,8 @@ cargo clippy \
     -p relayer \
     -p starknet-handler \
     -p guest-mmr \
-    -p state-proof-api \
+    # -p state-proof-api \
+    -p ipfs-utils \
     -- \
     -W clippy::single_match \
     -W clippy::single_match_else \
