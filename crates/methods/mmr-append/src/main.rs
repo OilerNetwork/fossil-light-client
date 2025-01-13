@@ -58,6 +58,16 @@ fn main() {
         }
     }
 
+    // Add next batch link check
+    match (input.next_batch_link(), &last_header.block_hash) {
+        (Some(next_link), _) => {
+            assert!(next_link == last_header.block_hash, "Next batch link mismatch");
+        }
+        (None, _) => {
+            // It's okay if there's no next batch link - might be the latest block
+        }
+    }
+
     // Create output
     let output = GuestOutput::new(
         first_batch_index,

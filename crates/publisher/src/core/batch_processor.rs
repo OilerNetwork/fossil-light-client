@@ -172,12 +172,19 @@ impl<'a> BatchProcessor<'a> {
             None
         };
 
+        let next_batch_link = db_connection
+            .get_block_header_by_number(adjusted_end_block + 1)
+            .await?
+            .map(|header| header.parent_hash)
+            .flatten();
+
         let combined_input = CombinedInput::new(
             chain_id,
             self.batch_size,
             headers.clone(),
             mmr_input,
             batch_link,
+            next_batch_link,
             self.skip_proof_verification,
         );
 

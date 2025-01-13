@@ -129,7 +129,7 @@ impl LightClient {
         let to_block = if self.blocks_per_run > 0 {
             BlockId::Number(std::cmp::min(
                 self.latest_processed_block + self.blocks_per_run,
-                latest_block
+                latest_block,
             ))
         } else {
             BlockId::Number(latest_block)
@@ -163,8 +163,9 @@ impl LightClient {
                 .unwrap_or(self.latest_processed_block);
 
             // Check if we've reached the block limit for this run
-            if self.blocks_per_run > 0 && 
-               new_latest_block > self.latest_processed_block + self.blocks_per_run {
+            if self.blocks_per_run > 0
+                && new_latest_block > self.latest_processed_block + self.blocks_per_run
+            {
                 info!(
                     "Reached block limit for this run. Stopping at block {}",
                     self.latest_processed_block + self.blocks_per_run

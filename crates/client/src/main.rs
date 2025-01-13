@@ -41,11 +41,12 @@ async fn main() -> Result<()> {
     tracing::info!("Starting Fossil Light Client...");
 
     let mut client = LightClient::new(
-        args.polling_interval, 
+        args.polling_interval,
         args.batch_size,
         args.start_block,
         args.blocks_per_run,
-    ).await?;
+    )
+    .await?;
     client.run().await?;
     Ok(())
 }
