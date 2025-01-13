@@ -154,9 +154,9 @@ impl StarknetProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mockall::mock;
     use mockall::predicate;
     use mockall::predicate::*;
-    use mockall::mock;
     // use std::str::FromStr;
 
     #[test]
@@ -164,7 +164,7 @@ mod tests {
         let rpc_url = "http://localhost:5050";
         let provider = StarknetProvider::new(rpc_url);
         assert!(provider.is_ok());
-        
+
         let provider = provider.unwrap();
         assert_eq!(provider.rpc_url(), rpc_url);
     }
@@ -180,7 +180,7 @@ mod tests {
     fn test_provider_getters() {
         let rpc_url = "http://localhost:5050";
         let provider = StarknetProvider::new(rpc_url).unwrap();
-        
+
         assert_eq!(provider.rpc_url(), rpc_url);
         assert!(Arc::strong_count(&provider.provider()) >= 1);
     }
@@ -198,7 +198,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_latest_mmr_block() {
         let expected_block = 42u64;
-        
+
         let mut mock_provider = MockProvider::new();
         mock_provider
             .expect_call()
@@ -220,7 +220,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_min_mmr_block() {
         let expected_block = 10u64;
-        
+
         let mut mock_provider = MockProvider::new();
         mock_provider
             .expect_call()
@@ -238,14 +238,14 @@ mod tests {
     #[tokio::test]
     async fn test_get_mmr_state() {
         let batch_index = 5u64;
-        
+
         let mut mock_provider = MockProvider::new();
         mock_provider
             .expect_call()
             .with(
                 predicate::function(move |call: &FunctionCall| {
-                    call.entry_point_selector == selector!("get_mmr_state") &&
-                    call.calldata == vec![Felt::from(batch_index)]
+                    call.entry_point_selector == selector!("get_mmr_state")
+                        && call.calldata == vec![Felt::from(batch_index)]
                 }),
                 predicate::eq(BlockId::Tag(BlockTag::Latest)),
             )
@@ -263,7 +263,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_latest_relayed_block() {
         let expected_block = 100u64;
-        
+
         let mut mock_provider = MockProvider::new();
         mock_provider
             .expect_call()
@@ -274,7 +274,9 @@ mod tests {
                 predicate::eq(BlockId::Tag(BlockTag::Latest)),
             )
             .return_once(move |_, _| {
-                Ok(vec![Felt::from_hex(&format!("{:x}", expected_block)).unwrap()])
+                Ok(vec![
+                    Felt::from_hex(&format!("{:x}", expected_block)).unwrap()
+                ])
             });
 
         // TODO: Similar to above tests

@@ -46,22 +46,24 @@ impl Relayer {
 
         // Get the L2 proxy address as a string first
         let addr_str = get_env_var("L2_MSG_PROXY")?;
-        
+
         // Validate address format before parsing:
         // 1. Must start with "0x"
         // 2. Must be exactly 42 characters (0x + 40 hex chars)
         // 3. Must be a valid hex string
         if !addr_str.starts_with("0x") || addr_str.len() != 42 {
-            return Err(RelayerError::Utils(UtilsError::ParseError(
-                format!("L2_MSG_PROXY: Invalid Ethereum address format. Expected 0x + 40 hex chars, got {}", addr_str)
-            )));
+            return Err(RelayerError::Utils(UtilsError::ParseError(format!(
+                "L2_MSG_PROXY: Invalid Ethereum address format. Expected 0x + 40 hex chars, got {}",
+                addr_str
+            ))));
         }
 
         // Now parse the validated hex string
         let l2_recipient_addr = U256::from_str_radix(&addr_str[2..], 16).map_err(|e| {
-            RelayerError::Utils(UtilsError::ParseError(
-                format!("L2_MSG_PROXY: Invalid hex characters in address: {}", e)
-            ))
+            RelayerError::Utils(UtilsError::ParseError(format!(
+                "L2_MSG_PROXY: Invalid hex characters in address: {}",
+                e
+            )))
         })?;
 
         info!("Using L2 recipient address: {:?}", l2_recipient_addr);
@@ -128,10 +130,7 @@ mod tests {
             "ACCOUNT_PRIVATE_KEY",
             "1234567890123456789012345678901234567890123456789012345678901234",
         );
-        env::set_var(
-            "L2_MSG_PROXY",
-            "0x1234567890123456789012345678901234567890",
-        );
+        env::set_var("L2_MSG_PROXY", "0x1234567890123456789012345678901234567890");
         env::set_var("ETH_RPC_URL", "http://localhost:8545");
         env::set_var(
             "L1_MESSAGE_SENDER",
@@ -145,7 +144,7 @@ mod tests {
         env::remove_var("L2_MSG_PROXY");
         env::remove_var("ETH_RPC_URL");
         env::remove_var("L1_MESSAGE_SENDER");
-        
+
         // Verify environment is actually clean
         assert!(env::var("ACCOUNT_PRIVATE_KEY").is_err());
         assert!(env::var("L2_MSG_PROXY").is_err());
@@ -177,7 +176,7 @@ mod tests {
     #[serial_test::serial]
     async fn test_send_finalized_block_hash_to_l2() {
         clear_test_env();
-        
+
         // Set up environment with hex values
         env::set_var(
             "ACCOUNT_PRIVATE_KEY",
@@ -192,9 +191,9 @@ mod tests {
             "L1_MESSAGE_SENDER",
             "0x1234567890123456789012345678901234567890",
         );
-        
+
         let relayer = Relayer::new().await.expect("Failed to create relayer");
-        
+
         // Verify the relayer is properly configured
         assert_eq!(
             relayer.l2_recipient_addr,
@@ -207,14 +206,14 @@ mod tests {
     async fn test_new_with_missing_env_vars() {
         // Make sure environment is clean
         clear_test_env();
-        
+
         // Double check that required vars are missing
         assert!(env::var("ACCOUNT_PRIVATE_KEY").is_err());
         assert!(env::var("L2_MSG_PROXY").is_err());
-        
+
         let result = Relayer::new().await;
         assert!(result.is_err());
-        
+
         // Verify it's the expected error type
         match result {
             Err(RelayerError::Utils(_)) => (),
@@ -249,11 +248,11 @@ mod tests {
     #[serial_test::serial]
     async fn test_invalid_private_key_format() {
         clear_test_env();
-        
+
         // Set up environment with invalid private key format
         env::set_var("ACCOUNT_PRIVATE_KEY", "not_a_hex_string");
         env::set_var("L2_MSG_PROXY", "1234567890123456789012345678901234567890");
-        
+
         let result = Relayer::new().await;
         assert!(result.is_err());
         match result {
@@ -266,14 +265,14 @@ mod tests {
     #[serial_test::serial]
     async fn test_invalid_l2_proxy_address() {
         clear_test_env();
-        
+
         // Set up environment with valid private key but invalid L2 proxy address
         env::set_var(
             "ACCOUNT_PRIVATE_KEY",
             "1234567890123456789012345678901234567890123456789012345678901234",
         );
         env::set_var("L2_MSG_PROXY", "not_an_address");
-        
+
         let result = Relayer::new().await;
         assert!(result.is_err());
         match result {
@@ -286,11 +285,11 @@ mod tests {
     #[serial_test::serial]
     async fn test_private_key_wrong_length() {
         clear_test_env();
-        
+
         // Set up environment with private key that's too short
         env::set_var("ACCOUNT_PRIVATE_KEY", "1234");
         env::set_var("L2_MSG_PROXY", "1234567890123456789012345678901234567890");
-        
+
         let result = Relayer::new().await;
         assert!(result.is_err());
     }
@@ -299,33 +298,30 @@ mod tests {
     #[serial_test::serial]
     async fn test_l2_proxy_address_wrong_length() {
         clear_test_env();
-        
+
         // Set up environment with valid private key
         env::set_var(
             "ACCOUNT_PRIVATE_KEY",
             "1234567890123456789012345678901234567890123456789012345678901234",
         );
-        
+
         // Test different invalid address formats
         let invalid_addresses = vec![
             // Invalid hex values
-            "0xghijklmn",  // Invalid hex characters
-            "xyz123", // Not hex at all
-            "true", // Boolean
-            "null", // Null
-            
+            "0xghijklmn", // Invalid hex characters
+            "xyz123",     // Not hex at all
+            "true",       // Boolean
+            "null",       // Null
             // Invalid lengths
-            "0x", // Just prefix
-            "0x0", // Too short
-            "0x01", // Still too short
+            "0x",                                           // Just prefix
+            "0x0",                                          // Too short
+            "0x01",                                         // Still too short
             "0x1234567890123456789012345678901234567890ff", // Too long
-            
             // Invalid formats
-            "", // Empty string
-            "   ", // Just whitespace
-            "-0x1234567890123456789012345678901234567890", // Negative
+            "",                                                     // Empty string
+            "   ",                                                  // Just whitespace
+            "-0x1234567890123456789012345678901234567890",          // Negative
             "0x12345678901234567890123456789012345678901234567890", // Double length
-            
             // Missing prefix
             "1234567890123456789012345678901234567890", // Valid length but no 0x
         ];
@@ -333,22 +329,18 @@ mod tests {
         for addr in invalid_addresses {
             env::set_var("L2_MSG_PROXY", addr);
             let result = Relayer::new().await;
-            
+
             // Print the actual error for debugging
             if result.is_ok() {
                 println!("WARNING: Address {} was unexpectedly accepted", addr);
             }
-            
-            assert!(
-                result.is_err(),
-                "Should fail for invalid address: {}", 
-                addr
-            );
-            
+
+            assert!(result.is_err(), "Should fail for invalid address: {}", addr);
+
             match &result {
                 Err(RelayerError::Utils(e)) => {
                     println!("Got error for {}: {:?}", addr, e);
-                },
+                }
                 other => panic!("Expected Utils error for address {}, got {:?}", addr, other),
             }
         }
@@ -359,13 +351,13 @@ mod tests {
     #[serial_test::serial]
     async fn test_valid_l2_proxy_addresses() {
         clear_test_env();
-        
+
         // Set up environment with valid private key
         env::set_var(
             "ACCOUNT_PRIVATE_KEY",
             "1234567890123456789012345678901234567890123456789012345678901234",
         );
-        
+
         // Test different valid address formats
         let valid_addresses = vec![
             "0x1234567890123456789012345678901234567890", // Standard format
@@ -381,11 +373,7 @@ mod tests {
                 Ok(_) => (),
                 Err(e) => println!("Failed to accept address {}: {:?}", addr, e),
             }
-            assert!(
-                result.is_ok(),
-                "Should accept valid address: {}", 
-                addr
-            );
+            assert!(result.is_ok(), "Should accept valid address: {}", addr);
         }
     }
 
@@ -393,11 +381,11 @@ mod tests {
     #[serial_test::serial]
     async fn test_empty_environment_variables() {
         clear_test_env();
-        
+
         // Set up environment with empty strings
         env::set_var("ACCOUNT_PRIVATE_KEY", "");
         env::set_var("L2_MSG_PROXY", "");
-        
+
         let result = Relayer::new().await;
         assert!(result.is_err());
     }
@@ -406,11 +394,11 @@ mod tests {
     #[serial_test::serial]
     async fn test_whitespace_environment_variables() {
         clear_test_env();
-        
+
         // Set up environment with whitespace strings
         env::set_var("ACCOUNT_PRIVATE_KEY", "   ");
         env::set_var("L2_MSG_PROXY", "  ");
-        
+
         let result = Relayer::new().await;
         assert!(result.is_err());
     }
@@ -419,14 +407,14 @@ mod tests {
     #[serial_test::serial]
     async fn test_partial_environment_setup() {
         clear_test_env();
-        
+
         // Only set one of the required variables
         env::set_var(
             "ACCOUNT_PRIVATE_KEY",
             "1234567890123456789012345678901234567890123456789012345678901234",
         );
         // Don't set L2_MSG_PROXY
-        
+
         let result = Relayer::new().await;
         assert!(result.is_err());
     }
@@ -435,14 +423,14 @@ mod tests {
     #[serial_test::serial]
     async fn test_case_sensitivity() {
         clear_test_env();
-        
+
         // Test if environment variables are case sensitive
         env::set_var(
             "account_private_key", // lowercase
             "1234567890123456789012345678901234567890123456789012345678901234",
         );
         env::set_var("L2_MSG_PROXY", "1234567890123456789012345678901234567890");
-        
+
         let result = Relayer::new().await;
         assert!(result.is_err()); // Should fail because we expect uppercase
     }
@@ -451,21 +439,25 @@ mod tests {
     #[serial_test::serial]
     async fn test_malformed_hex_strings() {
         clear_test_env();
-        
+
         // Test invalid hex strings (missing 0x prefix, odd length, invalid characters)
         let test_cases = vec![
             "0xg234567890123456789012345678901234567890123456789012345678901234", // invalid hex char
-            "0x12345",  // odd length
-            "0x", // empty hex string
+            "0x12345",                                                            // odd length
+            "0x",               // empty hex string
             "not_a_hex_string", // completely invalid
         ];
-        
+
         for private_key in test_cases {
             env::set_var("ACCOUNT_PRIVATE_KEY", private_key);
             env::set_var("L2_MSG_PROXY", "1234567890123456789012345678901234567890");
-            
+
             let result = Relayer::new().await;
-            assert!(result.is_err(), "Should fail for private key: {}", private_key);
+            assert!(
+                result.is_err(),
+                "Should fail for private key: {}",
+                private_key
+            );
         }
     }
 
@@ -473,11 +465,14 @@ mod tests {
     #[serial_test::serial]
     async fn test_unicode_characters() {
         clear_test_env();
-        
+
         // Test with Unicode characters
-        env::set_var("ACCOUNT_PRIVATE_KEY", "0x123456789🦀123456789012345678901234567890123456789012345678901234");
+        env::set_var(
+            "ACCOUNT_PRIVATE_KEY",
+            "0x123456789🦀123456789012345678901234567890123456789012345678901234",
+        );
         env::set_var("L2_MSG_PROXY", "1234567890123456789012345678901234567890");
-        
+
         let result = Relayer::new().await;
         assert!(result.is_err());
     }
@@ -486,7 +481,7 @@ mod tests {
     #[serial_test::serial]
     async fn test_max_values() {
         clear_test_env();
-        
+
         // Set up environment with valid private key
         env::set_var(
             "ACCOUNT_PRIVATE_KEY",
@@ -496,7 +491,7 @@ mod tests {
             "L2_MSG_PROXY",
             "0x1234567890123456789012345678901234567890", // valid address
         );
-        
+
         let result = Relayer::new().await;
         match &result {
             Ok(_) => (),
@@ -509,7 +504,7 @@ mod tests {
     #[serial_test::serial]
     async fn test_invalid_max_values() {
         clear_test_env();
-        
+
         // Test with invalid maximum values
         env::set_var(
             "ACCOUNT_PRIVATE_KEY",
@@ -519,7 +514,7 @@ mod tests {
             "L2_MSG_PROXY",
             "ffffffffffffffffffffffffffffffffffffffff1", // too long
         );
-        
+
         let result = Relayer::new().await;
         assert!(result.is_err());
     }

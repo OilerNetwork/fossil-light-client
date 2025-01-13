@@ -7,7 +7,7 @@ use starknet::{
 };
 use starknet_handler::provider::StarknetProvider;
 use tokio::time::{self, Duration};
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, instrument};
 
 #[derive(thiserror::Error, Debug)]
 pub enum LightClientError {
@@ -21,8 +21,6 @@ pub enum LightClientError {
     PublisherError(#[from] publisher::PublisherError),
     #[error("Starknet provider error: {0}")]
     StarknetProvider(#[from] starknet::providers::ProviderError),
-    #[error("latest_processed_block regression from {0} to {1}")]
-    StateError(u64, u64),
     #[error("Database file does not exist at path: {0}")]
     ConfigError(String),
     #[error("Polling interval must be greater than zero")]
