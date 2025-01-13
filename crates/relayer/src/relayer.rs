@@ -8,6 +8,7 @@ use alloy::{
 };
 use common::{get_env_var, get_var, UtilsError};
 // use eyre::Result;
+use std::time::Duration;
 use thiserror::Error;
 use tracing::info;
 
@@ -19,6 +20,8 @@ pub enum RelayerError {
     RpcError(#[from] RpcError<TransportErrorKind>),
     #[error("Alloy contract error: {0}")]
     AlloyContract(#[from] alloy_contract::Error),
+    #[error("Pending transaction error: {0}")]
+    PendingTransaction(#[from] alloy::providers::PendingTransactionError),
 }
 
 sol!(
@@ -80,10 +83,12 @@ impl Relayer {
         );
 
         let pending_tx = call_builder.send().await?;
-        info!(
-            "Transaction sent successfully. Tx hash: {:?}",
-            pending_tx.tx_hash()
-        );
+        let tx_hash = pending_tx
+            .with_required_confirmations(1)
+            .with_timeout(Some(Duration::from_secs(60)))
+            .watch()
+            .await?;
+        info!("Transaction confirmed successfully. Tx hash: {:?}", tx_hash);
 
         Ok(())
     }
