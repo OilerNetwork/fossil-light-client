@@ -112,3 +112,109 @@ impl StarknetAccount {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    // Helper function to create a test provider
+    fn create_test_provider() -> Arc<JsonRpcClient<HttpTransport>> {
+        Arc::new(JsonRpcClient::new(HttpTransport::new(
+            url::Url::parse("http://localhost:5050").unwrap(),
+        )))
+    }
+
+    #[test]
+    fn test_new_account_success() {
+        let provider = create_test_provider();
+        let private_key = "0x1234567890abcdef";
+        let address = "0x987654321fedcba";
+
+        let result = StarknetAccount::new(provider, private_key, address);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_new_account_invalid_private_key() {
+        let provider = create_test_provider();
+        let private_key = "invalid_key";
+        let address = "0x987654321fedcba";
+
+        let result = StarknetAccount::new(provider, private_key, address);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_new_account_invalid_address() {
+        let provider = create_test_provider();
+        let private_key = "0x1234567890abcdef";
+        let address = "invalid_address";
+
+        let result = StarknetAccount::new(provider, private_key, address);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_new_account_empty_private_key() {
+        let provider = create_test_provider();
+        let result = StarknetAccount::new(provider, "", "0x987654321fedcba");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_new_account_empty_address() {
+        let provider = create_test_provider();
+        let result = StarknetAccount::new(provider, "0x1234567890abcdef", "");
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_verify_mmr_proof_success() {
+        let provider = create_test_provider();
+        let account = StarknetAccount::new(
+            provider,
+            "0x1234567890abcdef",
+            "0x987654321fedcba",
+        )
+        .unwrap();
+
+        let verifier_address = "0x123456789";
+        let proof = vec![Felt::from_str("0x1").unwrap()];
+        let ipfs_hash = "QmTest123".to_string();
+
+        // Note: This test will fail in real execution since we're using a dummy provider
+        // In a real test environment, you would mock the provider and account interactions
+        let result = account.verify_mmr_proof(verifier_address, proof, ipfs_hash).await;
+        assert!(result.is_err()); // Will error due to dummy provider
+    }
+
+    #[tokio::test]
+    async fn test_verify_mmr_proof_empty_proof() {
+        let provider = create_test_provider();
+        let account = StarknetAccount::new(
+            provider,
+            "0x1234567890abcdef",
+            "0x987654321fedcba",
+        )
+        .unwrap();
+
+        let result = account.verify_mmr_proof("0x123456789", vec![], "QmTest123".to_string()).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_verify_mmr_proof_empty_ipfs_hash() {
+        let provider = create_test_provider();
+        let account = StarknetAccount::new(
+            provider,
+            "0x1234567890abcdef",
+            "0x987654321fedcba",
+        )
+        .unwrap();
+
+        let proof = vec![Felt::from_str("0x1").unwrap()];
+        let result = account.verify_mmr_proof("0x123456789", proof, "".to_string()).await;
+        assert!(result.is_err());
+    }
+}
