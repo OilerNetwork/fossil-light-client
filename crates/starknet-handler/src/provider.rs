@@ -101,7 +101,6 @@ impl StarknetProvider {
         batch_index: u64,
     ) -> Result<MmrSnapshot, StarknetHandlerError> {
         debug!(batch_index, "Fetching MMR state");
-        println!("batch_index: {:?}", batch_index);
 
         let entry_point_selector = selector!("get_mmr_state");
 

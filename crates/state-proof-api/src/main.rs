@@ -1,3 +1,8 @@
+#![deny(unused_crate_dependencies)]
+use methods as _;
+use reqwest as _;
+use risc0_zkvm as _;
+
 use axum::body::Body;
 use axum::{
     extract::{Query, State},

@@ -82,7 +82,6 @@ impl<'a> ValidatorBuilder<'a> {
         }
 
         let block_indexes = self.collect_block_indexes(&headers, &mmrs).await?;
-        println!("block_indexes: {:?}", block_indexes);
         self.generate_proofs_for_batches(&headers, &mmrs, &block_indexes)
             .await
     }
@@ -103,7 +102,6 @@ impl<'a> ValidatorBuilder<'a> {
     ) -> Result<(), ValidatorError> {
         let batch_indexes: Vec<u64> = mmrs.keys().cloned().collect();
         let onchain_mmr_roots = self.get_onchain_mmr_root(&batch_indexes).await?;
-        println!("onchain_mmr_roots: {:?}", onchain_mmr_roots);
 
         let onchain_roots_map: HashMap<u64, U256> = batch_indexes
             .iter()
@@ -126,16 +124,19 @@ impl<'a> ValidatorBuilder<'a> {
         onchain_roots_map: &HashMap<u64, U256>,
     ) -> Result<(), ValidatorError> {
         let mmr_elements_count = mmr.elements_count.get().await?;
+
         let bag = mmr.bag_the_peaks(Some(mmr_elements_count)).await?;
+
         let mmr_root_hex = mmr
             .calculate_root_hash(&bag, mmr_elements_count)?
             .to_string();
+
         let mmr_root = u256_from_hex(&mmr_root_hex)?;
-        println!("mmr_root: {:?}", mmr_root);
+
         let onchain_root = onchain_roots_map
             .get(batch_index)
             .ok_or_else(|| ValidatorError::InvalidInput("Missing onchain MMR root for batch"))?;
-        println!("onchain_root: {:?}", onchain_root);
+
         if onchain_root.clone() != mmr_root {
             return Err(ValidatorError::InvalidMmrRoot {
                 expected: onchain_root.clone(),
@@ -229,7 +230,6 @@ impl<'a> ValidatorBuilder<'a> {
         &self,
         batch_indexs: &Vec<u64>,
     ) -> Result<Vec<starknet::core::types::U256>, ValidatorError> {
-        println!("batch_indexs: {:?}", batch_indexs);
         let provider = StarknetProvider::new(&self.rpc_url)?;
 
         let mut mmr_roots = Vec::new();
@@ -238,10 +238,8 @@ impl<'a> ValidatorBuilder<'a> {
             let mmr_state = provider
                 .get_mmr_state(&self.l2_store_address, *batch_index)
                 .await?;
-            println!("mmr_state: {:?}", mmr_state);
             mmr_roots.push(mmr_state.root_hash());
         }
-        println!("mmr_roots: {:?}", mmr_roots);
 
         Ok(mmr_roots)
     }

@@ -79,7 +79,6 @@ pub async fn extract_fees(
             tracing::error!(error = %e, "Failed to verify blocks validity and extract fees");
             e
         })?;
-    println!("result len: {:?}", result.len());
 
     tracing::info!("Successfully verified blocks validity and extracted fees");
 

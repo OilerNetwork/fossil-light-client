@@ -1,3 +1,5 @@
+#![deny(unused_crate_dependencies)]
+
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
 use ipfs_api::{IpfsApi, IpfsClient};
