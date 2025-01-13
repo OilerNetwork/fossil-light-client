@@ -28,5 +28,11 @@ fn main() {
         }
     }
 
-    env::commit(&true);
+    // Collect base_fee_per_gas values
+    let base_fees: Vec<String> = input.headers()
+        .iter()
+        .map(|header| header.base_fee_per_gas.clone().unwrap_or_default())
+        .collect();
+
+    env::commit(&base_fees);
 }

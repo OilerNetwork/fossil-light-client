@@ -1,6 +1,6 @@
 services:
   mmr-builder:
-    image: build-mmr:latest
+    image: fossil-build-mmr:latest
     networks:
       - fossil
     env_file:
@@ -14,7 +14,7 @@ services:
     command: ["-b", "4", "-n", "1", "-e", ".env.docker"]
 
   relayer:
-    image: relayer:latest
+    image: fossil-relayer:latest
     networks:
       - fossil
     env_file:
@@ -33,7 +33,7 @@ services:
       retries: 3
 
   client:
-    image: client:latest
+    image: fossil-client:latest
     env_file:
       - ${ENV_FILE:-.env.docker}
     volumes:

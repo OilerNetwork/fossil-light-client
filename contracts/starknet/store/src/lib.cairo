@@ -6,9 +6,7 @@ pub trait IFossilStore<TContractState> {
         min_update_interval: u64,
     );
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
-    fn update_mmr_state(
-        ref self: TContractState, journal: verifier::Journal, ipfs_hash: Option<ByteArray>,
-    );
+    fn update_mmr_state(ref self: TContractState, journal: verifier::Journal, ipfs_hash: ByteArray);
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
     fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
     fn get_latest_mmr_block(self: @TContractState) -> u64;
@@ -98,7 +96,7 @@ mod Store {
         }
 
         fn update_mmr_state(
-            ref self: ContractState, journal: verifier::Journal, ipfs_hash: Option<ByteArray>,
+            ref self: ContractState, journal: verifier::Journal, ipfs_hash: ByteArray,
         ) {
             assert!(
                 starknet::get_caller_address() == self.verifier_address.read(),
@@ -136,10 +134,7 @@ mod Store {
             curr_state.latest_mmr_block_hash.write(journal.latest_mmr_block_hash);
             curr_state.leaves_count.write(journal.leaves_count);
             curr_state.root_hash.write(journal.root_hash);
-            match ipfs_hash {
-                Option::Some(hash) => curr_state.ipfs_hash.write(hash),
-                Option::None => {},
-            }
+            curr_state.ipfs_hash.write(ipfs_hash);
 
             self
                 .emit(

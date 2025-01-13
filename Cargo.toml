@@ -9,9 +9,9 @@ members = [
     "crates/publisher",
     "crates/guest-types",
     "crates/ethereum",
-    "crates/mmr-utils", 
+    "crates/mmr-utils",
     "crates/guest-mmr",
-    "crates/ipfs-utils"
+    "crates/ipfs-utils", "crates/state-proof-api",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
@@ -38,7 +38,7 @@ tracing = "0.1.40"
 tokio = "1.41.1"
 dotenv = "0.15"
 clap = { version = "4.4.11", features = ["derive"] }
+axum = { version = "0.8", features = ["macros"] }
 
 [patch.crates-io]
 sha2 = { git = "https://github.com/risc0/RustCrypto-hashes.git", tag = "sha2-v0.10.8-risczero.0" }
-starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs.git", branch = "master" }

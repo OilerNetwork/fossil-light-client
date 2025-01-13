@@ -23,19 +23,19 @@ echo -e "${BLUE}Building anvil image...${NC}"
 docker buildx build --load -f docker/Dockerfile.anvil -t anvil:latest . $VERBOSE
 
 echo -e "${BLUE}Building katana image...${NC}"
-docker buildx build --load -f docker/Dockerfile.katana -t katana:latest . $VERBOSE
+docker buildx build --load -f docker/Dockerfile.katana -t fossil-katana:latest . $VERBOSE
 
 echo -e "${BLUE}Building deploy image...${NC}"
-docker buildx build --load -f docker/Dockerfile.deploy -t deploy:latest . $VERBOSE
+docker buildx build --load -f docker/Dockerfile.deploy -t fossil-deploy:latest . $VERBOSE
 
 echo -e "${BLUE}Building build-mmr image...${NC}"
-docker buildx build --load -f docker/Dockerfile.build-mmr -t build-mmr:latest . $VERBOSE
+docker buildx build --load -f docker/Dockerfile.build-mmr -t fossil-build-mmr:latest . $VERBOSE
 
 echo -e "${BLUE}Building relayer image...${NC}"
-docker buildx build --load -f docker/Dockerfile.relayer -t relayer:latest . $VERBOSE
+docker buildx build --load -f docker/Dockerfile.relayer -t fossil-relayer:latest . $VERBOSE
 
 echo -e "${BLUE}Building client image...${NC}"
-docker buildx build --load -f docker/Dockerfile.client -t client:latest . $VERBOSE
+docker buildx build --load -f docker/Dockerfile.client -t fossil-client:latest . $VERBOSE
 
 # Clean up the builder
 echo -e "${BLUE}Cleaning up builder...${NC}"

@@ -1,17 +1,19 @@
+use crate::db::DbConnection;
 use crate::errors::ValidatorError;
 use crate::{core::ProofGenerator, utils::Stark};
 use common::get_or_create_db_path;
 use guest_types::{BlocksValidityInput, GuestProof, MMRInput};
-use methods::{BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID};
+use ipfs_utils::IpfsManager;
+use methods::{VALIDATE_BLOCKS_AND_EXTRACT_FEES_ELF, VALIDATE_BLOCKS_AND_EXTRACT_FEES_ID};
 use mmr::{PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, StoreManager};
 use starknet::core::types::U256;
 use starknet_handler::provider::StarknetProvider;
 use starknet_handler::u256_from_hex;
 use std::collections::HashMap;
+use std::path::Path;
 use store::SqlitePool;
-use tracing::error;
-// use eth_rlp_verify::are_blocks_and_chain_valid;
+use tracing::{error, info, warn};
 
 pub struct ValidatorBuilder<'a> {
     rpc_url: &'a str,
@@ -36,7 +38,10 @@ impl<'a> ValidatorBuilder<'a> {
             ));
         }
 
-        let proof_generator = ProofGenerator::new(BLOCKS_VALIDITY_ELF, BLOCKS_VALIDITY_ID)?;
+        let proof_generator = ProofGenerator::new(
+            VALIDATE_BLOCKS_AND_EXTRACT_FEES_ELF,
+            VALIDATE_BLOCKS_AND_EXTRACT_FEES_ID,
+        )?;
 
         Ok(Self {
             rpc_url,
@@ -48,13 +53,26 @@ impl<'a> ValidatorBuilder<'a> {
         })
     }
 
-    pub async fn verify_blocks_integrity_and_inclusion(
+    pub async fn validate_blocks_and_extract_fees(
         &self,
-        headers: &Vec<eth_rlp_types::BlockHeader>,
+        start_block: u64,
+        end_block: u64,
     ) -> Result<Vec<Stark>, ValidatorError> {
-        self.validate_headers(headers)?;
+        let db_connection = DbConnection::new().await.map_err(|e| {
+            error!(error = %e, "Failed to create DB connection");
+            e
+        })?;
+        let headers: Vec<eth_rlp_types::BlockHeader> = db_connection
+            .get_block_headers_by_block_range(start_block, end_block)
+            .await
+            .map_err(|e| {
+                error!(error = %e, "Failed to fetch block headers");
+                e
+            })?;
 
-        let mmrs = self.initialize_mmrs_for_headers(headers).await?;
+        self.validate_headers(&headers)?;
+
+        let mmrs = self.initialize_mmrs_for_headers(&headers).await?;
 
         if self.skip_proof {
             tracing::info!("Skipping MMR root verification as skip_proof is enabled");
@@ -63,14 +81,14 @@ impl<'a> ValidatorBuilder<'a> {
             self.verify_mmr_roots(&mmrs).await?;
         }
 
-        let block_indexes = self.collect_block_indexes(headers, &mmrs).await?;
-        self.generate_proofs_for_batches(headers, &mmrs, &block_indexes)
+        let block_indexes = self.collect_block_indexes(&headers, &mmrs).await?;
+        self.generate_proofs_for_batches(&headers, &mmrs, &block_indexes)
             .await
     }
 
     fn validate_headers(
         &self,
-        headers: &[eth_rlp_types::BlockHeader],
+        headers: &Vec<eth_rlp_types::BlockHeader>,
     ) -> Result<(), ValidatorError> {
         if headers.is_empty() {
             return Err(ValidatorError::InvalidInput("Headers list cannot be empty"));
@@ -106,11 +124,14 @@ impl<'a> ValidatorBuilder<'a> {
         onchain_roots_map: &HashMap<u64, U256>,
     ) -> Result<(), ValidatorError> {
         let mmr_elements_count = mmr.elements_count.get().await?;
+
         let bag = mmr.bag_the_peaks(Some(mmr_elements_count)).await?;
-        let mmr_root = u256_from_hex(
-            &mmr.calculate_root_hash(&bag, mmr_elements_count)?
-                .to_string(),
-        )?;
+
+        let mmr_root_hex = mmr
+            .calculate_root_hash(&bag, mmr_elements_count)?
+            .to_string();
+
+        let mmr_root = u256_from_hex(&mmr_root_hex)?;
 
         let onchain_root = onchain_roots_map
             .get(batch_index)
@@ -228,20 +249,48 @@ impl<'a> ValidatorBuilder<'a> {
         headers: &[eth_rlp_types::BlockHeader],
     ) -> Result<HashMap<u64, (StoreManager, MMR, SqlitePool)>, ValidatorError> {
         let mut mmrs = HashMap::new();
+        let provider = StarknetProvider::new(&self.rpc_url)?;
+        let ipfs_manager = IpfsManager::new();
 
         for header in headers {
             let batch_index = header.number as u64 / self.batch_size;
 
             if !mmrs.contains_key(&batch_index) {
+                let mmr_state = provider
+                    .get_mmr_state(&self.l2_store_address, batch_index)
+                    .await?;
+
                 let batch_file_name = get_or_create_db_path(&format!("batch_{}.db", batch_index))
                     .map_err(|e| {
                     error!(error = %e, "Failed to get or create DB path");
                     ValidatorError::Store(store::StoreError::GetError)
                 })?;
-                if !std::path::Path::new(&batch_file_name).exists() {
-                    error!("Batch file does not exist: {}", batch_file_name);
-                    return Err(ValidatorError::Store(store::StoreError::GetError));
+
+                let ipfs_hash = mmr_state.ipfs_hash();
+                let ipfs_hash_str = String::try_from(ipfs_hash)
+                    .map_err(|_| ValidatorError::Store(store::StoreError::GetError))?;
+                match ipfs_manager
+                    .fetch_db(&ipfs_hash_str, Path::new(&batch_file_name))
+                    .await
+                {
+                    Ok(_) => {
+                        info!(
+                            "Successfully downloaded DB from IPFS for batch {}",
+                            batch_index
+                        );
+                    }
+                    Err(e) => {
+                        warn!(
+                            error = %e,
+                            batch_index = batch_index,
+                            "Failed to fetch DB from IPFS, falling back to local file"
+                        );
+                        if !std::path::Path::new(&batch_file_name).exists() {
+                            return Err(ValidatorError::Store(store::StoreError::GetError));
+                        }
+                    }
                 }
+
                 let mmr_components = initialize_mmr(&batch_file_name).await.map_err(|e| {
                     error!(error = %e, "Failed to initialize MMR");
                     ValidatorError::Store(store::StoreError::GetError)

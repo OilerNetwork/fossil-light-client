@@ -1,6 +1,6 @@
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
-use publisher::{db::DbConnection, prove_headers_integrity_and_inclusion};
+use publisher::extract_fees;
 use tokio;
 
 #[derive(Parser, Debug)]
@@ -13,6 +13,10 @@ struct Args {
     /// End block number
     #[arg(long, short)]
     end_block: u64,
+
+    /// Batch size
+    #[arg(long, short, default_value_t = 1024)]
+    batch_size: u64,
 
     /// Skip proof generation
     #[arg(long)]
@@ -28,18 +32,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
-    // Fetch block headers
-    let db_connection = DbConnection::new().await?;
-    let headers = db_connection
-        .get_block_headers_by_block_range(args.start_block, args.end_block)
-        .await?;
-
     // Verify blocks
-    match prove_headers_integrity_and_inclusion(
+    match extract_fees(
         &rpc_url,
         &l2_store_address,
         chain_id,
-        &headers,
+        args.batch_size,
+        args.start_block,
+        args.end_block,
         Some(args.skip_proof),
     )
     .await

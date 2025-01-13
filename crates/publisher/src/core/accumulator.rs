@@ -245,7 +245,7 @@ impl<'a> AccumulatorBuilder<'a> {
     async fn verify_proof(
         &self,
         calldata: Vec<Felt>,
-        ipfs_hash: Option<String>,
+        ipfs_hash: String,
     ) -> Result<(), AccumulatorError> {
         let starknet_account = self.batch_processor.mmr_state_manager().account();
 

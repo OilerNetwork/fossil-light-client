@@ -36,6 +36,26 @@ pub enum StarknetHandlerError {
 }
 
 #[derive(Clone, Debug, Encode, Decode)]
+pub struct MmrSnapshot {
+    batch_index: u64,
+    latest_mmr_block: u64,
+    latest_mmr_block_hash: U256,
+    root_hash: U256,
+    leaves_count: u64,
+    ipfs_hash: ByteArray,
+}
+
+impl MmrSnapshot {
+    pub fn root_hash(&self) -> U256 {
+        self.root_hash
+    }
+
+    pub fn ipfs_hash(&self) -> ByteArray {
+        self.ipfs_hash.clone()
+    }
+}
+
+#[derive(Clone, Debug, Encode, Decode)]
 pub struct MmrState {
     latest_mmr_block: u64,
     latest_mmr_block_hash: U256,
