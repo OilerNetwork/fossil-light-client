@@ -2,7 +2,7 @@
 
 set -e
 
-# Use RELAYER_INTERVAL from environment, default to 720 if not set
+# Use RELAYER_INTERVAL from environment, default to 3 if not set
 INTERVAL_MINUTES=${RELAYER_INTERVAL:-3}
 MAX_RETRIES=3
 RETRY_DELAY=10  # seconds

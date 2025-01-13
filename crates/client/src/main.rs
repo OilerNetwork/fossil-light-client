@@ -26,7 +26,7 @@ struct Args {
     start_block: u64,
 
     /// Maximum number of blocks to process in each loop run (0 for unlimited)
-    #[arg(short = 'n', long, default_value = "0")]
+    #[arg(short = 'n', long, default_value = "100")]
     blocks_per_run: u64,
 }
 

@@ -67,7 +67,7 @@ impl LightClient {
         let starknet_private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
         let starknet_account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
         let chain_id = get_env_var("CHAIN_ID")?.parse::<u64>()?;
-        
+
         // Initialize providers
         let starknet_provider = StarknetProvider::new(&starknet_rpc_url)?;
 
@@ -152,7 +152,7 @@ impl LightClient {
         let to_block = if self.blocks_per_run > 0 {
             std::cmp::min(
                 self.latest_processed_events_block + self.blocks_per_run,
-                latest_block
+                latest_block,
             )
         } else {
             latest_block
@@ -164,8 +164,7 @@ impl LightClient {
         if from_block > to_block {
             error!(
                 from_block,
-                to_block,
-                "Invalid block range: from_block is greater than to_block"
+                to_block, "Invalid block range: from_block is greater than to_block"
             );
             return Ok(());
         }
@@ -209,10 +208,7 @@ impl LightClient {
         );
 
         if !events.events.is_empty() {
-            info!(
-                event_count = events.events.len(),
-                "Processing new events"
-            );
+            info!(event_count = events.events.len(), "Processing new events");
 
             // Process the events and update MMR
             self.handle_events().await?;
@@ -261,8 +257,7 @@ impl LightClient {
         if latest_mmr_block >= latest_relayed_block {
             info!(
                 latest_mmr_block,
-                latest_relayed_block,
-                "MMR already up to date with latest relayed block"
+                latest_relayed_block, "MMR already up to date with latest relayed block"
             );
             return Ok(());
         }
@@ -292,9 +287,7 @@ impl LightClient {
         // Update our tracking of the latest processed MMR block
         self.latest_processed_mmr_block = latest_relayed_block;
 
-        info!(
-            "Proof verification completed successfully"
-        );
+        info!("Proof verification completed successfully");
         Ok(())
     }
 }
