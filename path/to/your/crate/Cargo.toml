@@ -1,2 +1,0 @@
-[dependencies]
-ipfs-utils = { path = "../ipfs-utils" } 
