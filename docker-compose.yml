@@ -37,15 +37,17 @@ services:
       - "5050:5050"
     volumes:
       - ./config:/app/config
-    command: 
-      - katana
-      - --messaging
-      - /app/config/anvil.messaging.docker.json
-      - --dev
-      - --dev.no-fee
-      - --dev.no-account-validation
-      - --http.addr
-      - 0.0.0.0
+    command:
+      - "katana"
+      - "--messaging"
+      - "/app/config/anvil.messaging.docker.json"
+      - "--dev"
+      - "--dev.no-fee"
+      - "--dev.no-account-validation"
+      - "--http.addr"
+      - "0.0.0.0"
+      - "--block-time"
+      - "10000"
     depends_on:
       anvil:
         condition: service_healthy
