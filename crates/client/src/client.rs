@@ -1,7 +1,7 @@
 use common::get_env_var;
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
-    core::types::{BlockId, BlockTag, EventFilter, Felt},
+    core::types::{BlockId, EventFilter, Felt},
     macros::selector,
     providers::Provider as EventProvider,
 };
@@ -120,11 +120,19 @@ impl LightClient {
 
     /// Processes new events from the Starknet store contract.
     pub async fn process_new_events(&mut self) -> Result<(), LightClientError> {
+        // Get the latest block number
+        let latest_block = match self.starknet_provider.provider().block_number().await? {
+            number => number.saturating_sub(10), // Stay 10 blocks behind to handle reorgs
+        };
+
         // Poll for new events, starting from the block after the last processed block
         let to_block = if self.blocks_per_run > 0 {
-            BlockId::Number(self.latest_processed_block + self.blocks_per_run)
+            BlockId::Number(std::cmp::min(
+                self.latest_processed_block + self.blocks_per_run,
+                latest_block
+            ))
         } else {
-            BlockId::Tag(BlockTag::Latest)
+            BlockId::Number(latest_block)
         };
 
         let event_filter = EventFilter {
