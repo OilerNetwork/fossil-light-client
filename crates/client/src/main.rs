@@ -20,6 +20,14 @@ struct Args {
     /// Number of blocks to process in each batch
     #[arg(short, long, default_value = "1024")]
     batch_size: u64,
+
+    /// Starting block number for indexing
+    #[arg(short = 's', long, default_value = "0")]
+    start_block: u64,
+
+    /// Maximum number of blocks to process in each loop run (0 for unlimited)
+    #[arg(short = 'n', long, default_value = "0")]
+    blocks_per_run: u64,
 }
 
 #[tokio::main]
@@ -32,7 +40,12 @@ async fn main() -> Result<()> {
 
     tracing::info!("Starting Fossil Light Client...");
 
-    let mut client = LightClient::new(args.polling_interval, args.batch_size).await?;
+    let mut client = LightClient::new(
+        args.polling_interval, 
+        args.batch_size,
+        args.start_block,
+        args.blocks_per_run,
+    ).await?;
     client.run().await?;
     Ok(())
 }

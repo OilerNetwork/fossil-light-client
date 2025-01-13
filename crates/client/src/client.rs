@@ -43,11 +43,17 @@ pub struct LightClient {
     starknet_account_address: String,
     polling_interval: Duration,
     batch_size: u64,
+    blocks_per_run: u64,
 }
 
 impl LightClient {
     /// Creates a new instance of the light client.
-    pub async fn new(polling_interval: u64, batch_size: u64) -> Result<Self, LightClientError> {
+    pub async fn new(
+        polling_interval: u64,
+        batch_size: u64,
+        start_block: u64,
+        blocks_per_run: u64,
+    ) -> Result<Self, LightClientError> {
         if polling_interval == 0 {
             error!("Polling interval must be greater than zero");
             return Err(LightClientError::PollingIntervalError);
@@ -76,11 +82,12 @@ impl LightClient {
             l2_store_addr,
             verifier_addr,
             chain_id,
-            latest_processed_block: 0,
+            latest_processed_block: start_block,
             starknet_private_key,
             starknet_account_address,
             polling_interval: Duration::from_secs(polling_interval),
             batch_size,
+            blocks_per_run,
         })
     }
 
@@ -114,9 +121,15 @@ impl LightClient {
     /// Processes new events from the Starknet store contract.
     pub async fn process_new_events(&mut self) -> Result<(), LightClientError> {
         // Poll for new events, starting from the block after the last processed block
+        let to_block = if self.blocks_per_run > 0 {
+            BlockId::Number(self.latest_processed_block + self.blocks_per_run)
+        } else {
+            BlockId::Tag(BlockTag::Latest)
+        };
+
         let event_filter = EventFilter {
             from_block: Some(BlockId::Number(self.latest_processed_block + 1)),
-            to_block: Some(BlockId::Tag(BlockTag::Latest)),
+            to_block: Some(to_block),
             address: Some(Felt::from_hex(&self.l2_store_addr)?),
             keys: Some(vec![vec![selector!("LatestBlockhashFromL1Stored")]]),
         };
@@ -140,6 +153,16 @@ impl LightClient {
                 .last()
                 .and_then(|event| event.block_number)
                 .unwrap_or(self.latest_processed_block);
+
+            // Check if we've reached the block limit for this run
+            if self.blocks_per_run > 0 && 
+               new_latest_block > self.latest_processed_block + self.blocks_per_run {
+                info!(
+                    "Reached block limit for this run. Stopping at block {}",
+                    self.latest_processed_block + self.blocks_per_run
+                );
+                return Ok(());
+            }
 
             // Invariant check: new_latest_block should be greater or equal to the current
             if new_latest_block < self.latest_processed_block {
