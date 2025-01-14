@@ -435,15 +435,15 @@ impl<'a> AccumulatorBuilder<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mockall::predicate::*;
     use mockall::mock;
-    use starknet_handler::MmrState;
-    use starknet_handler::account::StarknetAccount;
+    use mockall::predicate::*;
     use starknet::core::types::U256;
     use starknet::providers::jsonrpc::HttpTransport;
-    use std::sync::Arc;
     use starknet::providers::JsonRpcClient;
     use starknet::providers::Url;
+    use starknet_handler::account::StarknetAccount;
+    use starknet_handler::MmrState;
+    use std::sync::Arc;
 
     mock! {
         #[derive(Clone)]
@@ -458,12 +458,8 @@ mod tests {
             // Create a new StarknetAccount for testing
             let transport = HttpTransport::new(Url::parse("http://localhost:8545").unwrap());
             let provider = Arc::new(JsonRpcClient::new(transport));
-            
-            StarknetAccount::new(
-                provider,
-                "0x123",
-                "0x456",
-            ).unwrap()
+
+            StarknetAccount::new(provider, "0x123", "0x456").unwrap()
         }
     }
 
@@ -498,7 +494,7 @@ mod tests {
         let account = MockStarknetAccount::new();
         let rpc_url = "http://localhost:8545".to_string();
         let store_addr = "0x456".to_string();
-        
+
         // Test empty verifier address
         let binding = "".to_string();
         let result = AccumulatorBuilder::new(
@@ -595,21 +591,21 @@ mod tests {
 
         // Create BatchResult with all required parameters
         let mmr_state = MmrState::new(
-            100,                    // size
-            U256::from(0_u64),     // root_hash
-            U256::from(0_u64),     // prev_root
-            0,                     // last_pos
-            None,                  // last_leaf
+            100,               // size
+            U256::from(0_u64), // root_hash
+            U256::from(0_u64), // prev_root
+            0,                 // last_pos
+            None,              // last_leaf
         );
 
         let batch_result = BatchResult::new(
-            100,                    // start_block
-            200,                    // end_block
-            mmr_state,              // mmr_state
-            None,                   // proof
+            100,                     // start_block
+            200,                     // end_block
+            mmr_state,               // mmr_state
+            None,                    // proof
             "test_hash".to_string(), // ipfs_hash
         );
-        
+
         let result = builder.handle_batch_result(&batch_result).await;
         assert!(result.is_ok());
     }

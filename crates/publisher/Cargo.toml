@@ -48,4 +48,7 @@ risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum", ta
 [dev-dependencies]
 mockall = "0.13"
 tokio = { version = "1.0", features = ["full"] }
+starknet-handler = { path = "../starknet-handler" }
+# tokio-test = "0.4"
+# hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = ["sha256"] }
 # jsonrpc-core-client = { version = "18.0.0", features = ["http"] }
