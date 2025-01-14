@@ -17,5 +17,7 @@ clap = { workspace = true }
 thiserror = { workspace = true }
 dotenv = { workspace = true }
 
-
+[dev-dependencies]
+mockall = "0.13"
+tempfile = "3.8"
 

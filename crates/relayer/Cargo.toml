@@ -21,3 +21,7 @@ alloy = { version = "0.6.4", features = [
 ] }
 alloy-contract = "0.6.4"
 alloy-sol-types = { version = "0.8.12", features = ["json"] }
+
+[dev-dependencies]
+tokio = { version = "1.0", features = ["full", "test-util"] }
+serial_test = "2.0"

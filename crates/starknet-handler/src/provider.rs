@@ -150,3 +150,135 @@ impl StarknetProvider {
         Ok(block_number)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::mock;
+    use mockall::predicate;
+    use mockall::predicate::*;
+    // use std::str::FromStr;
+
+    #[test]
+    fn test_provider_new() {
+        let rpc_url = "http://localhost:5050";
+        let provider = StarknetProvider::new(rpc_url);
+        assert!(provider.is_ok());
+
+        let provider = provider.unwrap();
+        assert_eq!(provider.rpc_url(), rpc_url);
+    }
+
+    #[test]
+    fn test_provider_new_invalid_url() {
+        let rpc_url = "not-a-valid-url";
+        let provider = StarknetProvider::new(rpc_url);
+        assert!(provider.is_err());
+    }
+
+    #[test]
+    fn test_provider_getters() {
+        let rpc_url = "http://localhost:5050";
+        let provider = StarknetProvider::new(rpc_url).unwrap();
+
+        assert_eq!(provider.rpc_url(), rpc_url);
+        assert!(Arc::strong_count(&provider.provider()) >= 1);
+    }
+
+    mock! {
+        Provider {
+            fn call(
+                &self,
+                function_call: FunctionCall,
+                block_id: BlockId,
+            ) -> Result<Vec<Felt>, starknet::providers::ProviderError>;
+        }
+    }
+
+    #[tokio::test]
+    async fn test_get_latest_mmr_block() {
+        let expected_block = 42u64;
+
+        let mut mock_provider = MockProvider::new();
+        mock_provider
+            .expect_call()
+            .with(
+                predicate::function(|call: &FunctionCall| {
+                    call.entry_point_selector == selector!("get_latest_mmr_block")
+                }),
+                predicate::eq(BlockId::Tag(BlockTag::Latest)),
+            )
+            .return_once(move |_, _| Ok(vec![Felt::from(expected_block)]));
+
+        // TODO: Inject mock provider into StarknetProvider
+        // let provider = StarknetProvider::with_provider(mock_provider);
+        // let result = provider.get_latest_mmr_block(l2_store_address).await;
+        // assert!(result.is_ok());
+        // assert_eq!(result.unwrap(), expected_block);
+    }
+
+    #[tokio::test]
+    async fn test_get_min_mmr_block() {
+        let expected_block = 10u64;
+
+        let mut mock_provider = MockProvider::new();
+        mock_provider
+            .expect_call()
+            .with(
+                predicate::function(|call: &FunctionCall| {
+                    call.entry_point_selector == selector!("get_min_mmr_block")
+                }),
+                predicate::eq(BlockId::Tag(BlockTag::Latest)),
+            )
+            .return_once(move |_, _| Ok(vec![Felt::from(expected_block)]));
+
+        // TODO: Similar to above test
+    }
+
+    #[tokio::test]
+    async fn test_get_mmr_state() {
+        let batch_index = 5u64;
+
+        let mut mock_provider = MockProvider::new();
+        mock_provider
+            .expect_call()
+            .with(
+                predicate::function(move |call: &FunctionCall| {
+                    call.entry_point_selector == selector!("get_mmr_state")
+                        && call.calldata == vec![Felt::from(batch_index)]
+                }),
+                predicate::eq(BlockId::Tag(BlockTag::Latest)),
+            )
+            .return_once(move |_, _| {
+                // Create a mock MmrSnapshot response
+                Ok(vec![
+                    Felt::from(1u64), // root
+                    Felt::from(2u64), // size
+                ])
+            });
+
+        // TODO: Similar to above tests
+    }
+
+    #[tokio::test]
+    async fn test_get_latest_relayed_block() {
+        let expected_block = 100u64;
+
+        let mut mock_provider = MockProvider::new();
+        mock_provider
+            .expect_call()
+            .with(
+                predicate::function(|call: &FunctionCall| {
+                    call.entry_point_selector == selector!("get_latest_blockhash_from_l1")
+                }),
+                predicate::eq(BlockId::Tag(BlockTag::Latest)),
+            )
+            .return_once(move |_, _| {
+                Ok(vec![
+                    Felt::from_hex(&format!("{:x}", expected_block)).unwrap()
+                ])
+            });
+
+        // TODO: Similar to above tests
+    }
+}
