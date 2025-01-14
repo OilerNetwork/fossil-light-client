@@ -296,3 +296,105 @@ impl BlocksValidityInput {
         &self.mmr_input
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_append_result() {
+        let result = AppendResult::new(10, 15, 5, "test_hash".to_string());
+        
+        assert_eq!(result.leaves_count(), 10);
+        assert_eq!(result.last_element_idx(), 15);
+        assert_eq!(result.element_index(), 5);
+        assert_eq!(result.value(), "test_hash");
+    }
+
+    #[test]
+    fn test_guest_output() {
+        let output = GuestOutput::new(
+            1,
+            100,
+            "block_hash".to_string(),
+            "root_hash".to_string(),
+            50,
+        );
+
+        assert_eq!(output.batch_index(), 1);
+        assert_eq!(output.latest_mmr_block(), 100);
+        assert_eq!(output.latest_mmr_block_hash(), "block_hash");
+        assert_eq!(output.root_hash(), "root_hash");
+        assert_eq!(output.leaves_count(), 50);
+    }
+
+    #[test]
+    fn test_combined_input() {
+        let mmr_input = MMRInput::new(
+            vec!["peak1".to_string()],
+            10,
+            5,
+            vec!["elem1".to_string()],
+        );
+
+        let input = CombinedInput::new(
+            1,
+            100,
+            Vec::new(),
+            mmr_input.clone(),
+            Some("batch_link".to_string()),
+            Some("next_link".to_string()),
+            false,
+        );
+
+        assert_eq!(input.chain_id(), 1);
+        assert_eq!(input.batch_size(), 100);
+        assert!(input.headers().is_empty());
+        assert_eq!(input.batch_link(), Some("batch_link"));
+        assert_eq!(input.next_batch_link(), Some("next_link"));
+        assert!(!input.skip_proof_verification());
+        
+        // Test MMRInput getters
+        assert_eq!(input.mmr_input().elements_count(), 10);
+        assert_eq!(input.mmr_input().leaves_count(), 5);
+        assert_eq!(input.mmr_input().initial_peaks(), vec!["peak1"]);
+    }
+
+    #[test]
+    fn test_final_hash() {
+        let hash = FinalHash::new("test_hash".to_string(), 42);
+        
+        assert_eq!(hash.hash(), "test_hash");
+        assert_eq!(hash.index(), 42);
+    }
+
+    #[test]
+    fn test_blocks_validity_input() {
+        let mmr_input = MMRInput::new(
+            vec!["peak1".to_string()],
+            10,
+            5,
+            vec!["elem1".to_string()],
+        );
+
+        let guest_proof = GuestProof {
+            element_index: 1,
+            element_hash: "hash".to_string(),
+            siblings_hashes: vec!["sibling".to_string()],
+            peaks_hashes: vec!["peak".to_string()],
+            elements_count: 10,
+        };
+
+        let input = BlocksValidityInput::new(
+            1,
+            Vec::new(),
+            mmr_input,
+            vec![guest_proof],
+        );
+
+        assert_eq!(input.chain_id(), 1);
+        assert!(input.headers().is_empty());
+        assert_eq!(input.proofs().len(), 1);
+        assert_eq!(input.mmr_input().elements_count(), 10);
+    }
+}
