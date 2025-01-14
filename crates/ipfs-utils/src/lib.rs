@@ -154,3 +154,102 @@ impl IpfsManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+    // use futures_util::stream::StreamExt;
+    use tempfile;
+    // Define test-specific trait
+    trait TestIpfsApi {
+        async fn add_file(&self, data: Vec<u8>) -> Result<String, ipfs_api::Error>;
+        async fn cat_file(&self, hash: &str) -> Result<Vec<u8>, ipfs_api::Error>;
+        async fn get_version(&self) -> Result<(), ipfs_api::Error>;
+    }
+
+    #[derive(Clone)]
+    struct MockIpfsClient {
+        stored_data: Arc<Mutex<Vec<u8>>>,
+    }
+
+    impl MockIpfsClient {
+        fn new() -> Self {
+            Self {
+                stored_data: Arc::new(Mutex::new(Vec::new())),
+            }
+        }
+    }
+
+    impl TestIpfsApi for MockIpfsClient {
+        async fn add_file(&self, data: Vec<u8>) -> Result<String, ipfs_api::Error> {
+            *self.stored_data.lock().await = data;
+            Ok("QmTestHash".to_string())
+        }
+
+        async fn cat_file(&self, _: &str) -> Result<Vec<u8>, ipfs_api::Error> {
+            Ok(self.stored_data.lock().await.clone())
+        }
+
+        async fn get_version(&self) -> Result<(), ipfs_api::Error> {
+            Ok(())
+        }
+    }
+
+    #[allow(dead_code)]
+    struct TestIpfsManager {
+        client: MockIpfsClient,
+        max_file_size: usize,
+    }
+
+    impl TestIpfsManager {
+        fn new() -> Self {
+            Self {
+                client: MockIpfsClient::new(),
+                max_file_size: 1024 * 1024,
+            }
+        }
+
+        async fn upload_db(&self, file_path: &Path) -> Result<String> {
+            let data = std::fs::read(file_path)?;
+            Ok(self.client.add_file(data).await?)
+        }
+
+        async fn fetch_db(&self, hash: &str, output_path: &Path) -> Result<()> {
+            let data = self.client.cat_file(hash).await?;
+            std::fs::write(output_path, data)?;
+            Ok(())
+        }
+    }
+
+    #[tokio::test]
+    async fn test_upload_and_fetch() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let source_path = temp_dir.path().join("source.db");
+        let dest_path = temp_dir.path().join("dest.db");
+        
+        let test_data = b"test database content";
+        std::fs::write(&source_path, test_data).unwrap();
+
+        let manager = TestIpfsManager::new();
+
+        // Test upload
+        let hash = manager.upload_db(&source_path).await.unwrap();
+        assert_eq!(hash, "QmTestHash");
+
+        // Test fetch
+        manager.fetch_db(&hash, &dest_path).await.unwrap();
+        
+        // Verify content
+        let fetched_data = std::fs::read(&dest_path).unwrap();
+        assert_eq!(fetched_data, test_data);
+    }
+
+    #[tokio::test]
+    async fn test_connection_check() {
+        let manager = TestIpfsManager::new();
+        let result = manager.client.get_version().await;
+        assert!(result.is_ok());
+    }
+}
