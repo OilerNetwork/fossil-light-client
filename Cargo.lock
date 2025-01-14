@@ -4300,6 +4300,7 @@ dependencies = [
  "methods",
  "mmr",
  "mmr-utils",
+ "mockall",
  "risc0-ethereum-contracts",
  "risc0-zkvm",
  "serde",
