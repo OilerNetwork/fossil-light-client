@@ -9,6 +9,45 @@ use starknet_handler::provider::StarknetProvider;
 use tokio::time::{self, Duration};
 use tracing::{error, info, instrument};
 
+#[cfg(test)]
+use mockall::automock;
+
+#[cfg(test)]
+#[automock]
+trait StarknetProviderFactory {
+    fn create_provider(
+        &self,
+        rpc_url: &str,
+    ) -> Result<StarknetProvider, starknet_handler::StarknetHandlerError>;
+}
+
+#[cfg(test)]
+#[automock]
+trait DatabaseUtils {
+    fn ensure_directory_exists(
+        &self,
+        path: &str,
+    ) -> Result<std::path::PathBuf, mmr_utils::MMRUtilsError>;
+    fn create_database_file(
+        &self,
+        dir: &std::path::Path,
+        index: u64,
+    ) -> Result<String, mmr_utils::MMRUtilsError>;
+}
+
+#[cfg(test)]
+#[automock]
+trait EnvVarReader {
+    fn get_env_var(&self, key: &str) -> Result<String, common::UtilsError>;
+}
+
+#[cfg(test)]
+pub(crate) struct TestDependencies {
+    db_utils: Box<dyn DatabaseUtils>,
+    env_reader: Box<dyn EnvVarReader>,
+    provider_factory: Box<dyn StarknetProviderFactory>,
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum LightClientError {
     #[error("Starknet handler error: {0}")]
@@ -287,5 +326,203 @@ impl LightClient {
 
         info!("Proof verification completed successfully");
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub async fn new_with_deps(
+        polling_interval: u64,
+        batch_size: u64,
+        start_block: u64,
+        blocks_per_run: u64,
+        deps: TestDependencies,
+    ) -> Result<Self, LightClientError> {
+        if polling_interval == 0 {
+            error!("Polling interval must be greater than zero");
+            return Err(LightClientError::PollingIntervalError);
+        }
+
+        // Load environment variables
+        let starknet_rpc_url = deps.env_reader.get_env_var("STARKNET_RPC_URL")?;
+        let l2_store_addr = deps.env_reader.get_env_var("FOSSIL_STORE")?;
+        let verifier_addr = deps.env_reader.get_env_var("FOSSIL_VERIFIER")?;
+        let starknet_private_key = deps.env_reader.get_env_var("STARKNET_PRIVATE_KEY")?;
+        let starknet_account_address = deps.env_reader.get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
+        let chain_id = deps.env_reader.get_env_var("CHAIN_ID")?.parse::<u64>()?;
+
+        // Set up the database file path
+        let current_dir = deps
+            .db_utils
+            .ensure_directory_exists("../../db-instances")?;
+        let db_file = deps.db_utils.create_database_file(&current_dir, 0)?;
+
+        if !std::path::Path::new(&db_file).exists() {
+            error!("Database file does not exist at path: {}", db_file);
+            return Err(LightClientError::ConfigError(db_file));
+        }
+
+        Ok(Self {
+            starknet_provider: deps.provider_factory.create_provider(&starknet_rpc_url)?,
+            l2_store_addr,
+            verifier_addr,
+            chain_id,
+            latest_processed_events_block: start_block.saturating_sub(1),
+            latest_processed_mmr_block: start_block.saturating_sub(1),
+            starknet_private_key,
+            starknet_account_address,
+            polling_interval: Duration::from_secs(polling_interval),
+            batch_size,
+            blocks_per_run,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[tokio::test]
+    async fn test_lightclient_new_valid_inputs() {
+        let mut mock_db = MockDatabaseUtils::new();
+        let mut mock_env = MockEnvVarReader::new();
+        let mut mock_provider_factory = MockStarknetProviderFactory::new();
+
+        let tmp_dir = tempdir().unwrap();
+        let db_path = tmp_dir.path().join("dbfile_0.sqlite");
+        std::fs::File::create(&db_path).unwrap();
+
+        mock_db
+            .expect_ensure_directory_exists()
+            .returning(move |_| Ok(tmp_dir.path().to_path_buf()));
+
+        mock_db
+            .expect_create_database_file()
+            .returning(move |_, _| Ok(db_path.to_string_lossy().to_string()));
+
+        mock_env.expect_get_env_var().returning(|key| {
+            Ok(match key {
+                "STARKNET_RPC_URL" => "http://localhost:5050".to_string(),
+                "FOSSIL_STORE" => "0x1".to_string(),
+                "FOSSIL_VERIFIER" => "0x2".to_string(),
+                "STARKNET_PRIVATE_KEY" => "testkey".to_string(),
+                "STARKNET_ACCOUNT_ADDRESS" => "0xabc".to_string(),
+                "CHAIN_ID" => "5".to_string(),
+                _ => "dummy".to_string(),
+            })
+        });
+
+        mock_provider_factory
+            .expect_create_provider()
+            .returning(|rpc_url| Ok(StarknetProvider::new(rpc_url).unwrap()));
+
+        let deps = TestDependencies {
+            db_utils: Box::new(mock_db),
+            env_reader: Box::new(mock_env),
+            provider_factory: Box::new(mock_provider_factory),
+        };
+
+        let client = LightClient::new_with_deps(10, 100, 0, 10, deps).await;
+        assert!(client.is_ok());
+        let client = client.unwrap();
+        assert_eq!(client.chain_id, 5);
+        assert_eq!(client.polling_interval.as_secs(), 10);
+        assert_eq!(client.batch_size, 100);
+    }
+
+    #[tokio::test]
+    async fn test_lightclient_new_zero_polling_interval() {
+        let mock_db = MockDatabaseUtils::new();
+        let mock_env = MockEnvVarReader::new();
+        let mock_provider_factory = MockStarknetProviderFactory::new();
+
+        let deps = TestDependencies {
+            db_utils: Box::new(mock_db),
+            env_reader: Box::new(mock_env),
+            provider_factory: Box::new(mock_provider_factory),
+        };
+
+        let result = LightClient::new_with_deps(0, 100, 0, 10, deps).await;
+        assert!(matches!(
+            result,
+            Err(LightClientError::PollingIntervalError)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_lightclient_new_missing_db_file() {
+        let mut mock_db = MockDatabaseUtils::new();
+        let mut mock_env = MockEnvVarReader::new();
+        let mut mock_provider_factory = MockStarknetProviderFactory::new();
+
+        let tmp_dir = tempdir().unwrap();
+        let db_path = tmp_dir.path().join("nonexistent_file.sqlite");
+
+        mock_db
+            .expect_ensure_directory_exists()
+            .returning(move |_| Ok(tmp_dir.path().to_path_buf()));
+
+        mock_db
+            .expect_create_database_file()
+            .returning(move |_, _| Ok(db_path.to_string_lossy().to_string()));
+
+        // Mock all required environment variables
+        mock_env.expect_get_env_var().returning(|key| {
+            Ok(match key {
+                "STARKNET_RPC_URL" => "http://localhost:5050".to_string(),
+                "FOSSIL_STORE" => "0x1".to_string(),
+                "FOSSIL_VERIFIER" => "0x2".to_string(),
+                "STARKNET_PRIVATE_KEY" => "testkey".to_string(),
+                "STARKNET_ACCOUNT_ADDRESS" => "0xabc".to_string(),
+                "CHAIN_ID" => "5".to_string(),
+                _ => "dummy".to_string(),
+            })
+        });
+
+        mock_provider_factory
+            .expect_create_provider()
+            .returning(|_| Ok(StarknetProvider::new("http://localhost:5050").unwrap()));
+
+        let deps = TestDependencies {
+            db_utils: Box::new(mock_db),
+            env_reader: Box::new(mock_env),
+            provider_factory: Box::new(mock_provider_factory),
+        };
+
+        let result = LightClient::new_with_deps(10, 100, 0, 10, deps).await;
+
+        // The file doesn't exist, so we should get ConfigError
+        assert!(matches!(result, Err(LightClientError::ConfigError(_))));
+    }
+
+    #[tokio::test]
+    async fn test_lightclient_new_bad_chain_id() {
+        let mut mock_db = MockDatabaseUtils::new();
+        let mut mock_env = MockEnvVarReader::new();
+        let mut mock_provider_factory = MockStarknetProviderFactory::new();
+
+        let tmp_dir = tempdir().unwrap();
+        mock_db
+            .expect_ensure_directory_exists()
+            .returning(move |_| Ok(tmp_dir.path().to_path_buf()));
+
+        mock_env.expect_get_env_var().returning(|key| {
+            Ok(match key {
+                "CHAIN_ID" => "not_a_number".to_string(),
+                _ => "dummy".to_string(),
+            })
+        });
+
+        mock_provider_factory
+            .expect_create_provider()
+            .returning(|rpc_url| Ok(StarknetProvider::new(rpc_url).unwrap()));
+
+        let deps = TestDependencies {
+            db_utils: Box::new(mock_db),
+            env_reader: Box::new(mock_env),
+            provider_factory: Box::new(mock_provider_factory),
+        };
+
+        let result = LightClient::new_with_deps(10, 100, 0, 10, deps).await;
+        assert!(matches!(result, Err(LightClientError::ChainIdError(_))));
     }
 }

@@ -131,16 +131,16 @@ mod tests {
     fn test_get_env_var() {
         // Setup
         env::set_var("TEST_KEY", "test_value");
-        
+
         // Test existing var
         let result = get_env_var("TEST_KEY");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), "test_value");
-        
+
         // Test missing var
         let result = get_env_var("NONEXISTENT_KEY");
         assert!(result.is_err());
-        
+
         // Cleanup
         env::remove_var("TEST_KEY");
     }
@@ -149,17 +149,17 @@ mod tests {
     fn test_get_var() {
         // Setup
         env::set_var("TEST_NUMBER", "42");
-        
+
         // Test valid integer
         let result: Result<i32, _> = get_var("TEST_NUMBER");
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), 42);
-        
+
         // Test invalid format
         env::set_var("TEST_INVALID", "not_a_number");
         let result: Result<i32, _> = get_var("TEST_INVALID");
         assert!(result.is_err());
-        
+
         // Cleanup
         env::remove_var("TEST_NUMBER");
         env::remove_var("TEST_INVALID");
@@ -170,11 +170,11 @@ mod tests {
         // Test valid hex string
         let result = felt("0x1234");
         assert!(result.is_ok());
-        
+
         // Test invalid hex string
         let result = felt("invalid_hex");
         assert!(result.is_err());
-        
+
         // Test string array conversion
         let string_array = vec!["0x1234".to_string(), "0x5678".to_string()];
         let result = string_array_to_felt_array(string_array);
@@ -186,7 +186,7 @@ mod tests {
     fn test_get_or_create_db_path() {
         let result = get_or_create_db_path("test_db.sqlite");
         assert!(result.is_ok());
-        
+
         if let Ok(path) = result {
             // Verify the path exists
             assert!(PathBuf::from(&path).exists());
