@@ -159,9 +159,8 @@ impl IpfsManager {
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use tokio::sync::Mutex;
-    // use futures_util::stream::StreamExt;
     use tempfile;
+    use tokio::sync::Mutex;
     // Define test-specific trait
     trait TestIpfsApi {
         async fn add_file(&self, data: Vec<u8>) -> Result<String, ipfs_api::Error>;
@@ -207,16 +206,27 @@ mod tests {
         fn new() -> Self {
             Self {
                 client: MockIpfsClient::new(),
-                max_file_size: 1024 * 1024,
+                max_file_size: 1024 * 1024, // 1MB limit
             }
         }
 
         async fn upload_db(&self, file_path: &Path) -> Result<String> {
             let data = std::fs::read(file_path)?;
+
+            // Check file size
+            if data.len() > self.max_file_size {
+                return Err(anyhow::anyhow!("File size exceeds maximum allowed size"));
+            }
+
             Ok(self.client.add_file(data).await?)
         }
 
         async fn fetch_db(&self, hash: &str, output_path: &Path) -> Result<()> {
+            // Basic hash validation like the real implementation
+            if !hash.starts_with("Qm") {
+                return Err(IpfsError::InvalidHash(hash.to_string()).into());
+            }
+
             let data = self.client.cat_file(hash).await?;
             std::fs::write(output_path, data)?;
             Ok(())
@@ -228,7 +238,7 @@ mod tests {
         let temp_dir = tempfile::tempdir().unwrap();
         let source_path = temp_dir.path().join("source.db");
         let dest_path = temp_dir.path().join("dest.db");
-        
+
         let test_data = b"test database content";
         std::fs::write(&source_path, test_data).unwrap();
 
@@ -240,7 +250,7 @@ mod tests {
 
         // Test fetch
         manager.fetch_db(&hash, &dest_path).await.unwrap();
-        
+
         // Verify content
         let fetched_data = std::fs::read(&dest_path).unwrap();
         assert_eq!(fetched_data, test_data);
@@ -250,6 +260,48 @@ mod tests {
     async fn test_connection_check() {
         let manager = TestIpfsManager::new();
         let result = manager.client.get_version().await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_file_size_limit() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let large_file = temp_dir.path().join("large.db");
+
+        // Create file larger than max size
+        let large_data = vec![0u8; 2 * 1024 * 1024]; // 2MB
+        std::fs::write(&large_file, large_data).unwrap();
+
+        let manager = TestIpfsManager::new();
+        let result = manager.upload_db(&large_file).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_invalid_file_path() {
+        let manager = TestIpfsManager::new();
+        let result = manager.upload_db(Path::new("/nonexistent/path")).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_invalid_hash() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let output_path = temp_dir.path().join("output.db");
+
+        let manager = TestIpfsManager::new();
+        let result = manager.fetch_db("invalid-hash", &output_path).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_empty_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let empty_file = temp_dir.path().join("empty.db");
+        std::fs::write(&empty_file, b"").unwrap();
+
+        let manager = TestIpfsManager::new();
+        let result = manager.upload_db(&empty_file).await;
         assert!(result.is_ok());
     }
 }

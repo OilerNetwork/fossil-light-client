@@ -304,7 +304,7 @@ mod tests {
     #[test]
     fn test_append_result() {
         let result = AppendResult::new(10, 15, 5, "test_hash".to_string());
-        
+
         assert_eq!(result.leaves_count(), 10);
         assert_eq!(result.last_element_idx(), 15);
         assert_eq!(result.element_index(), 5);
@@ -330,12 +330,7 @@ mod tests {
 
     #[test]
     fn test_combined_input() {
-        let mmr_input = MMRInput::new(
-            vec!["peak1".to_string()],
-            10,
-            5,
-            vec!["elem1".to_string()],
-        );
+        let mmr_input = MMRInput::new(vec!["peak1".to_string()], 10, 5, vec!["elem1".to_string()]);
 
         let input = CombinedInput::new(
             1,
@@ -353,7 +348,7 @@ mod tests {
         assert_eq!(input.batch_link(), Some("batch_link"));
         assert_eq!(input.next_batch_link(), Some("next_link"));
         assert!(!input.skip_proof_verification());
-        
+
         // Test MMRInput getters
         assert_eq!(input.mmr_input().elements_count(), 10);
         assert_eq!(input.mmr_input().leaves_count(), 5);
@@ -363,19 +358,14 @@ mod tests {
     #[test]
     fn test_final_hash() {
         let hash = FinalHash::new("test_hash".to_string(), 42);
-        
+
         assert_eq!(hash.hash(), "test_hash");
         assert_eq!(hash.index(), 42);
     }
 
     #[test]
     fn test_blocks_validity_input() {
-        let mmr_input = MMRInput::new(
-            vec!["peak1".to_string()],
-            10,
-            5,
-            vec!["elem1".to_string()],
-        );
+        let mmr_input = MMRInput::new(vec!["peak1".to_string()], 10, 5, vec!["elem1".to_string()]);
 
         let guest_proof = GuestProof {
             element_index: 1,
@@ -385,12 +375,7 @@ mod tests {
             elements_count: 10,
         };
 
-        let input = BlocksValidityInput::new(
-            1,
-            Vec::new(),
-            mmr_input,
-            vec![guest_proof],
-        );
+        let input = BlocksValidityInput::new(1, Vec::new(), mmr_input, vec![guest_proof]);
 
         assert_eq!(input.chain_id(), 1);
         assert!(input.headers().is_empty());

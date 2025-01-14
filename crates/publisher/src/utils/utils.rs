@@ -2,7 +2,8 @@ use crate::errors::AccumulatorError;
 
 /// Validates that a hex string represents a valid U256 (256-bit unsigned integer)
 pub fn validate_u256_hex(hex: &str) -> Result<(), AccumulatorError> {
-    if !hex.starts_with("0x") || hex.len() <= 2 {  // Check for "0x" prefix and ensure there's data after it
+    if !hex.starts_with("0x") || hex.len() <= 2 {
+        // Check for "0x" prefix and ensure there's data after it
         return Err(AccumulatorError::InvalidU256Hex(hex.to_string()));
     }
 
@@ -30,7 +31,7 @@ mod tests {
         assert!(validate_u256_hex("0x123").is_ok());
         assert!(validate_u256_hex("0xabc").is_ok());
         assert!(validate_u256_hex("0xABC123").is_ok());
-        
+
         // Edge cases - valid
         assert!(validate_u256_hex("0x0").is_ok());
         assert!(validate_u256_hex(&("0x".to_owned() + &"f".repeat(64))).is_ok()); // Max length

@@ -3263,6 +3263,7 @@ dependencies = [
  "anyhow",
  "futures-util",
  "ipfs-api",
+ "tempfile",
  "thiserror 2.0.9",
  "tokio",
  "tracing",

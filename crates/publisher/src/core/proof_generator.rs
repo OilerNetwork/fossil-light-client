@@ -239,14 +239,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_generate_stark_proof_invalid_input() {
-        let proof_generator = ProofGenerator::<Vec<u8>>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
+        let proof_generator =
+            ProofGenerator::<Vec<u8>>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
         let result = proof_generator.generate_stark_proof(vec![]).await;
         assert!(result.is_err());
     }
 
     #[tokio::test]
     async fn test_generate_groth16_proof_invalid_input() {
-        let proof_generator = ProofGenerator::<Vec<u8>>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
+        let proof_generator =
+            ProofGenerator::<Vec<u8>>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
         let result = proof_generator.generate_groth16_proof(vec![]).await;
         assert!(result.is_err());
     }
@@ -262,7 +264,7 @@ mod tests {
         // - ExecutorEnv
         // - default_prover
         // - compute_image_id
-        
+
         let generator = ProofGenerator::<TestInput>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
         let input = TestInput { value: 42 };
         let result = generator.generate_stark_proof(input).await;
@@ -278,7 +280,7 @@ mod tests {
         // - encode_seal
         // - Groth16Proof conversion
         // - get_groth16_calldata_felt
-        
+
         let generator = ProofGenerator::<TestInput>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
         let input = TestInput { value: 42 };
         let result = generator.generate_groth16_proof(input).await;
