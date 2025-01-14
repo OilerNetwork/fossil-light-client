@@ -4296,6 +4296,7 @@ dependencies = [
  "ethereum",
  "garaga_rs",
  "guest-types",
+ "hasher",
  "ipfs-utils",
  "methods",
  "mmr",
