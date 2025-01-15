@@ -193,7 +193,7 @@ Wait for a “deployments complete” message.
 
 ### 3. Build MMR (Small Test Set)
 ```bash
-cargo run --bin build_mmr -- -b 4 -n 2 -e .env.local
+cargo run --bin build-mmr -- -b 4 -n 2 -e .env.local
 ```
 Output shows the processed block range.
 
