@@ -8,7 +8,7 @@ use axum::{
 };
 use publisher::extract_fees;
 use serde::{Deserialize, Serialize};
-use tracing::{info, error};
+use tracing::{error, info};
 
 #[derive(Deserialize)]
 pub struct BlockRangeParams {

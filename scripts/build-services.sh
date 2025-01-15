@@ -29,7 +29,16 @@ echo -e "${BLUE}Building client image...${NC}"
 docker buildx build --load -f docker/Dockerfile.client -t fossil-client:latest . $VERBOSE
 
 echo -e "${BLUE}Building state-proof-api image...${NC}"
-docker buildx build --load -f docker/Dockerfile.api -t fossil-state-proof-api:latest . $VERBOSE
+docker buildx build --load -f docker/Dockerfile.api \
+  --build-arg BINARY=state-proof-api \
+  -t fossil-state-proof-api:latest \
+  . $VERBOSE
+
+echo -e "${BLUE}Building fetch-fees-proof image...${NC}"
+docker buildx build --load -f docker/Dockerfile.api \
+  --build-arg BINARY=fetch-fees-proof \
+  -t fossil-fetch-fees-proof:latest \
+  . $VERBOSE
 
 # Clean up the builder
 echo -e "${BLUE}Cleaning up builder...${NC}"

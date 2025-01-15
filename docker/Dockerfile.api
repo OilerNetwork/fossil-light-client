@@ -1,9 +1,10 @@
-# Stage 1: Build the application
 FROM rust:latest AS builder
+
+ARG BINARY
 
 WORKDIR /app
 
-# Install required dependencies
+# Install build dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     build-essential \
@@ -27,42 +28,32 @@ RUN curl -L https://risczero.com/install | bash && \
 
 ENV PATH="/root/.risc0/bin:/root/.cargo/bin:$PATH"
 
-# Copy Cargo.toml and Cargo.lock
+# Copy only the necessary files
 COPY Cargo.toml Cargo.lock ./
-
-# Copy all workspace crates
 COPY crates ./crates
 
-# Source .env and build in the same RUN command to preserve environment
+# Build the specified binary
 RUN set -a && \
     . ./.env && \
     set +a && \
-    cargo build --release --package state-proof-api
+    echo "DATABASE_URL is: $DATABASE_URL" && \
+    cargo build --release --bin ${BINARY}
 
 # Stage 2: Create a minimal runtime image
 FROM debian:bookworm-slim
 
-# Set up the working directory
+ARG BINARY
+
 WORKDIR /app
 
-# Install runtime dependencies with OpenSSL 3
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     ca-certificates \
-    openssl \
     libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the .env file for runtime configuration
-COPY .env.docker /app/.env.docker
+COPY --from=builder /app/target/release/${BINARY} /usr/local/bin/
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /app/target/release/state-proof-api /usr/local/bin/state-proof-api
+RUN chmod +x /usr/local/bin/${BINARY}
 
-# Make the binary executable
-RUN chmod +x /usr/local/bin/state-proof-api
-
-# Expose the port the API listens on
-EXPOSE 3000
-
-# Define the entrypoint with default arguments
-ENTRYPOINT ["state-proof-api", "--env-file", "/app/.env.docker"] 
+CMD ["/usr/local/bin/${BINARY}"] 
