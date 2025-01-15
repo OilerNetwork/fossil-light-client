@@ -36,6 +36,43 @@ docker buildx version  # Should work after installing buildx
 
 You should see version numbers for both commands. If you get any errors, consult the [Docker troubleshooting guide](https://docs.docker.com/troubleshoot/).
 
+## Environment Configuration
+
+Before proceeding, you'll need to set up the appropriate environment files:
+
+1. For Docker-based setup (Quick Start):
+   - `.env`: Contains only the database address for building Rust crates
+   - `.env.docker`: Contains configuration for running the application
+   Example files are provided in `config/`:
+   ```bash
+   cp config/.env.example .env
+   cp config/.env.docker.example .env.docker
+   ```
+
+2. For Local Development (Minimal Setup):
+   - `.env.local`: Additional configuration for local development
+   ```bash
+   cp config/.env.local.example .env.local
+   ```
+
+> **Note:** Example configurations can be found in the `config/` directory.
+
+## Dependencies (Non-Docker Setup Only)
+
+The following dependencies are only required if you're NOT using Docker (i.e., for Minimal Setup).
+If you're using the Docker-based Quick Start, you can skip this section.
+
+1. Rust toolchain:
+   ```bash
+   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+   ```
+
+2. Risc0 zkVM toolchain:
+   ```bash
+   curl -L https://risczero.com/install | bash
+   rzup
+   ```
+
 ## Quick Start with Docker
 
 The easiest way to get started is using Docker. This method handles all dependencies and environment setup automatically.
@@ -45,6 +82,9 @@ The easiest way to get started is using Docker. This method handles all dependen
 - Docker
 - Docker Compose
 - Docker Buildx (for Linux users)
+- IPFS Node:
+  - Install [IPFS Desktop](https://github.com/ipfs/ipfs-desktop)
+  - Ensure the IPFS daemon is running before proceeding
 
 ### Building the Images
 
@@ -169,144 +209,99 @@ docker network rm fossil-network
 # Network will be automatically created when running docker-compose up
 ```
 
-## Advanced: Manual Setup with Local Tools
+## Minimal Setup for State Proof Testing
 
-If you need to run the components locally without Docker, follow these instructions.
+This section describes how to run a minimal subset of the application focused on MMR building and state proof verification.
 
-### Dependencies
+### Prerequisites
 
-Required toolchain components:
+1. IPFS Node:
+   - Install [IPFS Desktop](https://github.com/ipfs/ipfs-desktop)
+   - Make sure the IPFS daemon is running before proceeding
 
-1. Rust toolchain:
+2. Rust toolchain:
    ```bash
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
    ```
 
-2. Risc0 zkVM toolchain:
+3. Risc0 zkVM toolchain:
    ```bash
    curl -L https://risczero.com/install | bash
    rzup
    ```
 
-3. Dojo framework:
-   ```bash
-   curl -L https://install.dojoengine.org | bash
-   dojoup 
-   ```
+### 1. Build Network Images
 
-4. Foundry development framework:
-   ```bash
-   curl -L https://foundry.paradigm.xyz | bash
-   foundryup
-   ```
-
-### Manual Setup Instructions
-
-#### Terminal 1: Anvil Ethereum Devnet Configuration
-
-1. Load environment configuration:
-   ```bash
-   source .env
-   ```
-
-2. Initialize Anvil instance with mainnet fork:
-   ```bash
-   anvil --fork-url $ETH_RPC_URL --block-time 12
-   ```
-
-> **Technical Note:** Configure `${ETH_RPC_URL}` in `anvil.env` with an RPC endpoint (Infura/Alchemy) for mainnet state replication.
-
-#### Terminal 2: Katana Starknet Devnet Initialization
-
-1. Source environment variables:
-   ```bash
-   source .env
-   ```
-
-2. Configure `anvil.messaging.json` with fork block parameters from Anvil initialization output.
-
-3. Initialize Katana with L1 messaging bridge:
-   ```bash
-   katana --messaging $ANVIL_CONFIG --disable-fee --disable-validate
-   ```
-
-#### Terminal 3: Contract Deployment Pipeline
-
-1. Initialize environment:
-   ```bash
-   source .env
-   ```
-
-2. Execute deployment pipeline:
-   ```bash
-   ./scripts/deploy.sh
-   ```
-
-#### Terminal 4: MMR Builder Options
-
-The MMR builder supports several options for controlling how the MMR is built:
+First, build the essential network images:
 
 ```bash
-# Build MMR with default settings (from latest finalized block)
-cargo run --bin build_mmr --release
+# Make the build script executable
+chmod +x scripts/build-network.sh
 
-# Build from a specific start block
-cargo run --bin build_mmr --release -- --start-block <BLOCK_NUMBER>
-
-# Build from the latest onchain MMR block
-cargo run --bin build_mmr --release -- --from-latest
-
-# Control batch size
-cargo run --bin build_mmr --release -- --batch-size <SIZE>
-
-# Process specific number of batches
-cargo run --bin build_mmr --release -- --num-batches <COUNT>
-
-# Skip proof verification
-cargo run --bin build_mmr --release -- --skip-proof
-
-# Combine options (examples)
-cargo run --bin build_mmr --release -- --from-latest --num-batches 10
-cargo run --bin build_mmr --release -- --start-block 1000 --batch-size 512
+# Build network images (anvil, katana, deploy)
+./scripts/build-network.sh
 ```
 
-Available options:
-- `--start-block, -s`: Start building from this block number
-- `--from-latest, -l`: Start building from the latest onchain MMR block
-- `--batch-size`: Number of blocks per batch (default: 1024)
-- `--num-batches, -n`: Number of batches to process
-- `--skip-proof, -p`: Skip proof verification
-- `--env-file, -e`: Path to environment file (default: .env)
+### 2. Start Network Services
 
-Note: `--from-latest` and `--start-block` cannot be used together.
-
-#### Terminal 4: Light Client Process
-
-Execute client binary:
-```bash
-cargo run --bin client --release
-```
-
-The client supports the following options:
+Start the core infrastructure and wait for deployments to complete:
 
 ```bash
-# Run with default settings (5 second polling interval)
-cargo run --bin client --release
+# Start network services
+docker-compose up -d
 
-# Run with custom polling interval (in seconds)
-cargo run --bin client --release -- --polling-interval 10
-
-# Use a specific environment file
-cargo run --bin client --release -- --env-file .env.local
+# Monitor deployment progress
+docker-compose logs -f
 ```
 
-Available options:
-- `--polling-interval`: Time between polls in seconds (default: 5)
-- `--env-file, -e`: Path to environment file (default: .env)
+Wait until you see messages indicating that all deployments are complete and environment files are updated.
 
-#### Terminal 5: Block Hash Relayer Process
+### 3. Build MMR (Small Test Set)
 
-Execute relayer process:
+In a new terminal, build a small MMR with 2 batches of 4 blocks each:
+
 ```bash
-./scripts/run_relayer.sh
+cargo run --bin build_mmr -- -b 4 -n 2 -e .env.local
 ```
+
+Monitor the output logs. You'll see information about the blocks being processed. Note the block range being processed - you'll need these numbers for step 5. The output will look similar to:
+
+```
+Starting MMR build... start_block=7494088 end_block=7494095
+```
+
+### 4. Start State Proof API
+
+In a new terminal, start the state proof API service:
+
+```bash
+cargo run --bin state-proof-api -- -b 4 -e .env.local
+```
+
+Wait for the service to start up and begin listening for requests.
+
+### 5. Test Fee Proof Fetching
+
+In a new terminal, run the fee proof fetcher using the block range from step 3:
+
+```bash
+cargo run --bin fetch-fees-proof -- --from-block <start_block> --to-block <end_block>
+```
+
+For example, using the blocks from our example output:
+```bash
+cargo run --bin fetch-fees-proof -- --from-block 7494088 --to-block 7494095
+```
+
+> **Note:** The block range should match the blocks that were added to the MMR in step 3. You can find these numbers in the build_mmr output logs.
+
+## Block Range Selection for Fee State Proofs
+
+When requesting state proofs for fees, you can specify any block range within the available processed blocks. The system processes blocks in batches, but proofs can be requested for any valid range within those batches.
+
+For example, if blocks 7494088-7494095 have been processed:
+- You can request proofs for block range 7494090-7494093
+- Or 7494088-7494095 (full range)
+- Or any other valid subset within these bounds
+
+Note: While the MMR internally processes batches from higher to lower block numbers (e.g., batch 1: 7494092-7494095, batch 2: 7494088-7494091), this is an implementation detail. Your proof requests can span across these internal batch boundaries.
