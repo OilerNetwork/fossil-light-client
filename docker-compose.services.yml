@@ -43,6 +43,19 @@ services:
       - fossil
     command: ["client", "-e", ".env.docker"]
 
+  state-proof-api:
+    image: fossil-state-proof-api:latest
+    env_file:
+      - ${ENV_FILE:-.env.docker}
+    volumes:
+      - ./config:/app/config
+      - ./.env.docker:/app/.env.docker
+    networks:
+      - fossil
+    ports:
+      - "3000:3000"
+    command: ["state-proof-api", "-b", "4", "-e", ".env.docker"]
+
 networks:
   fossil:
     name: fossil-network
