@@ -77,38 +77,12 @@ mod tests {
         env::set_var("STARKNET_ACCOUNT_ADDRESS", "account_addr");
     }
 
-    impl Config {
-        fn from_env_test() -> Result<Self, Box<dyn std::error::Error>> {
-            Ok(Self {
-                chain_id: env::var("CHAIN_ID")?.parse()?,
-                rpc_url: env::var("STARKNET_RPC_URL")?,
-                store_address: env::var("FOSSIL_STORE")?,
-                private_key: env::var("STARKNET_PRIVATE_KEY")?,
-                account_address: env::var("STARKNET_ACCOUNT_ADDRESS")?,
-            })
-        }
-    }
-
     #[test]
     fn test_args_default_values() {
         let args = Args::parse_from(["extract_fees", "--start-block", "100", "--end-block", "200"]);
 
         assert_eq!(args.start_block, 100);
         assert_eq!(args.end_block, 200);
-    }
-
-    #[test]
-    fn test_config_from_env() {
-        setup_test_env();
-        set_valid_env_vars();
-
-        let config = Config::from_env_test().unwrap();
-
-        assert_eq!(config.chain_id, 1);
-        assert_eq!(config.rpc_url, "http://test.url");
-        assert_eq!(config.store_address, "store_addr");
-        assert_eq!(config.private_key, "private_key");
-        assert_eq!(config.account_address, "account_addr");
     }
 
     #[test]
