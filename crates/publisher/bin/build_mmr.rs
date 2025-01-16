@@ -1,5 +1,5 @@
-use publisher::cli::build_mmr::{Args, run};
 use clap::Parser;
+use publisher::cli::build_mmr::{run, Args};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

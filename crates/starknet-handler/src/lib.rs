@@ -111,15 +111,19 @@ impl MmrState {
 #[instrument(level = "debug")]
 pub fn u256_from_hex(hex: &str) -> Result<U256, StarknetHandlerError> {
     let hex_clean = hex.strip_prefix("0x").unwrap_or(hex);
-    
+
     // Validate hex string length
     if hex_clean.len() != 64 {
-        return Err(StarknetHandlerError::ParseError(url::ParseError::InvalidPort));  // Reusing existing error type
+        return Err(StarknetHandlerError::ParseError(
+            url::ParseError::InvalidPort,
+        )); // Reusing existing error type
     }
-    
+
     // Validate hex characters
     if !hex_clean.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(StarknetHandlerError::ParseError(url::ParseError::InvalidPort));
+        return Err(StarknetHandlerError::ParseError(
+            url::ParseError::InvalidPort,
+        ));
     }
 
     let crypto_bigint = CryptoBigIntU256::from_be_hex(hex_clean);
@@ -154,23 +158,33 @@ mod tests {
         );
 
         // Test with "0x" prefix
-        let result = u256_from_hex("0x0000000000000000000000000000000000000000000000000000000000001234").unwrap();
+        let result =
+            u256_from_hex("0x0000000000000000000000000000000000000000000000000000000000001234")
+                .unwrap();
         assert_eq!(result.to_string(), "4660");
 
         // Test with zero
-        let result = u256_from_hex("0000000000000000000000000000000000000000000000000000000000000000").unwrap();
+        let result =
+            u256_from_hex("0000000000000000000000000000000000000000000000000000000000000000")
+                .unwrap();
         assert_eq!(result.to_string(), "0");
 
         // Test with leading zeros
-        let result = u256_from_hex("0000000000000000000000000000000000000000000000000000000000000001").unwrap();
+        let result =
+            u256_from_hex("0000000000000000000000000000000000000000000000000000000000000001")
+                .unwrap();
         assert_eq!(result.to_string(), "1");
     }
 
     #[test]
     fn test_mmr_state() {
         let block = 100u64;
-        let block_hash = u256_from_hex("0000000000000000000000000000000000000000000000000000000000001234").unwrap();
-        let root = u256_from_hex("0000000000000000000000000000000000000000000000000000000000009876").unwrap();
+        let block_hash =
+            u256_from_hex("0000000000000000000000000000000000000000000000000000000000001234")
+                .unwrap();
+        let root =
+            u256_from_hex("0000000000000000000000000000000000000000000000000000000000009876")
+                .unwrap();
         let leaves = 50u64;
         let ipfs = Some(ByteArray::from("0x1234"));
 
@@ -188,13 +202,23 @@ mod tests {
         let snapshot = MmrSnapshot {
             batch_index: 1,
             latest_mmr_block: 100,
-            latest_mmr_block_hash: u256_from_hex("0000000000000000000000000000000000000000000000000000000000001234").unwrap(),
-            root_hash: u256_from_hex("0000000000000000000000000000000000000000000000000000000000009876").unwrap(),
+            latest_mmr_block_hash: u256_from_hex(
+                "0000000000000000000000000000000000000000000000000000000000001234",
+            )
+            .unwrap(),
+            root_hash: u256_from_hex(
+                "0000000000000000000000000000000000000000000000000000000000009876",
+            )
+            .unwrap(),
             leaves_count: 50,
             ipfs_hash: ByteArray::from("0x1234"),
         };
 
-        assert_eq!(snapshot.root_hash(), u256_from_hex("0000000000000000000000000000000000000000000000000000000000009876").unwrap());
+        assert_eq!(
+            snapshot.root_hash(),
+            u256_from_hex("0000000000000000000000000000000000000000000000000000000000009876")
+                .unwrap()
+        );
         assert_eq!(snapshot.ipfs_hash(), ByteArray::from("0x1234"));
     }
 

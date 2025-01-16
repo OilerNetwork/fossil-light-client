@@ -4292,6 +4292,7 @@ dependencies = [
  "starknet-handler",
  "starknet-types-core",
  "store",
+ "tempfile",
  "thiserror 2.0.11",
  "tokio",
  "tracing",

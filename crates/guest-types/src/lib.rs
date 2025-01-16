@@ -249,7 +249,7 @@ impl FinalHash {
     }
 }
 
-#[derive(Debug, Default,Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct GuestProof {
     pub element_index: usize,
     pub element_hash: String,

@@ -52,3 +52,4 @@ starknet-handler = { path = "../starknet-handler" }
 hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = ["sha256"] }
 store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
 # jsonrpc-core-client = { version = "18.0.0", features = ["http"] }
+tempfile = "3.2"

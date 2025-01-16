@@ -1,6 +1,6 @@
+use crate::core::AccumulatorBuilder;
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
-use crate::core::AccumulatorBuilder;
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 
 #[derive(Parser, Debug)]
@@ -82,4 +82,73 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
-} 
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    fn create_test_env_file() -> NamedTempFile {
+        let mut temp = NamedTempFile::new().unwrap();
+        writeln!(
+            temp,
+            r#"
+CHAIN_ID=1
+STARKNET_RPC_URL=http://localhost:5050
+FOSSIL_VERIFIER=0x1234
+FOSSIL_STORE=0x5678
+STARKNET_PRIVATE_KEY=0x123456789
+STARKNET_ACCOUNT_ADDRESS=0x987654321
+"#
+        )
+        .unwrap();
+        temp
+    }
+
+    #[test]
+    fn test_args_default_values() {
+        let args = Args::parse_from(&["test"]);
+        assert_eq!(args.batch_size, 1024);
+        assert_eq!(args.skip_proof, false);
+        assert_eq!(args.env_file, ".env");
+        assert_eq!(args.from_latest, false);
+        assert!(args.num_batches.is_none());
+        assert!(args.start_block.is_none());
+    }
+
+    #[test]
+    fn test_custom_batch_size() {
+        let args = Args::parse_from(&["test", "--batch-size", "2048"]);
+        assert_eq!(args.batch_size, 2048);
+    }
+
+    #[test]
+    fn test_invalid_batch_size() {
+        let result = Args::try_parse_from(&["test", "--batch-size", "invalid"]);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.to_string().contains("invalid digit found in string"));
+    }
+
+    #[tokio::test]
+    async fn test_conflicting_args() {
+        let env_file = create_test_env_file();
+        let args = Args {
+            batch_size: 1024,
+            num_batches: None,
+            skip_proof: false,
+            env_file: env_file.path().to_str().unwrap().to_string(),
+            start_block: Some(100),
+            from_latest: true,
+        };
+
+        let result = run(args).await;
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "Cannot specify both --from-latest and --start-block"
+        );
+    }
+}
