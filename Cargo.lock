@@ -4280,6 +4280,7 @@ dependencies = [
  "methods",
  "mmr",
  "mmr-utils",
+ "pyo3",
  "risc0-ethereum-contracts",
  "risc0-zkvm",
  "serde",

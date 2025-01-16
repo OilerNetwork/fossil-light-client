@@ -27,9 +27,10 @@ ipfs-utils = { path = "../ipfs-utils" }
 eth-rlp-types = { workspace = true }
 # eth-rlp-verify = { workspace = true }
 
-garaga_rs = { git = "https://github.com/keep-starknet-strange/garaga.git",branch = "main" }
+garaga_rs = { git = "https://github.com/keep-starknet-strange/garaga.git", branch = "main", default-features = false }
 mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
 store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
+pyo3 = { version = "0.23.3", features = ["extension-module"] }
 
 thiserror = { workspace = true }
 tracing = { workspace = true }
@@ -45,4 +46,6 @@ starknet-types-core = "0.1.7"
 serde = "1.0"
 risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum", tag = "v1.2.0" }
 
-
+[lib]
+name = "publisher"
+crate-type = ["cdylib", "rlib"]
