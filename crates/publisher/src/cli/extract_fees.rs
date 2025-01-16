@@ -15,6 +15,7 @@ pub struct Args {
     pub end_block: u64,
 }
 
+#[derive(Debug)]
 pub struct Config {
     pub chain_id: u64,
     pub rpc_url: String,
@@ -113,9 +114,6 @@ mod tests {
     #[test]
     fn test_config_missing_env() {
         setup_test_env();
-        set_valid_env_vars();
-        env::remove_var("CHAIN_ID");
-
         let result = Config::from_env();
         assert!(result.is_err());
     }
@@ -123,10 +121,10 @@ mod tests {
     #[test]
     fn test_config_invalid_chain_id() {
         setup_test_env();
-        set_valid_env_vars(); // Set all variables first
-        env::set_var("CHAIN_ID", "not_a_number"); // Then override CHAIN_ID with invalid value
+        set_valid_env_vars();
+        env::set_var("CHAIN_ID", "invalid_chain_id");
 
-        let result = Config::from_env_test();
+        let result = Config::from_env();
         assert!(result.is_err());
     }
 }
