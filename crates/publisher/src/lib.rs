@@ -3,6 +3,7 @@ use clap as _;
 use dotenv as _;
 
 pub mod api;
+pub mod cli;
 pub mod core;
 pub mod db;
 pub mod errors;
