@@ -132,8 +132,8 @@ mod tests {
         );
         // Use a valid 51-byte Starknet address
         env::set_var(
-            "L2_MSG_PROXY", 
-            "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81"
+            "L2_MSG_PROXY",
+            "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81",
         );
         env::set_var("ETH_RPC_URL", "http://localhost:8545");
         env::set_var(
@@ -172,7 +172,11 @@ mod tests {
         let relayer = relayer.unwrap();
         assert_eq!(
             relayer.l2_recipient_addr,
-            U256::from_str_radix("07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81", 16).unwrap()
+            U256::from_str_radix(
+                "07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81",
+                16
+            )
+            .unwrap()
         );
     }
 
@@ -201,7 +205,11 @@ mod tests {
         // Verify the relayer is properly configured
         assert_eq!(
             relayer.l2_recipient_addr,
-            U256::from_str_radix("07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81", 16).unwrap()
+            U256::from_str_radix(
+                "07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81",
+                16
+            )
+            .unwrap()
         );
     }
 
@@ -255,7 +263,10 @@ mod tests {
 
         // Set up environment with invalid private key format
         env::set_var("ACCOUNT_PRIVATE_KEY", "not_a_hex_string");
-        env::set_var("L2_MSG_PROXY", "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81");
+        env::set_var(
+            "L2_MSG_PROXY",
+            "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81",
+        );
 
         let result = Relayer::new().await;
         assert!(result.is_err());
@@ -292,7 +303,10 @@ mod tests {
 
         // Set up environment with private key that's too short
         env::set_var("ACCOUNT_PRIVATE_KEY", "1234");
-        env::set_var("L2_MSG_PROXY", "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81");
+        env::set_var(
+            "L2_MSG_PROXY",
+            "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81",
+        );
 
         let result = Relayer::new().await;
         assert!(result.is_err());
