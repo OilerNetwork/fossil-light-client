@@ -197,15 +197,19 @@ impl<'a> AccumulatorBuilder<'a> {
                 })?
             {
                 self.handle_batch_result(&result).await?;
+                let ipfs_hash = result.ipfs_hash();
                 let calldata = result
                     .proof()
                     .map(|proof| proof.calldata())
                     .unwrap_or_else(Vec::new);
+
                 batch_results.push((calldata, result.new_mmr_state()));
+
                 debug!(
                     batch_start = batch_range.start,
                     batch_end = batch_range.end,
-                    "Batch processed successfully"
+                    ipfs_hash,
+                    "Batch processed and saved to IPFS successfully"
                 );
             }
 

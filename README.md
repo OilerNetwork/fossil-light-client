@@ -189,13 +189,13 @@ docker-compose up -d
 docker-compose logs -f
 ```
 
-Wait for a “deployments complete” message.
+Wait for "Environment variables successfully updated" message.
 
 ### 3. Build MMR (Small Test Set)
 ```bash
 cargo run --bin build-mmr -- -b 4 -n 2 -e .env.local
 ```
-Output shows the processed block range.
+Wait for "MMR build completed successfully" message. The output shows the processed block range.
 
 ### 4. Start State Proof API
 ```bash
