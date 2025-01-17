@@ -27,7 +27,7 @@ ipfs-utils = { path = "../ipfs-utils" }
 eth-rlp-types = { workspace = true }
 # eth-rlp-verify = { workspace = true }
 
-garaga_rs = { git = "https://github.com/keep-starknet-strange/garaga.git",branch = "main" }
+garaga_rs = { git = "https://github.com/keep-starknet-strange/garaga.git", branch = "main" }
 mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
 store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
 
@@ -49,6 +49,12 @@ risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum", ta
 mockall = "0.13"
 tokio = { version = "1.0", features = ["full"] }
 starknet-handler = { path = "../starknet-handler" }
-hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = ["sha256"] }
+hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = [
+    "sha256",
+] }
 store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
 # tempfile = "3.2"
+
+[lib]
+name = "publisher"
+crate-type = ["cdylib", "rlib"]
