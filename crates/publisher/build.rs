@@ -34,9 +34,12 @@ fn main() {
     println!("cargo:rustc-link-lib=intl");
     println!("cargo:rustc-link-lib=dl");
 
-    // On macOS, we need these frameworks
-    println!("cargo:rustc-link-lib=framework=CoreFoundation");
-    println!("cargo:rustc-link-lib=framework=System");
+    // Only include macOS-specific frameworks when targeting Apple platforms
+    #[cfg(target_vendor = "apple")]
+    {
+        println!("cargo:rustc-link-lib=framework=CoreFoundation");
+        println!("cargo:rustc-link-lib=framework=System");
+    }
 
     // Add rpath
     println!("cargo:rustc-link-arg=-Wl,-rpath,{}/lib", python_prefix);
