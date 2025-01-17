@@ -14,5 +14,5 @@ tokio = { version = "1.28", features = ["full"] }
 anyhow = "1.0"
 futures-util = "0.3"
 
-[features]
-ipfs-integration-tests = []  # Empty feature flag for integration tests
+[dev-dependencies]
+tempfile = "3.5"

@@ -412,3 +412,151 @@ impl From<LocalGuestProof> for GuestProof {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::mock;
+    use mockall::predicate::*;
+
+    // Mock StarknetProvider
+    mock! {
+        pub StarknetProvider {
+            fn new(rpc_url: &str) -> Result<Self, ValidatorError>;
+            fn get_mmr_state(&self, address: &str, batch_index: u64) -> Result<MmrState, ValidatorError>;
+        }
+    }
+
+    // Mock MMR State
+    #[allow(dead_code)]
+    #[derive(Clone)]
+    struct MmrState {
+        root_hash: U256,
+        ipfs_hash: String,
+    }
+
+    #[allow(dead_code)]
+    impl MmrState {
+        fn root_hash(&self) -> U256 {
+            self.root_hash.clone()
+        }
+
+        fn ipfs_hash(&self) -> String {
+            self.ipfs_hash.clone()
+        }
+    }
+
+    #[tokio::test]
+    async fn test_validator_builder_new() {
+        let result = ValidatorBuilder::new("http://localhost:8545", "0x123", 1, 100, false).await;
+
+        assert!(result.is_ok());
+        let builder = result.unwrap();
+        assert_eq!(builder.batch_size, 100);
+        assert_eq!(builder.chain_id, 1);
+        assert_eq!(builder.skip_proof, false);
+    }
+
+    #[tokio::test]
+    async fn test_validator_builder_new_invalid_batch_size() {
+        let result = ValidatorBuilder::new("http://localhost:8545", "0x123", 1, 0, false).await;
+
+        assert!(matches!(result, Err(ValidatorError::InvalidInput(_))));
+    }
+
+    #[tokio::test]
+    async fn test_validate_headers_empty() {
+        let builder = ValidatorBuilder::new("http://localhost:8545", "0x123", 1, 100, false)
+            .await
+            .unwrap();
+
+        let headers = vec![];
+        let result = builder.validate_headers(&headers);
+
+        assert!(matches!(result, Err(ValidatorError::InvalidInput(_))));
+    }
+
+    #[tokio::test]
+    async fn test_validate_headers_valid() {
+        let builder = ValidatorBuilder::new("http://localhost:8545", "0x123", 1, 100, false)
+            .await
+            .unwrap();
+
+        let header = eth_rlp_types::BlockHeader {
+            number: 1,
+            block_hash: "0x123".to_string(),
+            ..Default::default()
+        };
+        let headers = vec![header];
+
+        let result = builder.validate_headers(&headers);
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_batch_block_indexes() {
+        let builder = ValidatorBuilder::new("http://localhost:8545", "0x123", 1, 100, false)
+            .await
+            .unwrap();
+
+        let block_indexes = vec![(1, 0), (2, 0), (3, 1), (4, 1)];
+        let batch_0_indexes = builder.get_batch_block_indexes(&block_indexes, 0);
+        let batch_1_indexes = builder.get_batch_block_indexes(&block_indexes, 1);
+
+        assert_eq!(batch_0_indexes, vec![1, 2]);
+        assert_eq!(batch_1_indexes, vec![3, 4]);
+    }
+
+    #[tokio::test]
+    async fn test_get_batch_headers() {
+        let builder = ValidatorBuilder::new("http://localhost:8545", "0x123", 1, 100, false)
+            .await
+            .unwrap();
+
+        let headers = vec![
+            eth_rlp_types::BlockHeader {
+                number: 50,
+                block_hash: "0x1".to_string(),
+                ..Default::default()
+            },
+            eth_rlp_types::BlockHeader {
+                number: 150,
+                block_hash: "0x2".to_string(),
+                ..Default::default()
+            },
+        ];
+
+        let batch_0_headers = builder.get_batch_headers(&headers, 0);
+        let batch_1_headers = builder.get_batch_headers(&headers, 1);
+
+        assert_eq!(batch_0_headers.len(), 1);
+        assert_eq!(batch_0_headers[0].block_hash, "0x1");
+
+        assert_eq!(batch_1_headers.len(), 1);
+        assert_eq!(batch_1_headers[0].block_hash, "0x2");
+    }
+
+    #[tokio::test]
+    async fn test_validate_proofs_count() {
+        let builder = ValidatorBuilder::new("http://localhost:8545", "0x123", 1, 100, false)
+            .await
+            .unwrap();
+
+        let headers = vec![
+            eth_rlp_types::BlockHeader::default(),
+            eth_rlp_types::BlockHeader::default(),
+        ];
+
+        let guest_proofs = vec![GuestProof::default()];
+
+        let result = builder.validate_proofs_count(&headers, &guest_proofs, 0);
+        assert!(matches!(
+            result,
+            Err(ValidatorError::InvalidProofsCount { .. })
+        ));
+
+        let guest_proofs = vec![GuestProof::default(), GuestProof::default()];
+        let result = builder.validate_proofs_count(&headers, &guest_proofs, 0);
+        assert!(result.is_ok());
+    }
+}

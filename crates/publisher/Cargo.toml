@@ -45,4 +45,10 @@ starknet-types-core = "0.1.7"
 serde = "1.0"
 risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum", tag = "v1.2.0" }
 
-
+[dev-dependencies]
+mockall = "0.13"
+tokio = { version = "1.0", features = ["full"] }
+starknet-handler = { path = "../starknet-handler" }
+hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = ["sha256"] }
+store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
+# tempfile = "3.2"

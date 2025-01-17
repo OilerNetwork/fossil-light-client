@@ -15,6 +15,7 @@ use crate::{
     utils::{Groth16, Stark},
 };
 
+#[derive(Debug)]
 pub struct ProofGenerator<T> {
     method_elf: &'static [u8],
     method_id: [u32; 8],
@@ -198,5 +199,99 @@ where
 
         let receipt = proof.receipt();
         Ok(receipt.journal.decode()?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde::{Deserialize, Serialize};
+
+    // Mock data structure for testing
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    struct TestInput {
+        value: u32,
+    }
+
+    const TEST_METHOD_ELF: &[u8] = &[1, 2, 3, 4]; // Mock ELF data
+    const TEST_METHOD_ID: [u32; 8] = [1, 0, 0, 0, 0, 0, 0, 0];
+
+    #[test]
+    fn test_new_proof_generator() {
+        // Test successful creation
+        let result = ProofGenerator::<TestInput>::new(TEST_METHOD_ELF, TEST_METHOD_ID);
+        assert!(result.is_ok());
+
+        // Test empty ELF
+        let result = ProofGenerator::<TestInput>::new(&[], TEST_METHOD_ID);
+        assert!(matches!(
+            result.unwrap_err(),
+            ProofGeneratorError::InvalidInput(_)
+        ));
+
+        // Test zero method ID
+        let result = ProofGenerator::<TestInput>::new(TEST_METHOD_ELF, [0; 8]);
+        assert!(matches!(
+            result.unwrap_err(),
+            ProofGeneratorError::InvalidInput(_)
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_generate_stark_proof_invalid_input() {
+        let proof_generator =
+            ProofGenerator::<Vec<u8>>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
+        let result = proof_generator.generate_stark_proof(vec![]).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_generate_groth16_proof_invalid_input() {
+        let proof_generator =
+            ProofGenerator::<Vec<u8>>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
+        let result = proof_generator.generate_groth16_proof(vec![]).await;
+        assert!(result.is_err());
+    }
+
+    // Note: Testing the actual proof generation would require mock implementations
+    // of the RISC Zero prover and related components. Here's a sketch of how that
+    // might look with proper mocking:
+
+    /*
+    #[tokio::test]
+    async fn test_generate_stark_proof_success() {
+        // Would need to mock:
+        // - ExecutorEnv
+        // - default_prover
+        // - compute_image_id
+
+        let generator = ProofGenerator::<TestInput>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
+        let input = TestInput { value: 42 };
+        let result = generator.generate_stark_proof(input).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_generate_groth16_proof_success() {
+        // Would need to mock:
+        // - ExecutorEnv
+        // - default_prover
+        // - compute_image_id
+        // - encode_seal
+        // - Groth16Proof conversion
+        // - get_groth16_calldata_felt
+
+        let generator = ProofGenerator::<TestInput>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
+        let input = TestInput { value: 42 };
+        let result = generator.generate_groth16_proof(input).await;
+        assert!(result.is_ok());
+    }
+    */
+
+    #[test]
+    fn test_decode_journal() {
+        // Would need mock Groth16 proof with valid journal data
+        // This test would verify that journal decoding works correctly
+        // and handles errors appropriately
     }
 }

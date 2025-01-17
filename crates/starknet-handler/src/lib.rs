@@ -112,6 +112,20 @@ impl MmrState {
 pub fn u256_from_hex(hex: &str) -> Result<U256, StarknetHandlerError> {
     let hex_clean = hex.strip_prefix("0x").unwrap_or(hex);
 
+    // Validate hex string length
+    if hex_clean.len() != 64 {
+        return Err(StarknetHandlerError::ParseError(
+            url::ParseError::InvalidPort,
+        )); // Reusing existing error type
+    }
+
+    // Validate hex characters
+    if !hex_clean.chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(StarknetHandlerError::ParseError(
+            url::ParseError::InvalidPort,
+        ));
+    }
+
     let crypto_bigint = CryptoBigIntU256::from_be_hex(hex_clean);
     let result = U256::from(crypto_bigint);
 
@@ -142,12 +156,81 @@ mod tests {
             result.to_string(),
             "115792089237316195423570985008687907853269984665640564039457584007913129639935"
         );
+
+        // Test with "0x" prefix
+        let result =
+            u256_from_hex("0x0000000000000000000000000000000000000000000000000000000000001234")
+                .unwrap();
+        assert_eq!(result.to_string(), "4660");
+
+        // Test with zero
+        let result =
+            u256_from_hex("0000000000000000000000000000000000000000000000000000000000000000")
+                .unwrap();
+        assert_eq!(result.to_string(), "0");
+
+        // Test with leading zeros
+        let result =
+            u256_from_hex("0000000000000000000000000000000000000000000000000000000000000001")
+                .unwrap();
+        assert_eq!(result.to_string(), "1");
     }
 
     #[test]
-    #[should_panic]
-    fn test_u256_from_hex_invalid_input() {
-        // Test invalid hex string (contains non-hex characters)
-        u256_from_hex("0xghijkl").unwrap();
+    fn test_mmr_state() {
+        let block = 100u64;
+        let block_hash =
+            u256_from_hex("0000000000000000000000000000000000000000000000000000000000001234")
+                .unwrap();
+        let root =
+            u256_from_hex("0000000000000000000000000000000000000000000000000000000000009876")
+                .unwrap();
+        let leaves = 50u64;
+        let ipfs = Some(ByteArray::from("0x1234"));
+
+        let state = MmrState::new(block, block_hash, root, leaves, ipfs.clone());
+
+        assert_eq!(state.latest_mmr_block(), block);
+        assert_eq!(state.latest_mmr_block_hash(), block_hash);
+        assert_eq!(state.root_hash(), root);
+        assert_eq!(state.leaves_count(), leaves);
+        assert_eq!(state.ipfs_hash(), ipfs);
+    }
+
+    #[test]
+    fn test_mmr_snapshot() {
+        let snapshot = MmrSnapshot {
+            batch_index: 1,
+            latest_mmr_block: 100,
+            latest_mmr_block_hash: u256_from_hex(
+                "0000000000000000000000000000000000000000000000000000000000001234",
+            )
+            .unwrap(),
+            root_hash: u256_from_hex(
+                "0000000000000000000000000000000000000000000000000000000000009876",
+            )
+            .unwrap(),
+            leaves_count: 50,
+            ipfs_hash: ByteArray::from("0x1234"),
+        };
+
+        assert_eq!(
+            snapshot.root_hash(),
+            u256_from_hex("0000000000000000000000000000000000000000000000000000000000009876")
+                .unwrap()
+        );
+        assert_eq!(snapshot.ipfs_hash(), ByteArray::from("0x1234"));
+    }
+
+    #[test]
+    fn test_u256_from_hex_error_cases() {
+        // Test invalid hex string (wrong length)
+        assert!(u256_from_hex("123").is_err());
+
+        // Test empty string
+        assert!(u256_from_hex("").is_err());
+
+        // Test invalid hex characters
+        assert!(u256_from_hex("0xghijkl").is_err());
     }
 }
