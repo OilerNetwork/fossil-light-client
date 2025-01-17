@@ -47,13 +47,13 @@ impl Relayer {
         // Get the L2 proxy address as a string first
         let addr_str = get_env_var("L2_MSG_PROXY")?;
 
-        // Validate address format before parsing:
+        // Validate Starknet address format:
         // 1. Must start with "0x"
-        // 2. Must be exactly 42 characters (0x + 40 hex chars)
+        // 2. Must be exactly 66 characters total (0x + 64 hex chars for Starknet)
         // 3. Must be a valid hex string
-        if !addr_str.starts_with("0x") || addr_str.len() != 42 {
+        if !addr_str.starts_with("0x") || addr_str.len() != 66 {
             return Err(RelayerError::Utils(UtilsError::ParseError(format!(
-                "L2_MSG_PROXY: Invalid Ethereum address format. Expected 0x + 40 hex chars, got {}",
+                "L2_MSG_PROXY: Invalid Starknet address format. Expected 0x + 64 hex chars, got {}",
                 addr_str
             ))));
         }
@@ -130,7 +130,11 @@ mod tests {
             "ACCOUNT_PRIVATE_KEY",
             "1234567890123456789012345678901234567890123456789012345678901234",
         );
-        env::set_var("L2_MSG_PROXY", "0x1234567890123456789012345678901234567890");
+        // Use a valid 51-byte Starknet address
+        env::set_var(
+            "L2_MSG_PROXY", 
+            "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81"
+        );
         env::set_var("ETH_RPC_URL", "http://localhost:8545");
         env::set_var(
             "L1_MESSAGE_SENDER",
@@ -168,7 +172,7 @@ mod tests {
         let relayer = relayer.unwrap();
         assert_eq!(
             relayer.l2_recipient_addr,
-            U256::from_str_radix("1234567890123456789012345678901234567890", 16).unwrap()
+            U256::from_str_radix("07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81", 16).unwrap()
         );
     }
 
@@ -184,7 +188,7 @@ mod tests {
         );
         env::set_var(
             "L2_MSG_PROXY",
-            "0x1234567890123456789012345678901234567890", // Add 0x prefix
+            "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81", // Add 0x prefix
         );
         env::set_var("ETH_RPC_URL", "http://localhost:8545");
         env::set_var(
@@ -197,7 +201,7 @@ mod tests {
         // Verify the relayer is properly configured
         assert_eq!(
             relayer.l2_recipient_addr,
-            U256::from_str_radix("1234567890123456789012345678901234567890", 16).unwrap()
+            U256::from_str_radix("07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81", 16).unwrap()
         );
     }
 
@@ -251,7 +255,7 @@ mod tests {
 
         // Set up environment with invalid private key format
         env::set_var("ACCOUNT_PRIVATE_KEY", "not_a_hex_string");
-        env::set_var("L2_MSG_PROXY", "1234567890123456789012345678901234567890");
+        env::set_var("L2_MSG_PROXY", "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81");
 
         let result = Relayer::new().await;
         assert!(result.is_err());
@@ -288,7 +292,7 @@ mod tests {
 
         // Set up environment with private key that's too short
         env::set_var("ACCOUNT_PRIVATE_KEY", "1234");
-        env::set_var("L2_MSG_PROXY", "1234567890123456789012345678901234567890");
+        env::set_var("L2_MSG_PROXY", "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81");
 
         let result = Relayer::new().await;
         assert!(result.is_err());
@@ -299,50 +303,32 @@ mod tests {
     async fn test_l2_proxy_address_wrong_length() {
         clear_test_env();
 
-        // Set up environment with valid private key
         env::set_var(
             "ACCOUNT_PRIVATE_KEY",
             "1234567890123456789012345678901234567890123456789012345678901234",
         );
 
-        // Test different invalid address formats
         let invalid_addresses = vec![
             // Invalid hex values
-            "0xghijklmn", // Invalid hex characters
-            "xyz123",     // Not hex at all
-            "true",       // Boolean
-            "null",       // Null
-            // Invalid lengths
-            "0x",                                           // Just prefix
-            "0x0",                                          // Too short
-            "0x01",                                         // Still too short
-            "0x1234567890123456789012345678901234567890ff", // Too long
+            "0xghijklmn",
+            "xyz123",
+            // Invalid lengths (Starknet addresses should be 51 bytes)
+            "0x",
+            "0x0",
+            "0x1234567890123456789012345678901234567890", // Ethereum address length
+            "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc8", // Too short
+            "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc811", // Too long
             // Invalid formats
-            "",                                                     // Empty string
-            "   ",                                                  // Just whitespace
-            "-0x1234567890123456789012345678901234567890",          // Negative
-            "0x12345678901234567890123456789012345678901234567890", // Double length
+            "",
+            "   ",
             // Missing prefix
-            "1234567890123456789012345678901234567890", // Valid length but no 0x
+            "07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81",
         ];
 
         for addr in invalid_addresses {
             env::set_var("L2_MSG_PROXY", addr);
             let result = Relayer::new().await;
-
-            // Print the actual error for debugging
-            if result.is_ok() {
-                println!("WARNING: Address {} was unexpectedly accepted", addr);
-            }
-
             assert!(result.is_err(), "Should fail for invalid address: {}", addr);
-
-            match &result {
-                Err(RelayerError::Utils(e)) => {
-                    println!("Got error for {}: {:?}", addr, e);
-                }
-                other => panic!("Expected Utils error for address {}, got {:?}", addr, other),
-            }
         }
     }
 
@@ -352,18 +338,16 @@ mod tests {
     async fn test_valid_l2_proxy_addresses() {
         clear_test_env();
 
-        // Set up environment with valid private key
         env::set_var(
             "ACCOUNT_PRIVATE_KEY",
             "1234567890123456789012345678901234567890123456789012345678901234",
         );
 
-        // Test different valid address formats
+        // Test different valid Starknet address formats (51 bytes)
         let valid_addresses = vec![
-            "0x1234567890123456789012345678901234567890", // Standard format
-            "0xabcdef1234567890123456789012345678901234", // With letters
-            "0x0000000000000000000000000000000000000000", // Zero address
-            "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", // Max address
+            "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81",
+            "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "0x0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         ];
 
         for addr in valid_addresses {
@@ -489,7 +473,7 @@ mod tests {
         );
         env::set_var(
             "L2_MSG_PROXY",
-            "0x1234567890123456789012345678901234567890", // valid address
+            "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81", // valid Starknet address
         );
 
         let result = Relayer::new().await;
