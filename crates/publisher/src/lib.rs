@@ -1,6 +1,7 @@
 #![deny(unused_crate_dependencies)]
 use clap as _;
 use dotenv as _;
+use pyo3 as _;
 
 pub mod api;
 pub mod cli;

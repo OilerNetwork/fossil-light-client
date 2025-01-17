@@ -16,44 +16,36 @@ name = "extract-fees"
 path = "bin/extract_fees.rs"
 
 [dependencies]
-guest-types = { path = "../guest-types" }
-methods = { path = "../methods" }
-common = { path = "../common" }
-ethereum = { path = "../ethereum" }
-mmr-utils = { path = "../mmr-utils" }
-starknet-handler = { path = "../starknet-handler" }
-ipfs-utils = { path = "../ipfs-utils" }
-
-eth-rlp-types = { workspace = true }
-# eth-rlp-verify = { workspace = true }
-
-garaga_rs = { git = "https://github.com/keep-starknet-strange/garaga.git", branch = "main" }
-mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
-store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
-
-thiserror = { workspace = true }
-tracing = { workspace = true }
-tokio = { workspace = true, features = ["rt-multi-thread"] }
-sqlx = { workspace = true }
-starknet-crypto = { workspace = true }
-starknet = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
+common = { path = "../common" }
 dotenv = { workspace = true }
-
-risc0-zkvm = { version = "1.2.0" }
-starknet-types-core = "0.1.7"
-serde = "1.0"
+eth-rlp-types = { workspace = true }
+ethereum = { path = "../ethereum" }
+garaga_rs = { git = "https://github.com/keep-starknet-strange/garaga.git", branch = "main", default-features = false }
+guest-types = { path = "../guest-types" }
+ipfs-utils = { path = "../ipfs-utils" }
+methods = { path = "../methods" }
+mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
+mmr-utils = { path = "../mmr-utils" }
+pyo3 = { version = "0.23.3", features = ["extension-module"] }
 risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum", tag = "v1.2.0" }
+risc0-zkvm = { version = "1.2.0" }
+serde = "1.0"
+sqlx = { workspace = true }
+starknet = { workspace = true }
+starknet-crypto = { workspace = true }
+starknet-handler = { path = "../starknet-handler" }
+starknet-types-core = "0.1.7"
+store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread"] }
+tracing = { workspace = true }
 
 [dev-dependencies]
-mockall = "0.13"
-tokio = { version = "1.0", features = ["full"] }
-starknet-handler = { path = "../starknet-handler" }
 hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = [
     "sha256",
 ] }
-store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
-# tempfile = "3.2"
+mockall = "0.13"
 
 [lib]
 name = "publisher"
