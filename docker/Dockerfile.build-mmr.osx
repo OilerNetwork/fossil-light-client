@@ -1,0 +1,35 @@
+# Stage 1: Build the application
+FROM --platform=linux/amd64 rust:latest AS builder
+
+WORKDIR /app
+
+# Install Foundry (includes Anvil)
+RUN curl -L https://foundry.paradigm.xyz | bash && \
+    /root/.foundry/bin/foundryup
+
+# Add foundry binaries to PATH
+ENV PATH="/root/.foundry/bin:$PATH"
+
+# Copy .env file
+COPY .env .
+
+# Source DATABASE_URL from .env
+RUN set -a && . ./.env && set +a
+
+# Install the RISC Zero toolchain with platform-specific settings
+RUN curl -L https://risczero.com/install | RISC0_DEV_MODE=true bash && \
+    /root/.risc0/bin/rzup install
+
+ENV PATH="/root/.risc0/bin:/root/.cargo/bin:$PATH"
+
+# Copy source code
+COPY Cargo.toml Cargo.lock ./
+COPY crates ./crates
+
+# Build the application
+RUN cargo build --release --package publisher --bin build-mmr
+
+# Stage 2: Create a minimal runtime image
+FROM --platform=linux/amd64 debian:bookworm-slim
+
+# ... rest of the Dockerfile remains the same ... 

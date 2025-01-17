@@ -4283,6 +4283,7 @@ dependencies = [
  "mmr",
  "mmr-utils",
  "mockall",
+ "pyo3",
  "risc0-ethereum-contracts",
  "risc0-zkvm",
  "serde",
