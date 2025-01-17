@@ -1,4 +1,14 @@
 fn main() {
+    // Only run Python configuration on Apple platforms
+    #[cfg(target_vendor = "apple")]
+    configure_python();
+
+    // Tell cargo to invalidate the built crate whenever the wrapper changes
+    println!("cargo:rerun-if-changed=wrapper.h");
+}
+
+#[cfg(target_vendor = "apple")]
+fn configure_python() {
     // Get Python library path
     let output = std::process::Command::new("python3-config")
         .arg("--prefix")
@@ -34,17 +44,11 @@ fn main() {
     println!("cargo:rustc-link-lib=intl");
     println!("cargo:rustc-link-lib=dl");
 
-    // Only include macOS-specific frameworks when targeting Apple platforms
-    #[cfg(target_vendor = "apple")]
-    {
-        println!("cargo:rustc-link-lib=framework=CoreFoundation");
-        println!("cargo:rustc-link-lib=framework=System");
-    }
+    // Include macOS-specific frameworks
+    println!("cargo:rustc-link-lib=framework=CoreFoundation");
+    println!("cargo:rustc-link-lib=framework=System");
 
     // Add rpath
     println!("cargo:rustc-link-arg=-Wl,-rpath,{}/lib", python_prefix);
     println!("cargo:rustc-link-arg=-Wl,-rpath,/opt/homebrew/lib");
-
-    // Tell cargo to invalidate the built crate whenever the wrapper changes
-    println!("cargo:rerun-if-changed=wrapper.h");
 }
