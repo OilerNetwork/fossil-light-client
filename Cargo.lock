@@ -1443,9 +1443,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.9"
+version = "1.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8293772165d9345bdaaa39b45b2109591e63fe5e6fbc23c6ff930a048aa310b"
+checksum = "13208fcbb66eaeffe09b99fffbe1af420f00a7b35aa99ad683dfc1aa76145229"
 dependencies = [
  "shlex",
 ]
@@ -2121,13 +2121,13 @@ dependencies = [
 [[package]]
 name = "eth-rlp-types"
 version = "0.1.0"
-source = "git+https://github.com/NethermindEth/eth-rlp-verify.git#0ac704577686c4cc7e4ca87893a6d0060ac06e09"
+source = "git+https://github.com/NethermindEth/eth-rlp-verify.git?branch=tiny-keccak#43688c18b5d56ab97e67c85b2fddbbfaff9c168b"
 dependencies = [
  "ethereum-types 0.15.1",
  "eyre",
  "hex",
  "serde",
- "sha3",
+ "tiny-keccak",
 ]
 
 [[package]]
@@ -4793,8 +4793,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-ethereum-contracts"
-version = "1.2.0"
-source = "git+https://github.com/risc0/risc0-ethereum?tag=v1.2.0#3c1fd2a859e40ea009a580aac294191196968c60"
+version = "1.2.1"
+source = "git+https://github.com/risc0/risc0-ethereum?tag=v1.2.1#b9b22c396a0d5ef97bf02702da9415d5bb79a85a"
 dependencies = [
  "alloy",
  "anyhow",
@@ -6696,9 +6696,9 @@ dependencies = [
 
 [[package]]
 name = "valuable"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
+checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vcpkg"
