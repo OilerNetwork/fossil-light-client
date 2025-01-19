@@ -81,9 +81,6 @@ jobs:
           curl -L https://risczero.com/install | bash
           export PATH="$HOME/.risc0/bin:$PATH"  
           rzup install
-          rzup install cpp
-          cargo install cargo-risczero --force
-          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
 
       - name: Build
         run: cargo build --verbose
@@ -104,9 +101,6 @@ jobs:
           curl -L https://risczero.com/install | bash
           export PATH="$HOME/.risc0/bin:$PATH"  
           rzup install
-          rzup install cpp
-          cargo install cargo-risczero --force
-          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
 
       - name: Run tests
         env:
