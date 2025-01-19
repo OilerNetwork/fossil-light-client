@@ -11,19 +11,21 @@ env:
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
 jobs:
-  build-fmt-lint:
+  setup:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - name: Cache RISC Zero toolchain
+        id: cache-risc0
+        uses: actions/cache@v3
         with:
-          toolchain: stable
-          override: true
+          path: |
+            ~/.risc0
+          key: ${{ runner.os }}-risc0
 
-      - name: Install risczero toolchain
+      - name: Install RISC Zero toolchain
+        if: steps.cache-risc0.outputs.cache-hit != 'true'
         run: |
           curl -L https://risczero.com/install | bash
           export PATH="$HOME/.risc0/bin:$PATH"  
@@ -31,21 +33,54 @@ jobs:
           rzup install cpp
           echo "$HOME/.risc0/bin" >> $GITHUB_PATH
 
-      - name: Add DATABASE_URL environment variable
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: echo "DATABASE_URL is set"
+  fmt:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Restore RISC Zero cache
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            ~/.risc0
+          key: ${{ runner.os }}-risc0
 
-      - name: Build
-        run: cargo build --verbose
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt
 
-      - name: Run tests
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: cargo test --verbose
+      - name: Add RISC Zero to PATH
+        run: echo "$HOME/.risc0/bin" >> $GITHUB_PATH
 
       - name: Run format check
         run: cargo fmt --check
+
+  clippy:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore RISC Zero cache
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            ~/.risc0
+          key: ${{ runner.os }}-risc0
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: clippy
+
+      - name: Add RISC Zero to PATH
+        run: echo "$HOME/.risc0/bin" >> $GITHUB_PATH
 
       - name: Run Clippy
         run: >
@@ -73,3 +108,55 @@ jobs:
           -D clippy::needless_bool
           -W clippy::unwrap_used
           -W clippy::expect_used
+
+  build:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore RISC Zero cache
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            ~/.risc0
+          key: ${{ runner.os }}-risc0
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Add RISC Zero to PATH
+        run: echo "$HOME/.risc0/bin" >> $GITHUB_PATH
+
+      - name: Build
+        run: cargo build --verbose
+
+  test:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore RISC Zero cache
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            ~/.risc0
+          key: ${{ runner.os }}-risc0
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Add RISC Zero to PATH
+        run: echo "$HOME/.risc0/bin" >> $GITHUB_PATH
+
+      - name: Run tests
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: cargo test --verbose
