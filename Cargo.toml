@@ -11,7 +11,8 @@ members = [
     "crates/ethereum",
     "crates/mmr-utils",
     "crates/guest-mmr",
-    "crates/ipfs-utils", "crates/state-proof-api",
+    "crates/ipfs-utils",
+    "crates/state-proof-api",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
@@ -23,8 +24,8 @@ debug = 1
 lto = true
 
 [workspace.dependencies]
-eth-rlp-types = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", package = "eth-rlp-types" }
-eth-rlp-verify = { git = "https://github.com/NethermindEth/eth-rlp-verify.git" }
+eth-rlp-types = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", package = "eth-rlp-types", branch = "tiny-keccak" }
+eth-rlp-verify = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", branch = "tiny-keccak" }
 starknet = { git = "https://github.com/xJonathanLEI/starknet-rs.git", branch = "master" }
 starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs.git", branch = "master" }
 
@@ -42,3 +43,5 @@ axum = { version = "0.8", features = ["macros"] }
 
 [patch.crates-io]
 sha2 = { git = "https://github.com/risc0/RustCrypto-hashes.git", tag = "sha2-v0.10.8-risczero.0" }
+
+

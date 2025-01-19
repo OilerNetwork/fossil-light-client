@@ -1,22 +1,15 @@
 [package]
-name = "validate_blocks_and_extract_fees"
+name = "mmr-benchmark"
 version = "0.1.0"
 edition = "2021"
 
 [workspace]
 
 [dependencies]
-guest-types = { path = "../../guest-types" }
-guest-mmr = { path = "../../guest-mmr" }
-common = { path = "../../common" }
-
 eth-rlp-types = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", package = "eth-rlp-types", branch = "tiny-keccak" }
 eth-rlp-verify = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", branch = "tiny-keccak" }
-
-risc0-zkvm = { version = "1.2.1", default-features = false, features = [
-    'std',
-    'unstable',
-] }
+guest-mmr = { path = "../../guest-mmr" }
+risc0-zkvm = { version = "1.2.1", default-features = false, features = ['std', 'unstable'] }
 
 [patch.crates-io]
 # Placing this patch statement in the workspace Cargo.toml will add RISC Zero keccak precompile

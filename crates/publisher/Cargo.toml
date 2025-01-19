@@ -15,6 +15,10 @@ path = "bin/build_mmr.rs"
 name = "extract-fees"
 path = "bin/extract_fees.rs"
 
+[[bin]]
+name = "mmr-benchmark"
+path = "benches/mmr_benchmark.rs"
+
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 common = { path = "../common" }
@@ -28,8 +32,8 @@ methods = { path = "../methods" }
 mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
 mmr-utils = { path = "../mmr-utils" }
 pyo3 = { version = "0.23.3", features = ["extension-module"] }
-risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum", tag = "v1.2.0" }
-risc0-zkvm = { version = "1.2.0" }
+risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum", tag = "v1.2.1" }
+risc0-zkvm = { version = "1.2.1" }
 serde = "1.0"
 sqlx = { workspace = true }
 starknet = { workspace = true }
@@ -40,6 +44,7 @@ store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "f
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing = { workspace = true }
+tracing-subscriber = "0.3"
 
 [dev-dependencies]
 hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = [

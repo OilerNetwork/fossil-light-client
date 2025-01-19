@@ -1326,9 +1326,9 @@ dependencies = [
 
 [[package]]
 name = "borsh"
-version = "1.5.4"
+version = "1.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9fb65153674e51d3a42c8f27b05b9508cea85edfaade8aa46bc8fc18cecdfef3"
+checksum = "5430e3be710b68d984d1391c854eb431a9d548640711faa54eecb1df93db91cc"
 dependencies = [
  "borsh-derive",
  "cfg_aliases",
@@ -1336,9 +1336,9 @@ dependencies = [
 
 [[package]]
 name = "borsh-derive"
-version = "1.5.4"
+version = "1.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a396e17ad94059c650db3d253bb6e25927f1eb462eede7e7a153bb6e75dce0a7"
+checksum = "f8b668d39970baad5356d7c83a86fee3a539e6f93bf6764c97368243e17a0487"
 dependencies = [
  "once_cell",
  "proc-macro-crate 3.2.0",
@@ -1443,9 +1443,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.9"
+version = "1.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8293772165d9345bdaaa39b45b2109591e63fe5e6fbc23c6ff930a048aa310b"
+checksum = "13208fcbb66eaeffe09b99fffbe1af420f00a7b35aa99ad683dfc1aa76145229"
 dependencies = [
  "shlex",
 ]
@@ -2121,13 +2121,13 @@ dependencies = [
 [[package]]
 name = "eth-rlp-types"
 version = "0.1.0"
-source = "git+https://github.com/NethermindEth/eth-rlp-verify.git#0ac704577686c4cc7e4ca87893a6d0060ac06e09"
+source = "git+https://github.com/NethermindEth/eth-rlp-verify.git?branch=tiny-keccak#4b03ce967b56e96ff0e55e0785e4cc662cd80d60"
 dependencies = [
  "ethereum-types 0.15.1",
  "eyre",
  "hex",
  "serde",
- "sha3",
+ "tiny-keccak",
 ]
 
 [[package]]
@@ -4296,6 +4296,7 @@ dependencies = [
  "thiserror 2.0.11",
  "tokio",
  "tracing",
+ "tracing-subscriber 0.3.19",
 ]
 
 [[package]]
@@ -4793,8 +4794,8 @@ dependencies = [
 
 [[package]]
 name = "risc0-ethereum-contracts"
-version = "1.2.0"
-source = "git+https://github.com/risc0/risc0-ethereum?tag=v1.2.0#3c1fd2a859e40ea009a580aac294191196968c60"
+version = "1.2.1"
+source = "git+https://github.com/risc0/risc0-ethereum?tag=v1.2.1#b9b22c396a0d5ef97bf02702da9415d5bb79a85a"
 dependencies = [
  "alloy",
  "anyhow",
@@ -5283,9 +5284,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.135"
+version = "1.0.136"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b0d7ba2887406110130a978386c4e1befb98c674b4fba677954e4db976630d9"
+checksum = "336a0c23cf42a38d9eaa7cd22c7040d04e1228a19a933890805ffd00a16437d2"
 dependencies = [
  "itoa",
  "memchr",
@@ -6696,9 +6697,9 @@ dependencies = [
 
 [[package]]
 name = "valuable"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830b7e5d4d90034032940e4ace0d9a9a057e7a45cd94e6c007832e39edb82f6d"
+checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vcpkg"
