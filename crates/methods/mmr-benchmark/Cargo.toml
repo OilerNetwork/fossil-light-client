@@ -1,0 +1,12 @@
+[package]
+name = "mmr-benchmark"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+eth-rlp-types = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", package = "eth-rlp-types" }
+eth-rlp-verify = { git = "https://github.com/NethermindEth/eth-rlp-verify.git" }
+guest-mmr = { path = "../../guest-mmr" }
+risc0-zkvm = { version = "1.2.0", default-features = false, features = ['std'] }

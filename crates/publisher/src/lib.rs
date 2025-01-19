@@ -2,7 +2,7 @@
 use clap as _;
 use dotenv as _;
 use pyo3 as _;
-
+use tracing_subscriber as _;
 pub mod api;
 pub mod cli;
 pub mod core;

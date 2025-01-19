@@ -56,6 +56,15 @@ impl GuestMMR {
         }
     }
 
+    pub fn new_empty() -> Self {
+        Self {
+            elements_count: 0,
+            leaves_count: 0,
+            hashes: HashMap::new(),
+            root_hash: "".to_string(),
+        }
+    }
+
     pub fn get_elements_count(&self) -> usize {
         self.elements_count
     }
