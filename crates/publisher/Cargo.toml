@@ -15,6 +15,10 @@ path = "bin/build_mmr.rs"
 name = "extract-fees"
 path = "bin/extract_fees.rs"
 
+[[bin]]
+name = "mmr-benchmark"
+path = "benches/mmr_benchmark.rs"
+
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 common = { path = "../common" }
@@ -40,6 +44,7 @@ store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "f
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing = { workspace = true }
+tracing-subscriber = "0.3"
 
 [dev-dependencies]
 hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = [
