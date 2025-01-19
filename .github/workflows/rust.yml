@@ -129,7 +129,13 @@ jobs:
           override: true
 
       - name: Add RISC Zero to PATH
-        run: echo "$HOME/.risc0/bin" >> $GITHUB_PATH
+        run: |
+          export PATH="$HOME/.risc0/bin:$PATH"
+          echo "$HOME/.risc0/bin" >> $GITHUB_PATH
+          # Verify installation
+          which rzup
+          rzup show
+          rzup toolchain list
 
       - name: Build
         run: cargo build --verbose
