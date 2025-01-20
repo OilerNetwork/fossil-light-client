@@ -1,4 +1,6 @@
-FROM ubuntu:22.04
+# Determine platform-specific base image
+ARG TARGETPLATFORM
+FROM --platform=${TARGETPLATFORM:-linux/amd64} ubuntu:22.04
 
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
@@ -20,12 +22,12 @@ RUN forge --version
 
 # Create entrypoint script
 RUN echo '#!/bin/bash\n\
-if [ -z "$ETH_RPC_URL" ]; then\n\
+    if [ -z "$ETH_RPC_URL" ]; then\n\
     echo "Error: ETH_RPC_URL environment variable is not set"\n\
     exit 1\n\
-fi\n\
-anvil --fork-url "$FORK_URL" --block-time 12 --host 0.0.0.0\n\
-' > /entrypoint.sh && chmod +x /entrypoint.sh
+    fi\n\
+    anvil --fork-url "$FORK_URL" --block-time 12 --host 0.0.0.0\n\
+    ' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Default command to run Anvil
 ENTRYPOINT ["/entrypoint.sh"] 

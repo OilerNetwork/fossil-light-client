@@ -13,6 +13,16 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+# Detect platform
+PLATFORM="linux/amd64"
+if [[ "$(uname -m)" == "arm64" && "$(uname -s)" == "Darwin" ]]; then
+    echo "Detected Apple Silicon (M1/M2) - Using platform flag"
+    PLATFORM_FLAG="--platform linux/amd64"
+else
+    echo "Detected Linux/AMD64 - Using default platform"
+    PLATFORM_FLAG=""
+fi
+
 # Ensure we're using buildx
 docker buildx create --use --name fossil-builder || true
 
@@ -20,13 +30,13 @@ echo -e "${BLUE}Building Docker images...${NC}"
 
 # Build each image
 echo -e "${BLUE}Building anvil image...${NC}"
-docker buildx build --load -f docker/Dockerfile.anvil -t fossil-anvil:latest . $VERBOSE
+docker build $PLATFORM_FLAG -f docker/Dockerfile.anvil -t fossil-anvil:latest . $VERBOSE
 
 echo -e "${BLUE}Building katana image...${NC}"
-docker buildx build --load -f docker/Dockerfile.katana -t fossil-katana:latest . $VERBOSE
+docker build $PLATFORM_FLAG -f docker/Dockerfile.katana -t fossil-katana:latest . $VERBOSE
 
 echo -e "${BLUE}Building deploy image...${NC}"
-docker buildx build --load -f docker/Dockerfile.deploy -t fossil-deploy:latest . $VERBOSE
+docker build $PLATFORM_FLAG -f docker/Dockerfile.deploy -t fossil-deploy:latest . $VERBOSE
 
 echo -e "${BLUE}Building build-mmr image...${NC}"
 docker buildx build --load -f docker/Dockerfile.build-mmr -t fossil-build-mmr:latest . $VERBOSE
