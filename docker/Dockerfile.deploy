@@ -1,4 +1,6 @@
-FROM rust:slim-bookworm
+# Determine platform-specific base image
+ARG TARGETPLATFORM
+FROM --platform=${TARGETPLATFORM:-linux/amd64} rust:slim-bookworm
 
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
