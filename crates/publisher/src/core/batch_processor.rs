@@ -158,33 +158,11 @@ impl<'a> BatchProcessor<'a> {
             new_headers.clone(),
         );
 
-        let batch_link: Option<String> = if batch_index > 0 {
-            Some(
-                db_connection
-                    .get_block_header_by_number(start_block - 1)
-                    .await?
-                    .ok_or_else(|| {
-                        AccumulatorError::InvalidInput("Previous block header not found")
-                    })?
-                    .block_hash,
-            )
-        } else {
-            None
-        };
-
-        let next_batch_link = db_connection
-            .get_block_header_by_number(adjusted_end_block + 1)
-            .await?
-            .map(|header| header.parent_hash)
-            .flatten();
-
         let combined_input = CombinedInput::new(
             chain_id,
             self.batch_size,
             headers.clone(),
             mmr_input,
-            batch_link,
-            next_batch_link,
             self.skip_proof_verification,
         );
 

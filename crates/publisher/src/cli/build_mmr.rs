@@ -75,15 +75,17 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
                 return Err("Cannot specify both --from-latest and --start-block".into());
             }
             (true, None, Some(num_batches)) => {
-                builder.build_from_latest_with_batches(num_batches).await?
-            }
-            (true, None, None) => builder.build_from_latest().await?,
-            (false, Some(start_block), Some(num_batches)) => {
                 builder
-                    .build_from_block_with_batches(start_block, num_batches)
+                    .build_from_latest_with_batches(num_batches, true)
                     .await?
             }
-            (false, Some(start_block), None) => builder.build_from_block(start_block).await?,
+            (true, None, None) => builder.build_from_latest(true).await?,
+            (false, Some(start_block), Some(num_batches)) => {
+                builder
+                    .build_from_block_with_batches(start_block, num_batches, true)
+                    .await?
+            }
+            (false, Some(start_block), None) => builder.build_from_block(start_block, true).await?,
             (false, None, Some(num_batches)) => builder.build_with_num_batches(num_batches).await?,
             (false, None, None) => builder.build_from_finalized().await?,
         },

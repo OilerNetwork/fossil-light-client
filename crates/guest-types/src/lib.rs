@@ -66,6 +66,7 @@ pub struct GuestOutput {
     latest_mmr_block_hash: String,
     root_hash: String,
     leaves_count: usize,
+    first_block_parent_hash: String,
 }
 
 impl GuestOutput {
@@ -75,6 +76,7 @@ impl GuestOutput {
         latest_mmr_block_hash: String,
         root_hash: String,
         leaves_count: usize,
+        first_block_parent_hash: String,
     ) -> Self {
         Self {
             batch_index,
@@ -82,6 +84,7 @@ impl GuestOutput {
             latest_mmr_block_hash,
             root_hash,
             leaves_count,
+            first_block_parent_hash,
         }
     }
 
@@ -104,6 +107,10 @@ impl GuestOutput {
     pub fn leaves_count(&self) -> usize {
         self.leaves_count
     }
+
+    pub fn first_block_parent_hash(&self) -> &str {
+        &self.first_block_parent_hash
+    }
 }
 
 // CombinedInput
@@ -113,8 +120,6 @@ pub struct CombinedInput {
     batch_size: u64,
     headers: Vec<BlockHeader>,
     mmr_input: MMRInput,
-    batch_link: Option<String>,
-    next_batch_link: Option<String>,
     skip_proof_verification: bool,
 }
 
@@ -124,8 +129,6 @@ impl CombinedInput {
         batch_size: u64,
         headers: Vec<BlockHeader>,
         mmr_input: MMRInput,
-        batch_link: Option<String>,
-        next_batch_link: Option<String>,
         skip_proof_verification: bool,
     ) -> Self {
         Self {
@@ -133,8 +136,6 @@ impl CombinedInput {
             batch_size,
             headers,
             mmr_input,
-            batch_link,
-            next_batch_link,
             skip_proof_verification,
         }
     }
@@ -153,14 +154,6 @@ impl CombinedInput {
 
     pub fn mmr_input(&self) -> &MMRInput {
         &self.mmr_input
-    }
-
-    pub fn batch_link(&self) -> Option<&str> {
-        self.batch_link.as_deref()
-    }
-
-    pub fn next_batch_link(&self) -> Option<&str> {
-        self.next_batch_link.as_deref()
     }
 
     pub fn skip_proof_verification(&self) -> bool {
@@ -319,6 +312,7 @@ mod tests {
             "block_hash".to_string(),
             "root_hash".to_string(),
             50,
+            "first_block_parent_hash".to_string(),
         );
 
         assert_eq!(output.batch_index(), 1);
@@ -326,27 +320,18 @@ mod tests {
         assert_eq!(output.latest_mmr_block_hash(), "block_hash");
         assert_eq!(output.root_hash(), "root_hash");
         assert_eq!(output.leaves_count(), 50);
+        assert_eq!(output.first_block_parent_hash(), "first_block_parent_hash");
     }
 
     #[test]
     fn test_combined_input() {
         let mmr_input = MMRInput::new(vec!["peak1".to_string()], 10, 5, vec!["elem1".to_string()]);
 
-        let input = CombinedInput::new(
-            1,
-            100,
-            Vec::new(),
-            mmr_input.clone(),
-            Some("batch_link".to_string()),
-            Some("next_link".to_string()),
-            false,
-        );
+        let input = CombinedInput::new(1, 100, Vec::new(), mmr_input.clone(), false);
 
         assert_eq!(input.chain_id(), 1);
         assert_eq!(input.batch_size(), 100);
         assert!(input.headers().is_empty());
-        assert_eq!(input.batch_link(), Some("batch_link"));
-        assert_eq!(input.next_batch_link(), Some("next_link"));
         assert!(!input.skip_proof_verification());
 
         // Test MMRInput getters

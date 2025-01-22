@@ -1,7 +1,7 @@
 #[starknet::interface]
 pub trait IFossilVerifier<TContractState> {
     fn verify_mmr_proof(
-        ref self: TContractState, proof: Span<felt252>, ipfs_hash: ByteArray,
+        ref self: TContractState, proof: Span<felt252>, ipfs_hash: ByteArray, is_build: bool,
     ) -> bool;
     fn get_verifier_address(self: @TContractState) -> starknet::ContractAddress;
     fn get_fossil_store_address(self: @TContractState) -> starknet::ContractAddress;
@@ -9,6 +9,7 @@ pub trait IFossilVerifier<TContractState> {
 
 #[starknet::contract]
 mod FossilVerifier {
+    use core::num::traits::Zero;
     use fossil_store::{IFossilStoreDispatcher, IFossilStoreDispatcherTrait};
     use verifier::decode_journal;
     use verifier::groth16_verifier::{
@@ -49,7 +50,7 @@ mod FossilVerifier {
 
     #[external(v0)]
     fn verify_mmr_proof(
-        ref self: ContractState, mut proof: Span<felt252>, ipfs_hash: ByteArray,
+        ref self: ContractState, mut proof: Span<felt252>, ipfs_hash: ByteArray, is_build: bool,
     ) -> bool {
         let _ = proof.pop_front();
         let journal = self
@@ -60,7 +61,21 @@ mod FossilVerifier {
 
         let journal = decode_journal(journal);
 
-        self.fossil_store.read().update_mmr_state(journal, ipfs_hash);
+        let fossil_store = self.fossil_store.read();
+
+        if is_build {
+            let batch_link = fossil_store.get_batch_last_block_link(journal.batch_index);
+            // If the batch link is zero, it means that the batch is the first batch, and we don't
+            // need to check the batch link
+            if !batch_link.is_zero() {
+                assert!(batch_link == journal.latest_mmr_block_hash, "Batch link mismatch");
+            }
+        } else {
+            let batch_link = fossil_store.get_batch_first_block_parent_hash(journal.batch_index);
+            assert!(batch_link == journal.first_block_parent_hash, "Batch link mismatch");
+        }
+
+        fossil_store.update_mmr_state(journal, ipfs_hash);
 
         self
             .emit(

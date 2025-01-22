@@ -164,9 +164,7 @@ impl LightClient {
     /// Processes new events from the Starknet store contract.
     pub async fn process_new_events(&mut self) -> Result<(), LightClientError> {
         // Get the latest block number
-        let latest_block = match self.starknet_provider.provider().block_number().await? {
-            number => number.saturating_sub(10), // Stay 10 blocks behind to handle reorgs
-        };
+        let latest_block = self.starknet_provider.provider().block_number().await?;
 
         info!(
             latest_block,
@@ -299,9 +297,12 @@ impl LightClient {
             return Ok(());
         }
 
+        let start_block = latest_mmr_block + 1;
+        let end_block = latest_relayed_block;
+
         info!(
-            from_block = latest_mmr_block + 1,
-            to_block = latest_relayed_block,
+            from_block = start_block,
+            to_block = end_block,
             batch_size = self.batch_size,
             "Starting proof verification"
         );
@@ -315,9 +316,9 @@ impl LightClient {
             &self.starknet_private_key,
             &self.starknet_account_address,
             self.batch_size,
-            latest_mmr_block + 1,
-            latest_relayed_block,
-            false,
+            start_block,
+            end_block,
+            false, // Don't skip proof verification
         )
         .await?;
 

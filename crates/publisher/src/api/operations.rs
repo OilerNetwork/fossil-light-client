@@ -41,7 +41,7 @@ pub async fn prove_mmr_update(
     tracing::info!("Starting MMR update and proof generation");
 
     builder
-        .update_mmr_with_new_headers(start_block, end_block)
+        .update_mmr_with_new_headers(start_block, end_block, false)
         .await
         .map_err(|e| {
             tracing::error!(error = %e, "Failed to update MMR with new headers");
