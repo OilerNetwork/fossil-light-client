@@ -11,6 +11,7 @@
   - [Manual Compilation and Execution](#manual-compilation-and-execution)
     - [Manual Prerequisites](#manual-prerequisites)
     - [Setup and Execution](#setup-and-execution)
+    - [Block Range Selection for Fee State Proofs](#block-range-selection-for-fee-state-proofs)
   - [Troubleshooting](#troubleshooting)
     - [Docker Issues](#docker-issues)
     - [Common Issues](#common-issues)
@@ -22,16 +23,22 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
 
 ## Prerequisites for All Users
 
-1. Initialize repository:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/OilerNetwork/fossil-light-client.git
+   cd fossil-light-client
+   ```
+
+2. Initialize repository:
    ```bash
    git submodule update --init --recursive
    ```
 
-2. Install IPFS:
+3. Install IPFS:
    - Download and install [IPFS Desktop](https://github.com/ipfs/ipfs-desktop/releases)
    - Ensure IPFS daemon is running before proceeding
 
-3. Platform-specific requirements:
+4. Platform-specific requirements:
    - **For macOS users:**
      ```bash
      # Install Python toolchain and gettext
@@ -122,17 +129,57 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    ```bash
    chmod +x scripts/build-network.sh
    ./scripts/build-network.sh
-   docker-compose up -d
+   docker-compose up
+   ```
+   Wait for the `fossil-deploy` container to complete the deployment of all StarkNet contracts. The deployment is finished when you see a log message indicating environment variables have been updated. (it might take a few minutes)
+
+3. Build the project:
+   ```bash
+   cargo build
    ```
 
-3. Run light client components:
+4. Build MMR and generate proofs:
+   This step will:
+   - Start from the latest Ethereum finalized block and process 8 blocks backwards (2 batches * 4 blocks)
+   - Generate a ZK proof of computation for each batch
+   - Create and store .db files for each MMR batch and upload them to IPFS
+   - Generate and verify Groth16 proofs on StarkNet for batch correctness
+   - Extract batch state from proof journal and store it in the Fossil Store contract
    ```bash
-   # Build MMR (processes 8 blocks: 2 batches * 4 blocks)
    cargo run --bin build-mmr -- --batch-size 4 --num-batches 2 --env .env.local
+   ```
 
-   # Start API
+5. Start the State Proof API:
+   In a new terminal, start the state proof API service. This provides endpoints to query the MMR state and generate inclusion proofs.
+   ```bash
    cargo run --bin state-proof-api -- --batch-size 4 --env .env.local
    ```
+   Wait for the service to start up and begin listening for requests.
+
+6. Test Fee Proof Fetching:
+   In a new terminal, run the fee proof fetcher using a block range from the processed blocks. This example binary will:
+   - Send a request to the API for fees within the specified block range
+   - The API will fetch the corresponding block data from the Fossil database
+   - Each block's integrity will be cryptographically verified
+   - Block fees will be extracted and computed within a zkVM environment
+   ```bash
+   cargo run --bin fetch-fees-proof -- --from-block <start_block> --to-block <end_block>
+   ```
+   For example:
+   ```bash
+   cargo run --bin fetch-fees-proof -- --from-block 7494088 --to-block 7494095
+   ```
+   Note: The block range should match the blocks that were added to the MMR in step 4. You can find these numbers in the build_mmr output logs.
+
+### Block Range Selection for Fee State Proofs
+When requesting state proofs for fees, you can specify any block range within the available processed blocks. The system processes blocks in batches, but proofs can be requested for any valid range within those batches.
+
+For example, if blocks 7494088-7494095 have been processed:
+- You can request proofs for block range 7494090-7494093
+- Or 7494088-7494095 (full range)
+- Or any other valid subset within these bounds
+
+Note: While the MMR internally processes batches from higher to lower block numbers (e.g., batch 1: 7494092-7494095, batch 2: 7494088-7494091), this is an implementation detail. Your proof requests can span across these internal batch boundaries.
 
 ## Troubleshooting
 
