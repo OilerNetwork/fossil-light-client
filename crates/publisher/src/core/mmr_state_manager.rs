@@ -350,6 +350,7 @@ mod tests {
             "0x0000000000000000000000000000000000000000000000001234567890abcdef".to_string(), // 64 chars hex
             "0x0000000000000000000000000000000000000000000000001234567890abcdef".to_string(), // 64 chars hex
             10, // leaves_count
+            "0x0000000000000000000000000000000000000000000000001234567890abcdef".to_string(), // 64 chars hex
         );
 
         let result = MMRStateManager::create_new_state(100, &guest_output).await;

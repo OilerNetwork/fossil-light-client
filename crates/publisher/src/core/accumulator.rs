@@ -1,14 +1,13 @@
-use crate::core::{BatchProcessor, ProofGenerator};
 use crate::errors::AccumulatorError;
 use crate::utils::BatchResult;
 use ethereum::get_finalized_block_hash;
-use methods::{MMR_APPEND_ELF, MMR_APPEND_ID};
+use methods::{MMR_BUILD_ELF, MMR_BUILD_ID};
 use starknet_crypto::Felt;
 use starknet_handler::account::StarknetAccount;
 use starknet_handler::provider::StarknetProvider;
 use tracing::{debug, error, info, warn};
 
-use super::MMRStateManager;
+use super::{BatchProcessor, MMRStateManager, ProofGenerator};
 
 pub struct AccumulatorBuilder<'a> {
     starknet_rpc_url: &'a String,
@@ -29,7 +28,7 @@ impl<'a> AccumulatorBuilder<'a> {
         batch_size: u64,
         skip_proof_verification: bool,
     ) -> Result<Self, AccumulatorError> {
-        let proof_generator = ProofGenerator::new(MMR_APPEND_ELF, MMR_APPEND_ID)?;
+        let proof_generator = ProofGenerator::new(MMR_BUILD_ELF, MMR_BUILD_ID)?;
         let mmr_state_manager = MMRStateManager::new(starknet_account, store_address);
 
         if verifier_address.trim().is_empty() {
@@ -110,7 +109,7 @@ impl<'a> AccumulatorBuilder<'a> {
                 })?;
 
             if let Some(batch_result) = result {
-                self.handle_batch_result(&batch_result).await?;
+                self.handle_batch_result(&batch_result, true).await?;
                 self.current_batch += 1;
                 info!(
                     progress = format!("{}/{}", self.current_batch, self.total_batches),
@@ -143,7 +142,7 @@ impl<'a> AccumulatorBuilder<'a> {
                 .await?;
 
             if let Some(result) = batch_result {
-                self.handle_batch_result(&result).await?;
+                self.handle_batch_result(&result, true).await?;
             }
 
             current_end = start_block.saturating_sub(1);
@@ -156,6 +155,7 @@ impl<'a> AccumulatorBuilder<'a> {
         &mut self,
         start_block: u64,
         end_block: u64,
+        is_build: bool,
     ) -> Result<(), AccumulatorError> {
         if end_block < start_block {
             return Err(AccumulatorError::InvalidInput(
@@ -196,7 +196,7 @@ impl<'a> AccumulatorBuilder<'a> {
                     e
                 })?
             {
-                self.handle_batch_result(&result).await?;
+                self.handle_batch_result(&result, is_build).await?;
                 let ipfs_hash = result.ipfs_hash();
                 let calldata = result
                     .proof()
@@ -231,11 +231,12 @@ impl<'a> AccumulatorBuilder<'a> {
     async fn handle_batch_result(
         &self,
         batch_result: &BatchResult,
+        is_build: bool,
     ) -> Result<(), AccumulatorError> {
         // Skip verification if explicitly disabled or if no proof is available
         if !self.batch_processor.skip_proof_verification() {
             if let Some(proof) = batch_result.proof() {
-                self.verify_proof(proof.calldata(), batch_result.ipfs_hash())
+                self.verify_proof(proof.calldata(), batch_result.ipfs_hash(), is_build)
                     .await?;
             } else {
                 debug!("Skipping proof verification - no proof available");
@@ -250,12 +251,13 @@ impl<'a> AccumulatorBuilder<'a> {
         &self,
         calldata: Vec<Felt>,
         ipfs_hash: String,
+        is_build: bool,
     ) -> Result<(), AccumulatorError> {
         let starknet_account = self.batch_processor.mmr_state_manager().account();
 
         info!("Verifying MMR proof");
         starknet_account
-            .verify_mmr_proof(&self.verifier_address, calldata, ipfs_hash)
+            .verify_mmr_proof(&self.verifier_address, calldata, ipfs_hash, is_build)
             .await
             .map_err(|e| {
                 error!(error = %e, "Failed to verify MMR proof");
@@ -266,25 +268,34 @@ impl<'a> AccumulatorBuilder<'a> {
         Ok(())
     }
 
-    pub async fn build_from_block(&mut self, start_block: u64) -> Result<(), AccumulatorError> {
+    pub async fn build_from_block(
+        &mut self,
+        start_block: u64,
+        is_build: bool,
+    ) -> Result<(), AccumulatorError> {
         info!("Building MMR from block {}", start_block);
-        self.process_blocks_from(start_block).await
+        self.process_blocks_from(start_block, is_build).await
     }
 
     pub async fn build_from_block_with_batches(
         &mut self,
         start_block: u64,
         num_batches: u64,
+        is_build: bool,
     ) -> Result<(), AccumulatorError> {
         info!(
             "Building MMR from block {} with {} batches",
             start_block, num_batches
         );
-        self.process_blocks_from_with_limit(start_block, num_batches)
+        self.process_blocks_from_with_limit(start_block, num_batches, is_build)
             .await
     }
 
-    async fn process_blocks_from(&mut self, start_block: u64) -> Result<(), AccumulatorError> {
+    async fn process_blocks_from(
+        &mut self,
+        start_block: u64,
+        is_build: bool,
+    ) -> Result<(), AccumulatorError> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
         if start_block > finalized_block_number {
             return Err(AccumulatorError::InvalidInput(
@@ -308,7 +319,7 @@ impl<'a> AccumulatorBuilder<'a> {
                 .await?;
 
             if let Some(result) = batch_result {
-                self.handle_batch_result(&result).await?;
+                self.handle_batch_result(&result, is_build).await?;
             }
 
             current_end = start.saturating_sub(1);
@@ -321,6 +332,7 @@ impl<'a> AccumulatorBuilder<'a> {
         &mut self,
         start_block: u64,
         num_batches: u64,
+        is_build: bool,
     ) -> Result<(), AccumulatorError> {
         if num_batches == 0 {
             return Err(AccumulatorError::InvalidInput(
@@ -368,7 +380,7 @@ impl<'a> AccumulatorBuilder<'a> {
                 })?;
 
             if let Some(batch_result) = result {
-                self.handle_batch_result(&batch_result).await?;
+                self.handle_batch_result(&batch_result, is_build).await?;
                 self.current_batch += 1;
                 info!(
                     progress = format!("{}/{}", self.current_batch, self.total_batches),
@@ -383,7 +395,7 @@ impl<'a> AccumulatorBuilder<'a> {
         Ok(())
     }
 
-    pub async fn build_from_latest(&mut self) -> Result<(), AccumulatorError> {
+    pub async fn build_from_latest(&mut self, is_build: bool) -> Result<(), AccumulatorError> {
         let provider = StarknetProvider::new(&self.starknet_rpc_url).map_err(|e| {
             error!(error = %e, "Failed to create Starknet provider");
             AccumulatorError::BlockchainError(format!("Failed to create Starknet provider: {}", e))
@@ -401,12 +413,14 @@ impl<'a> AccumulatorBuilder<'a> {
             "Building MMR from minimum MMR block {} - 1",
             latest_mmr_block
         );
-        self.process_blocks_from(latest_mmr_block - 1).await
+        self.process_blocks_from(latest_mmr_block - 1, is_build)
+            .await
     }
 
     pub async fn build_from_latest_with_batches(
         &mut self,
         num_batches: u64,
+        is_build: bool,
     ) -> Result<(), AccumulatorError> {
         let provider = StarknetProvider::new(&self.starknet_rpc_url).map_err(|e| {
             error!(error = %e, "Failed to create Starknet provider");
@@ -431,7 +445,7 @@ impl<'a> AccumulatorBuilder<'a> {
             min_mmr_block - 1,
             num_batches
         );
-        self.process_blocks_from_with_limit(min_mmr_block - 1, num_batches)
+        self.process_blocks_from_with_limit(min_mmr_block - 1, num_batches, is_build)
             .await
     }
 }
@@ -570,7 +584,7 @@ mod tests {
         .await
         .unwrap();
 
-        let result = builder.update_mmr_with_new_headers(100, 50).await;
+        let result = builder.update_mmr_with_new_headers(100, 50, false).await;
         assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
     }
 
@@ -610,7 +624,7 @@ mod tests {
             "test_hash".to_string(), // ipfs_hash
         );
 
-        let result = builder.handle_batch_result(&batch_result).await;
+        let result = builder.handle_batch_result(&batch_result, false).await;
         assert!(result.is_ok());
     }
 }

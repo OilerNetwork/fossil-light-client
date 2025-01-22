@@ -56,17 +56,22 @@ impl StarknetAccount {
         verifier_address: &str,
         proof: Vec<Felt>,
         ipfs_hash: String,
+        is_build: bool,
     ) -> Result<Felt, StarknetHandlerError> {
         const MAX_RETRIES: u32 = 3;
         const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 
         let mut calldata = vec![];
         let mut hash_calldata = vec![];
+        let mut is_build_calldata = vec![];
 
         proof.encode(&mut calldata)?;
 
         ByteArray::from(ipfs_hash.as_str()).encode(&mut hash_calldata)?;
+        is_build.encode(&mut is_build_calldata)?;
+
         calldata.extend(hash_calldata);
+        calldata.extend(is_build_calldata);
 
         let selector = selector!("verify_mmr_proof");
         let call = starknet::core::types::Call {
@@ -182,7 +187,7 @@ mod tests {
         // Note: This test will fail in real execution since we're using a dummy provider
         // In a real test environment, you would mock the provider and account interactions
         let result = account
-            .verify_mmr_proof(verifier_address, proof, ipfs_hash)
+            .verify_mmr_proof(verifier_address, proof, ipfs_hash, true)
             .await;
         assert!(result.is_err()); // Will error due to dummy provider
     }
@@ -194,7 +199,7 @@ mod tests {
             StarknetAccount::new(provider, "0x1234567890abcdef", "0x987654321fedcba").unwrap();
 
         let result = account
-            .verify_mmr_proof("0x123456789", vec![], "QmTest123".to_string())
+            .verify_mmr_proof("0x123456789", vec![], "QmTest123".to_string(), true)
             .await;
         assert!(result.is_err());
     }
@@ -207,7 +212,7 @@ mod tests {
 
         let proof = vec![Felt::from_str("0x1").unwrap()];
         let result = account
-            .verify_mmr_proof("0x123456789", proof, "".to_string())
+            .verify_mmr_proof("0x123456789", proof, "".to_string(), true)
             .await;
         assert!(result.is_err());
     }

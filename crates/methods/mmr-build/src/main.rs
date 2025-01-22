@@ -44,29 +44,11 @@ fn main() {
 
     assert!(first_batch_index == last_batch_index, "Batch index mismatch");
 
-    if first_batch_index > 0 {
-        match (input.batch_link(), &first_header.parent_hash) {
-            (Some(batch_link), Some(parent_hash)) => {
-                assert!(batch_link == parent_hash, "Batch link mismatch");
-            }
-            (None, _) => {
-                assert!(false, "Missing batch link for non-genesis batch");
-            }
-            (Some(_), None) => {
-                assert!(false, "Missing parent hash in first header");
-            }
-        }
-    }
-
-    // Add next batch link check
-    match (input.next_batch_link(), &last_header.block_hash) {
-        (Some(next_link), _) => {
-            assert!(next_link == last_header.block_hash, "Next batch link mismatch");
-        }
-        (None, _) => {
-            // It's okay if there's no next batch link - might be the latest block
-        }
-    }
+    let first_block_parent_hash = if first_batch_index == 0 {
+        "0x0000000000000000000000000000000000000000000000000000000000000000".to_string()
+    } else {
+        first_header.parent_hash.clone().expect("Parent hash is missing")
+    };
 
     // Create output
     let output = GuestOutput::new(
@@ -75,6 +57,7 @@ fn main() {
         last_block_hash,
         root_hash,
         mmr.get_leaves_count(),
+        first_block_parent_hash,
     );
     // Commit the output
     env::commit(&output);

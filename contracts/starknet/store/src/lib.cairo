@@ -11,6 +11,8 @@ pub trait IFossilStore<TContractState> {
     fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
     fn get_latest_mmr_block(self: @TContractState) -> u64;
     fn get_min_mmr_block(self: @TContractState) -> u64;
+    fn get_batch_last_block_link(self: @TContractState, batch_index: u64) -> u256;
+    fn get_batch_first_block_parent_hash(self: @TContractState, batch_index: u64) -> u256;
 }
 
 #[starknet::contract]
@@ -25,6 +27,7 @@ mod Store {
         latest_mmr_block_hash: u256,
         leaves_count: u64,
         root_hash: u256,
+        first_block_parent_hash: u256,
         ipfs_hash: ByteArray,
     }
 
@@ -135,6 +138,7 @@ mod Store {
             curr_state.leaves_count.write(journal.leaves_count);
             curr_state.root_hash.write(journal.root_hash);
             curr_state.ipfs_hash.write(ipfs_hash);
+            curr_state.first_block_parent_hash.write(journal.first_block_parent_hash);
 
             self
                 .emit(
@@ -166,6 +170,16 @@ mod Store {
 
         fn get_min_mmr_block(self: @ContractState) -> u64 {
             self.min_mmr_block.read()
+        }
+
+        fn get_batch_last_block_link(self: @ContractState, batch_index: u64) -> u256 {
+            let curr_state = self.mmr_batches.entry(batch_index + 1);
+            curr_state.first_block_parent_hash.read()
+        }
+
+        fn get_batch_first_block_parent_hash(self: @ContractState, batch_index: u64) -> u256 {
+            let curr_state = self.mmr_batches.entry(batch_index - 1);
+            curr_state.latest_mmr_block_hash.read()
         }
     }
 }
