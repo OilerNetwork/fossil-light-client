@@ -146,13 +146,13 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    - Generate and verify Groth16 proofs on StarkNet for batch correctness
    - Extract batch state from proof journal and store it in the Fossil Store contract
    ```bash
-   cargo run --bin build-mmr -- --batch-size 4 --num-batches 2 --env .env.local
+   cargo run --bin build-mmr -- --batch-size 4 --num-batches 2 --env-file .env.local
    ```
 
 5. Start the State Proof API:
    In a new terminal, start the state proof API service. This provides endpoints to query the MMR state and generate inclusion proofs.
    ```bash
-   cargo run --bin state-proof-api -- --batch-size 4 --env .env.local
+   cargo run --bin state-proof-api -- --batch-size 4 --env-file .env.local
    ```
    Wait for the service to start up and begin listening for requests.
 
@@ -163,11 +163,11 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    - Each block's integrity will be cryptographically verified
    - Block fees will be extracted and computed within a zkVM environment
    ```bash
-   cargo run --bin fetch-fees-proof -- --from-block <start_block> --to-block <end_block>
+   cargo run --bin fetch-fees-proof -- --from-block <start_block> --to-block <end_block> --env-file .env.local
    ```
    For example:
    ```bash
-   cargo run --bin fetch-fees-proof -- --from-block 7494088 --to-block 7494095
+   cargo run --bin fetch-fees-proof -- --from-block 7494088 --to-block 7494095 --env-file .env.local
    ```
    Note: The block range should match the blocks that were added to the MMR in step 4. You can find these numbers in the build_mmr output logs.
 

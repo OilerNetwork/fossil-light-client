@@ -374,8 +374,10 @@ impl LightClient {
                 MaybePendingBlockWithTxHashes::PendingBlock(_) => continue, // Skip pending blocks
             };
 
-            // Only consider fully accepted blocks
-            if block.status != BlockStatus::AcceptedOnL1 {
+            // Only consider L2 accepted blocks
+            if block.status != BlockStatus::AcceptedOnL2
+                && block.status != BlockStatus::AcceptedOnL1
+            {
                 continue;
             }
 
@@ -434,12 +436,12 @@ impl LightClient {
             }
         };
 
-        // Only store hash if block is accepted on L1
-        if block.status != BlockStatus::AcceptedOnL1 {
+        // Only store hash if block is accepted on L2
+        if block.status != BlockStatus::AcceptedOnL2 && block.status != BlockStatus::AcceptedOnL1 {
             warn!(
                 block_number,
                 status = ?block.status,
-                "Block not yet accepted on L1 - waiting for finality"
+                "Block not yet accepted on L2"
             );
             return Err(LightClientError::BlockNotAccepted {
                 block_number,
