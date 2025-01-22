@@ -65,7 +65,8 @@ mod FossilVerifier {
 
         if is_build {
             let batch_link = fossil_store.get_batch_last_block_link(journal.batch_index);
-            // If the batch link is zero, it means that the batch is the first batch, and we don't need to check the batch link
+            // If the batch link is zero, it means that the batch is the first batch, and we don't
+            // need to check the batch link
             if !batch_link.is_zero() {
                 assert!(batch_link == journal.latest_mmr_block_hash, "Batch link mismatch");
             }

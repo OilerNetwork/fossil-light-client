@@ -117,7 +117,7 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
         first_block_parent_hash = f0 + f1 - f2;
         i += 1;
     };
-   
+
     Journal {
         batch_index,
         latest_mmr_block,
