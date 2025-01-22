@@ -163,18 +163,22 @@ impl<'a> AccumulatorBuilder<'a> {
             ));
         }
 
-        let mut current_end = end_block;
+        let mut current_start = start_block;
         let mut batch_results = Vec::new();
 
         info!(
-            total_blocks = end_block - start_block,
+            total_blocks = end_block - start_block + 1,
             "Starting MMR update with new headers"
         );
 
-        while current_end >= start_block {
+        while current_start <= end_block {
+            let batch_end = std::cmp::min(
+                current_start + self.batch_processor.batch_size() - 1,
+                end_block,
+            );
             let batch_range = self
                 .batch_processor
-                .calculate_batch_range(current_end, start_block)?;
+                .calculate_batch_range(batch_end, current_start)?;
 
             debug!(
                 batch_start = batch_range.start,
@@ -213,7 +217,7 @@ impl<'a> AccumulatorBuilder<'a> {
                 );
             }
 
-            current_end = batch_range.start.saturating_sub(1);
+            current_start = batch_range.end + 1;
         }
 
         if batch_results.is_empty() {

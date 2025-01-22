@@ -109,7 +109,6 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
 
         let f0: u256 = BitShift::shl(first_block_parent_hash, 4);
         let f1: u256 = (*journal_bytes.at(i)).into();
-        println!("f1: {:?}", f1);
         let f2: u256 = if f1 < 58 { // '0'-'9' vs 'a'-'f'
             48 // ASCII '0'
         } else {
@@ -118,7 +117,7 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
         first_block_parent_hash = f0 + f1 - f2;
         i += 1;
     };
-    println!("first_block_parent_hash: {:?}", first_block_parent_hash);
+   
     Journal {
         batch_index,
         latest_mmr_block,
