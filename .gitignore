@@ -40,3 +40,5 @@ contracts/starknet/keystore
 terminal
 
 logs/anvil.log
+
+.cursorrules
