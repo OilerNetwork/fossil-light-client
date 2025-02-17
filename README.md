@@ -58,6 +58,8 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
 
 ## Docker-Based Deployment
 
+> ⚠️ **Note**: The Docker-based deployment is currently under development and not functional. Please use the [Manual Compilation and Execution](#manual-compilation-and-execution) method instead.
+
 ### Docker Prerequisites
 
 1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Engine and Compose)
@@ -152,7 +154,7 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    docker-compose up
    ```
 
-   Wait for the `fossil-deploy` container to complete the deployment of all StarkNet contracts.
+   Wait for the `deploy-starknet` container to complete the deployment of all StarkNet contracts. The deployment is finished when you see a log message indicating environment variables have been updated. (it might take a few minutes)
 
 3. Build the project:
 

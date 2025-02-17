@@ -1,6 +1,6 @@
 # Determine platform-specific base image
 ARG TARGETPLATFORM
-FROM --platform=${TARGETPLATFORM:-linux/amd64} ubuntu:22.04
+FROM --platform=${TARGETPLATFORM:-linux/amd64} debian:trixie
 
 # Avoid prompts from apt
 ENV DEBIAN_FRONTEND=noninteractive
@@ -15,10 +15,18 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
 # Install Dojo
-RUN curl -L https://install.dojoengine.org | bash
-ENV PATH="/root/.dojo/bin:${PATH}"
-RUN dojoup 
+ENV DOJO_PATH=/root/.dojo
+ENV PATH="${DOJO_PATH}/bin:${PATH}"
+
+RUN curl -L https://install.dojoengine.org | bash && \
+    mkdir -p ${DOJO_PATH}/bin && \
+    . ~/.bashrc && \
+    dojoup
 
 # Create config directory
 RUN mkdir -p /app/config
