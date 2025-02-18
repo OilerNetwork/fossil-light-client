@@ -6,16 +6,18 @@ pub trait IFossilStore<TContractState> {
         min_update_interval: u64,
     );
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
-    fn update_store_state(ref self: TContractState, journal: verifier::Journal, ipfs_hash: ByteArray);
+    fn update_store_state(
+        ref self: TContractState, journal: verifier::Journal, ipfs_hash: ByteArray,
+    );
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
     fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
     fn get_latest_mmr_block(self: @TContractState) -> u64;
     fn get_min_mmr_block(self: @TContractState) -> u64;
     fn get_batch_last_block_link(self: @TContractState, batch_index: u64) -> u256;
     fn get_batch_first_block_parent_hash(self: @TContractState, batch_index: u64) -> u256;
-    fn get_avg_fee(self: @TContractState, batch_index: usize) -> u64;
+    fn get_avg_fee(self: @TContractState, batch_index: u64) -> u64;
     fn get_avg_fees_in_range(
-        self: @TContractState, start_batch_index: usize, end_batch_index: usize,
+        self: @TContractState, start_batch_index: u64, end_batch_index: u64,
     ) -> Array<u64>;
 }
 
@@ -54,7 +56,7 @@ mod Store {
         mmr_batches: Map<u64, MMRBatch>,
         min_mmr_block: u64,
         min_update_interval: u64,
-        avg_fees: Map<usize, u64>,
+        avg_fees: Map<u64, u64>,
     }
 
     #[event]
@@ -202,12 +204,12 @@ mod Store {
             curr_state.latest_mmr_block_hash.read()
         }
 
-        fn get_avg_fee(self: @ContractState, batch_index: usize) -> u64 {
+        fn get_avg_fee(self: @ContractState, batch_index: u64) -> u64 {
             self.avg_fees.read(batch_index)
         }
 
         fn get_avg_fees_in_range(
-            self: @ContractState, start_batch_index: usize, end_batch_index: usize,
+            self: @ContractState, start_batch_index: u64, end_batch_index: u64,
         ) -> Array<u64> {
             let mut fees = array![];
             for i in start_batch_index..end_batch_index {
