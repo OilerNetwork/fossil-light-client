@@ -41,9 +41,9 @@ mod Store {
     pub struct MMRSnapshot {
         batch_index: u64,
         latest_mmr_block: u64,
-        latest_mmr_block_hash: u256,
+        pub latest_mmr_block_hash: u256,
         root_hash: u256,
-        leaves_count: u64,
+        pub leaves_count: u64,
         ipfs_hash: ByteArray,
     }
 

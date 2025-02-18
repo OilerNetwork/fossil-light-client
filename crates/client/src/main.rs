@@ -49,7 +49,6 @@ async fn main() -> Result<()> {
         args.batch_size,
         args.start_block,
         args.blocks_per_run,
-        args.blocks_buffer_size,
     )
     .await?;
     client.run().await?;
