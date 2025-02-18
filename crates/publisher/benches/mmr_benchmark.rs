@@ -10,7 +10,7 @@ struct Args {
     #[arg(long, default_value = "0")]
     start_block: u64,
 
-    #[arg(long, default_value = "1000")]
+    #[arg(long, default_value = "1023")]
     end_block: u64,
 }
 

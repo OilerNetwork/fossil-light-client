@@ -15,10 +15,8 @@ pub trait IFossilStore<TContractState> {
     fn get_min_mmr_block(self: @TContractState) -> u64;
     fn get_batch_last_block_link(self: @TContractState, batch_index: u64) -> u256;
     fn get_batch_first_block_parent_hash(self: @TContractState, batch_index: u64) -> u256;
-    fn get_avg_fee(self: @TContractState, batch_index: u64) -> u64;
-    fn get_avg_fees_in_range(
-        self: @TContractState, start_batch_index: u64, end_batch_index: u64,
-    ) -> Array<u64>;
+    fn get_avg_fee(self: @TContractState, block_number: u64) -> u64;
+    fn get_avg_fees_in_range(self: @TContractState, start_block: u64, end_block: u64) -> Array<u64>;
 }
 
 #[starknet::contract]
@@ -148,18 +146,113 @@ mod Store {
             curr_state.first_block_parent_hash.write(journal.first_block_parent_hash);
 
             let [(i_0, fees_0), (i_1, fees_1), (i_2, fees_2), (i_3, fees_3)] = journal.avg_fees;
+            let batch_size: u64 = 256;
+
+            // Calculate the first block number in this update
+            let first_block = journal.latest_mmr_block - journal.leaves_count + 1;
+            // Calculate which 256-block sub-batch we're starting from (0-3)
+            let start_sub_batch = (first_block % 1024) / 256;
 
             if fees_0 != 0 {
-                self.avg_fees.write(i_0, fees_0);
+                let existing_fee = self.avg_fees.read(i_0);
+                if existing_fee != 0 && existing_fee != batch_size {
+                    let blocks_in_update = if start_sub_batch == 0 {
+                        if journal.leaves_count > 256 {
+                            256
+                        } else {
+                            journal.leaves_count
+                        }
+                    } else {
+                        0
+                    };
+
+                    if blocks_in_update > 0 {
+                        let existing_blocks = batch_size - blocks_in_update;
+                        let new_fee = (existing_fee * existing_blocks + fees_0 * blocks_in_update)
+                            / batch_size;
+                        self.avg_fees.write(i_0, new_fee);
+                    }
+                } else {
+                    self.avg_fees.write(i_0, fees_0);
+                }
             }
+
             if fees_1 != 0 {
-                self.avg_fees.write(i_1, fees_1);
+                let existing_fee = self.avg_fees.read(i_1);
+                if existing_fee != 0 && existing_fee != batch_size {
+                    let blocks_in_update = if start_sub_batch <= 1 {
+                        if journal.leaves_count > 512 {
+                            256
+                        } else if journal.leaves_count > 256 {
+                            journal.leaves_count - 256
+                        } else {
+                            0
+                        }
+                    } else {
+                        0
+                    };
+
+                    if blocks_in_update > 0 {
+                        let existing_blocks = batch_size - blocks_in_update;
+                        let new_fee = (existing_fee * existing_blocks + fees_1 * blocks_in_update)
+                            / batch_size;
+                        self.avg_fees.write(i_1, new_fee);
+                    }
+                } else {
+                    self.avg_fees.write(i_1, fees_1);
+                }
             }
+
             if fees_2 != 0 {
-                self.avg_fees.write(i_2, fees_2);
+                let existing_fee = self.avg_fees.read(i_2);
+                if existing_fee != 0 && existing_fee != batch_size {
+                    let blocks_in_update = if start_sub_batch <= 2 {
+                        if journal.leaves_count > 768 {
+                            256
+                        } else if journal.leaves_count > 512 {
+                            journal.leaves_count - 512
+                        } else {
+                            0
+                        }
+                    } else {
+                        0
+                    };
+
+                    if blocks_in_update > 0 {
+                        let existing_blocks = batch_size - blocks_in_update;
+                        let new_fee = (existing_fee * existing_blocks + fees_2 * blocks_in_update)
+                            / batch_size;
+                        self.avg_fees.write(i_2, new_fee);
+                    }
+                } else {
+                    self.avg_fees.write(i_2, fees_2);
+                }
             }
+
             if fees_3 != 0 {
-                self.avg_fees.write(i_3, fees_3);
+                let existing_fee = self.avg_fees.read(i_3);
+                if existing_fee != 0 && existing_fee != batch_size {
+                    let blocks_in_update = if start_sub_batch <= 3 {
+                        if journal.leaves_count > 1024 {
+                            256
+                        } else if journal.leaves_count > 768 {
+                            journal.leaves_count - 768
+                        } else {
+                            0
+                        }
+                    } else {
+                        0
+                    };
+
+                    if blocks_in_update > 0 {
+                        let existing_blocks = batch_size - blocks_in_update;
+                        let new_fee = (existing_fee * existing_blocks + fees_3 * blocks_in_update)
+                            / batch_size;
+                        self.avg_fees.write(i_3, new_fee);
+                    }
+                } else {
+                    self.avg_fees.write(i_3, fees_3);
+                }
             }
 
             self
@@ -204,14 +297,18 @@ mod Store {
             curr_state.latest_mmr_block_hash.read()
         }
 
-        fn get_avg_fee(self: @ContractState, batch_index: u64) -> u64 {
+        fn get_avg_fee(self: @ContractState, block_number: u64) -> u64 {
+            let batch_index = block_number / 256;
             self.avg_fees.read(batch_index)
         }
 
         fn get_avg_fees_in_range(
-            self: @ContractState, start_batch_index: u64, end_batch_index: u64,
+            self: @ContractState, start_block: u64, end_block: u64,
         ) -> Array<u64> {
             let mut fees = array![];
+            let start_batch_index = start_block / 256;
+            let end_batch_index = end_block / 256;
+
             for i in start_batch_index..end_batch_index {
                 fees.append(self.get_avg_fee(i));
             };
