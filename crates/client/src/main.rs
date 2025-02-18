@@ -28,6 +28,10 @@ struct Args {
     /// Maximum number of blocks to process in each loop run (0 for unlimited)
     #[arg(short = 'n', long, default_value = "100")]
     blocks_per_run: u64,
+
+    /// Blocks buffer size
+    #[arg(long, default_value = "50")]
+    blocks_buffer_size: u64,
 }
 
 #[tokio::main]
@@ -45,6 +49,7 @@ async fn main() -> Result<()> {
         args.batch_size,
         args.start_block,
         args.blocks_per_run,
+        args.blocks_buffer_size,
     )
     .await?;
     client.run().await?;

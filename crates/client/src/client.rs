@@ -1,13 +1,13 @@
 use common::get_env_var;
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
-    core::types::{BlockId, EventFilter, Felt},
+    core::types::{BlockId, BlockStatus, EventFilter, Felt, MaybePendingBlockWithTxHashes},
     macros::selector,
     providers::Provider as EventProvider,
 };
 use starknet_handler::provider::StarknetProvider;
 use tokio::time::{self, Duration};
-use tracing::{error, info, instrument};
+use tracing::{error, info, instrument, warn};
 
 #[cfg(test)]
 use mockall::automock;
@@ -68,6 +68,17 @@ pub enum LightClientError {
     ChainIdError(#[from] std::num::ParseIntError),
     #[error("Felt conversion error: {0}")]
     FeltConversion(#[from] starknet::core::types::FromStrError),
+    #[error("Chain reorganization detected at block {block_number}. Expected hash: {expected_hash}, Found hash: {actual_hash}")]
+    ChainReorganization {
+        block_number: u64,
+        expected_hash: String,
+        actual_hash: String,
+    },
+    #[error("Block {block_number} is not yet accepted (status: {status:?})")]
+    BlockNotAccepted {
+        block_number: u64,
+        status: BlockStatus,
+    },
 }
 
 pub struct LightClient {
@@ -82,6 +93,8 @@ pub struct LightClient {
     polling_interval: Duration,
     batch_size: u64,
     blocks_per_run: u64,
+    recent_block_hashes: Vec<(u64, Felt)>,
+    block_hash_buffer_size: u64,
 }
 
 impl LightClient {
@@ -91,6 +104,7 @@ impl LightClient {
         batch_size: u64,
         start_block: u64,
         blocks_per_run: u64,
+        blocks_buffer_size: u64,
     ) -> Result<Self, LightClientError> {
         if polling_interval == 0 {
             error!("Polling interval must be greater than zero");
@@ -129,6 +143,8 @@ impl LightClient {
             polling_interval: Duration::from_secs(polling_interval),
             batch_size,
             blocks_per_run,
+            recent_block_hashes: Vec::new(),
+            block_hash_buffer_size: blocks_buffer_size,
         })
     }
 
@@ -163,6 +179,9 @@ impl LightClient {
 
     /// Processes new events from the Starknet store contract.
     pub async fn process_new_events(&mut self) -> Result<(), LightClientError> {
+        // Verify no reorg has occurred since our last processed block
+        self.verify_chain_continuity().await?;
+
         // Get the latest block number
         let latest_block = self.starknet_provider.provider().block_number().await?;
 
@@ -249,6 +268,10 @@ impl LightClient {
             self.handle_events().await?;
         }
 
+        // After successful processing, update our stored block hash
+        self.update_latest_block_hash(self.latest_processed_events_block)
+            .await?;
+
         Ok(())
     }
 
@@ -329,6 +352,146 @@ impl LightClient {
         Ok(())
     }
 
+    /// Verifies chain continuity and handles reorgs
+    async fn verify_chain_continuity(&mut self) -> Result<(), LightClientError> {
+        // Skip if we haven't processed any blocks
+        if self.recent_block_hashes.is_empty() {
+            return Ok(());
+        }
+
+        // Find the earliest valid block in our chain
+        let mut reorg_point = None;
+
+        // Check blocks from newest to oldest
+        for &(block_number, expected_hash) in self.recent_block_hashes.iter().rev() {
+            let block = match self
+                .starknet_provider
+                .provider()
+                .get_block_with_tx_hashes(&BlockId::Number(block_number))
+                .await?
+            {
+                MaybePendingBlockWithTxHashes::Block(block) => block,
+                MaybePendingBlockWithTxHashes::PendingBlock(_) => continue, // Skip pending blocks
+            };
+
+            // Only consider L2 accepted blocks
+            if block.status != BlockStatus::AcceptedOnL2
+                && block.status != BlockStatus::AcceptedOnL1
+            {
+                continue;
+            }
+
+            if block.block_hash == expected_hash {
+                // Found a valid block - everything after this needs to be reprocessed
+                reorg_point = Some(block_number);
+                break;
+            }
+        }
+
+        match reorg_point {
+            Some(valid_block) => {
+                if valid_block < self.latest_processed_events_block {
+                    // Reorg detected - reset to last valid block
+                    self.handle_chain_reorganization(valid_block).await?;
+                    return Err(LightClientError::ChainReorganization {
+                        block_number: self.latest_processed_events_block,
+                        expected_hash: format!("{:#x}", self.recent_block_hashes.last().unwrap().1),
+                        actual_hash: "reorg detected".to_string(),
+                    });
+                }
+            }
+            None => {
+                // No valid blocks found in our buffer - deep reorg
+                warn!("Deep reorg detected - rolling back to earliest tracked block");
+                let earliest_block = self.recent_block_hashes.first().unwrap().0;
+                self.handle_chain_reorganization(earliest_block).await?;
+                return Err(LightClientError::ChainReorganization {
+                    block_number: self.latest_processed_events_block,
+                    expected_hash: "deep reorg".to_string(),
+                    actual_hash: "complete reset required".to_string(),
+                });
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Updates stored block hashes after successful processing
+    async fn update_latest_block_hash(
+        &mut self,
+        block_number: u64,
+    ) -> Result<(), LightClientError> {
+        let block = match self
+            .starknet_provider
+            .provider()
+            .get_block_with_tx_hashes(&BlockId::Number(block_number))
+            .await?
+        {
+            MaybePendingBlockWithTxHashes::Block(block) => block,
+            MaybePendingBlockWithTxHashes::PendingBlock(_) => {
+                return Err(LightClientError::BlockNotAccepted {
+                    block_number,
+                    status: BlockStatus::Pending,
+                });
+            }
+        };
+
+        // Only store hash if block is accepted on L2
+        if block.status != BlockStatus::AcceptedOnL2 && block.status != BlockStatus::AcceptedOnL1 {
+            warn!(
+                block_number,
+                status = ?block.status,
+                "Block not yet accepted on L2"
+            );
+            return Err(LightClientError::BlockNotAccepted {
+                block_number,
+                status: block.status,
+            });
+        }
+
+        // Add new block hash to buffer
+        self.recent_block_hashes
+            .push((block_number, block.block_hash));
+
+        // Maintain buffer size
+        while self.recent_block_hashes.len() > self.block_hash_buffer_size as usize {
+            self.recent_block_hashes.remove(0);
+        }
+
+        Ok(())
+    }
+
+    /// Handles chain reorganization by resetting state and recalculating MMR
+    async fn handle_chain_reorganization(
+        &mut self,
+        valid_block: u64,
+    ) -> Result<(), LightClientError> {
+        info!(valid_block, "Handling chain reorganization");
+
+        // Reset processed blocks to last valid block
+        self.latest_processed_events_block = valid_block;
+        self.latest_processed_mmr_block = valid_block;
+
+        // Remove all block hashes after the valid block
+        self.recent_block_hashes
+            .retain(|(block_num, _)| *block_num <= valid_block);
+
+        // Recalculate MMR from the valid block
+        let latest_relayed_block = self
+            .starknet_provider
+            .get_latest_relayed_block(&self.l2_store_addr)
+            .await?;
+
+        self.update_mmr(valid_block, latest_relayed_block).await?;
+
+        info!(
+            new_processed_block = valid_block,
+            "Reset processing state and recalculated MMR"
+        );
+
+        Ok(())
+    }
+
     #[cfg(test)]
     pub async fn new_with_deps(
         polling_interval: u64,
@@ -373,6 +536,8 @@ impl LightClient {
             polling_interval: Duration::from_secs(polling_interval),
             batch_size,
             blocks_per_run,
+            recent_block_hashes: Vec::new(),
+            block_hash_buffer_size: 50,
         })
     }
 }
