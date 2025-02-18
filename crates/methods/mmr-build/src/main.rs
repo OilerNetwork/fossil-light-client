@@ -44,13 +44,43 @@ fn main() {
 
     assert!(first_batch_index == last_batch_index, "Batch index mismatch");
 
+    // Calculate fee averages for 4 sub-batches of 256 headers
+    let sub_batch_size = 256;
+    let mut avg_fees: [(usize, u64); 4] = [(0, 0); 4];
+
+    for (i, chunk) in input.headers().chunks(sub_batch_size).enumerate() {
+        if i >= 4 {
+            break;
+        }
+
+        let total_fees: u64 = chunk
+            .iter()
+            .filter_map(|header| {
+                header.base_fee_per_gas.as_ref().and_then(|fee| {
+                    // Remove "0x" prefix and parse as hex
+                    u64::from_str_radix(fee.trim_start_matches("0x"), 16).ok()
+                })
+            })
+            .sum();
+
+        let avg_fee = if chunk.is_empty() {
+            0
+        } else {
+            total_fees / chunk.len() as u64
+        };
+
+        // Calculate global index based on batch_index
+        let global_index = (first_batch_index * 4 + i as u64 + 1) as usize;
+        avg_fees[i] = (global_index, avg_fee);
+    }
+
     let first_block_parent_hash = if first_batch_index == 0 {
         "0x0000000000000000000000000000000000000000000000000000000000000000".to_string()
     } else {
         first_header.parent_hash.clone().expect("Parent hash is missing")
     };
 
-    // Create output
+    // Create output with avg_fees
     let output = GuestOutput::new(
         first_batch_index,
         last_block_number,
@@ -58,7 +88,9 @@ fn main() {
         root_hash,
         mmr.get_leaves_count(),
         first_block_parent_hash,
+        avg_fees,
     );
+
     // Commit the output
     env::commit(&output);
 }

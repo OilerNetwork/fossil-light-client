@@ -187,6 +187,8 @@ impl<'a> BatchProcessor<'a> {
                     e
                 })?;
 
+            println!("Guest output: {:?}", guest_output);
+
             debug!(
                 "Guest output - root_hash: {}, leaves_count: {}",
                 guest_output.root_hash(),
