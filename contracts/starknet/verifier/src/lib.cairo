@@ -12,6 +12,7 @@ pub struct Journal {
     pub root_hash: u256,
     pub leaves_count: u64,
     pub first_block_parent_hash: u256,
+    pub avg_fees: [(u64, u64); 4],
 }
 
 pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
@@ -118,6 +119,87 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
         i += 1;
     };
 
+    // Parse avg_fees
+    offset += 66;
+    let mut i_0: u64 = 0;
+    let mut j = 0;
+    while j < 8 {
+        let f0: u64 = (*journal_bytes.at(offset + j)).into();
+        let f1: u64 = BitShift::shl(f0, 8 * j.into());
+        i_0 += f1;
+        j += 1;
+    };
+    offset += 8;
+    let mut fee_0: u64 = 0;
+    let mut j = 0;
+    while j < 8 {
+        let f0: u64 = (*journal_bytes.at(offset + j)).into();
+        let f1: u64 = BitShift::shl(f0, 8 * j.into());
+        fee_0 += f1;
+        j += 1;
+    };
+    let avg_fees_0 = (i_0, fee_0);
+
+    offset += 8;
+    let mut i_1: u64 = 0;
+    let mut j = 0;
+    while j < 8 {
+        let f0: u64 = (*journal_bytes.at(offset + j)).into();
+        let f1: u64 = BitShift::shl(f0, 8 * j.into());
+        i_1 += f1;
+        j += 1;
+    };
+    offset += 8;
+    let mut fee_1: u64 = 0;
+    let mut j = 0;
+    while j < 8 {
+        let f0: u64 = (*journal_bytes.at(offset + j)).into();
+        let f1: u64 = BitShift::shl(f0, 8 * j.into());
+        fee_1 += f1;
+        j += 1;
+    };
+    let avg_fees_1 = (i_1, fee_1);
+
+    offset += 8;
+    let mut i_2: u64 = 0;
+    let mut j = 0;
+    while j < 8 {
+        let f0: u64 = (*journal_bytes.at(offset + j)).into();
+        let f1: u64 = BitShift::shl(f0, 8 * j.into());
+        i_2 += f1;
+        j += 1;
+    };
+    offset += 8;
+    let mut fee_2: u64 = 0;
+    let mut j = 0;
+    while j < 8 {
+        let f0: u64 = (*journal_bytes.at(offset + j)).into();
+        let f1: u64 = BitShift::shl(f0, 8 * j.into());
+        fee_2 += f1;
+        j += 1;
+    };
+    let avg_fees_2 = (i_2, fee_2);
+
+    offset += 8;
+    let mut i_3: u64 = 0;
+    let mut j = 0;
+    while j < 8 {
+        let f0: u64 = (*journal_bytes.at(offset + j)).into();
+        let f1: u64 = BitShift::shl(f0, 8 * j.into());
+        i_3 += f1;
+        j += 1;
+    };
+    offset += 8;
+    let mut fee_3: u64 = 0;
+    let mut j = 0;
+    while j < 8 {
+        let f0: u64 = (*journal_bytes.at(offset + j)).into();
+        let f1: u64 = BitShift::shl(f0, 8 * j.into());
+        fee_3 += f1;
+        j += 1;
+    };
+    let avg_fees_3 = (i_3, fee_3);
+
     Journal {
         batch_index,
         latest_mmr_block,
@@ -125,6 +207,7 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
         root_hash,
         leaves_count,
         first_block_parent_hash,
+        avg_fees: [avg_fees_0, avg_fees_1, avg_fees_2, avg_fees_3],
     }
 }
 
@@ -188,31 +271,36 @@ mod tests {
         let journal_bytes = get_journal_bytes();
 
         let journal = decode_journal(journal_bytes);
-        assert_eq!(journal.batch_index, 7083);
-        assert_eq!(journal.latest_mmr_block, 7253851);
+        assert_eq!(journal.batch_index, 21356);
+        assert_eq!(journal.latest_mmr_block, 21869567);
         assert_eq!(
             journal.latest_mmr_block_hash,
-            0x858768dd79b8c6190fb224ff398345ffe4fcb9c4899c55e0fc0994b7d35177af,
+            0xef3bf25494173c997a6f53b065a90d186fb7b05058b71728c55785a61b2283a3,
         );
         assert_eq!(
-            journal.root_hash, 0x72aa9525dc9b7953631c0699d041fd4f23aa9f98c4a73aab27fbf2f0b9b451f8,
+            journal.root_hash, 0x12060ac56fb36e69ba68f0914aab0b7cf1c97e7d667c4010411b5d93a1a81336,
         );
-        assert_eq!(journal.leaves_count, 4);
+        assert_eq!(journal.leaves_count, 1024);
+        let [fees_0, fees_1, fees_2, fees_3] = journal.avg_fees;
+        assert_eq!(fees_0, (85425, 1311344000));
+        assert_eq!(fees_1, (85426, 1240653577));
+        assert_eq!(fees_2, (85427, 902624002));
+        assert_eq!(fees_3, (85428, 846720077));
     }
 
     fn get_journal_bytes() -> Span<u8> {
         array![
-            123,
-            177,
-            82,
+            108,
+            83,
             0,
             0,
             0,
             0,
             0,
-            239,
-            197,
-            74,
+            0,
+            255,
+            179,
+            77,
             1,
             0,
             0,
@@ -224,70 +312,70 @@ mod tests {
             0,
             48,
             120,
-            50,
-            100,
+            101,
+            102,
+            51,
             98,
-            49,
-            97,
-            55,
-            99,
-            97,
-            51,
-            100,
-            100,
-            51,
+            102,
+            50,
+            53,
             52,
+            57,
+            52,
+            49,
+            55,
+            51,
             99,
             57,
-            99,
-            98,
-            48,
-            102,
-            99,
-            50,
-            98,
-            100,
-            54,
-            52,
-            55,
-            51,
-            52,
-            102,
-            49,
-            50,
-            48,
-            101,
-            100,
-            54,
-            100,
-            55,
-            102,
-            49,
-            49,
-            101,
-            52,
-            54,
-            55,
-            48,
-            99,
-            100,
-            97,
-            100,
-            48,
-            98,
-            49,
-            51,
-            52,
-            101,
-            48,
             57,
+            55,
+            97,
+            54,
+            102,
+            53,
+            51,
+            98,
+            48,
+            54,
+            53,
+            97,
+            57,
+            48,
+            100,
+            49,
+            56,
+            54,
+            102,
+            98,
+            55,
+            98,
+            48,
+            53,
+            48,
+            53,
+            56,
+            98,
+            55,
+            49,
+            55,
+            50,
+            56,
+            99,
+            53,
+            53,
+            55,
+            56,
+            53,
+            97,
+            54,
+            49,
+            98,
+            50,
+            50,
+            56,
+            51,
             97,
             51,
-            50,
-            52,
-            48,
-            52,
-            49,
             0,
             0,
             66,
@@ -296,70 +384,71 @@ mod tests {
             0,
             48,
             120,
-            98,
-            56,
-            51,
-            98,
+            49,
+            50,
+            48,
             54,
+            48,
             97,
-            56,
-            52,
-            100,
-            56,
             99,
+            53,
+            54,
             102,
-            56,
             98,
-            55,
-            100,
+            51,
+            54,
             101,
             54,
-            51,
+            57,
+            98,
             97,
+            54,
+            56,
             102,
             48,
-            51,
-            101,
+            57,
+            49,
+            52,
+            97,
+            97,
+            98,
+            48,
+            98,
+            55,
+            99,
             102,
+            49,
+            99,
+            57,
+            55,
+            101,
+            55,
+            100,
+            54,
+            54,
+            55,
+            99,
+            52,
+            48,
+            49,
+            48,
+            52,
+            49,
+            49,
+            98,
+            53,
+            100,
             57,
             51,
-            56,
-            101,
             97,
+            49,
             97,
-            101,
-            100,
-            54,
-            54,
-            52,
             56,
-            98,
-            101,
-            53,
-            56,
-            55,
-            56,
-            98,
-            54,
-            53,
-            100,
             49,
-            52,
-            57,
-            98,
-            52,
-            49,
-            98,
-            53,
-            57,
-            49,
-            98,
             51,
-            53,
-            55,
-            50,
-            50,
-            100,
+            51,
+            54,
+            0,
             0,
             0,
             4,
@@ -369,77 +458,140 @@ mod tests {
             0,
             0,
             0,
-            0,
             66,
             0,
             0,
             0,
             48,
             120,
-            57,
-            48,
-            100,
-            50,
-            49,
-            51,
-            48,
-            53,
+            52,
             53,
             54,
-            55,
-            57,
-            57,
-            97,
-            55,
-            56,
-            51,
-            101,
-            50,
-            97,
-            56,
             102,
             97,
+            54,
+            49,
+            49,
+            51,
+            53,
+            100,
+            54,
+            48,
+            53,
+            56,
+            51,
+            98,
             102,
             55,
+            51,
+            100,
+            55,
+            53,
+            50,
+            57,
+            101,
             98,
             50,
+            101,
             51,
-            52,
-            54,
+            49,
+            99,
             56,
             53,
-            54,
-            50,
-            52,
             101,
-            55,
             49,
-            51,
-            49,
-            52,
-            101,
-            48,
-            100,
-            98,
-            51,
-            56,
             57,
             99,
-            101,
-            56,
-            54,
-            49,
-            53,
-            100,
-            98,
-            97,
-            102,
-            53,
-            100,
-            52,
             50,
-            53,
+            99,
+            55,
+            101,
+            101,
+            101,
+            57,
+            100,
+            56,
             48,
+            48,
+            52,
+            51,
+            98,
+            48,
+            55,
+            57,
+            97,
+            97,
+            101,
+            51,
+            97,
+            100,
+            48,
+            101,
+            57,
+            0,
+            0,
+            177,
+            77,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            128,
+            133,
+            41,
+            78,
+            0,
+            0,
+            0,
+            0,
+            178,
+            77,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            9,
+            223,
+            242,
+            73,
+            0,
+            0,
+            0,
+            0,
+            179,
+            77,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            2,
+            243,
+            204,
+            53,
+            0,
+            0,
+            0,
+            0,
+            180,
+            77,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            77,
+            236,
+            119,
+            50,
+            0,
+            0,
             0,
             0,
         ]

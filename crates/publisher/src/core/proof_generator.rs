@@ -197,6 +197,8 @@ where
             ));
         }
 
+        println!("Proof journal: {:?}", proof.receipt().journal.bytes);
+
         let receipt = proof.receipt();
         Ok(receipt.journal.decode()?)
     }

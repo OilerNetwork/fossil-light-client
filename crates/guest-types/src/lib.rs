@@ -67,6 +67,7 @@ pub struct GuestOutput {
     root_hash: String,
     leaves_count: usize,
     first_block_parent_hash: String,
+    avg_fees: [(usize, u64); 4],
 }
 
 impl GuestOutput {
@@ -77,6 +78,7 @@ impl GuestOutput {
         root_hash: String,
         leaves_count: usize,
         first_block_parent_hash: String,
+        avg_fees: [(usize, u64); 4],
     ) -> Self {
         Self {
             batch_index,
@@ -85,6 +87,7 @@ impl GuestOutput {
             root_hash,
             leaves_count,
             first_block_parent_hash,
+            avg_fees,
         }
     }
 
@@ -313,6 +316,7 @@ mod tests {
             "root_hash".to_string(),
             50,
             "first_block_parent_hash".to_string(),
+            [(0, 100), (1, 200), (2, 300), (3, 400)],
         );
 
         assert_eq!(output.batch_index(), 1);

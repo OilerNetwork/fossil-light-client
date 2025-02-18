@@ -68,14 +68,26 @@ mod FossilVerifier {
             // If the batch link is zero, it means that the batch is the first batch, and we don't
             // need to check the batch link
             if !batch_link.is_zero() {
+                println!("batch_link: {}", batch_link);
+                println!("journal.latest_mmr_block_hash: {}", journal.latest_mmr_block_hash);
                 assert!(batch_link == journal.latest_mmr_block_hash, "Batch link mismatch");
             }
         } else {
-            let batch_link = fossil_store.get_batch_first_block_parent_hash(journal.batch_index);
+            let current_batch_state = fossil_store.get_mmr_state(journal.batch_index);
+            let mut batch_link = 0;
+
+            if current_batch_state.leaves_count > 0 {
+                batch_link = current_batch_state.latest_mmr_block_hash;
+            } else {
+                batch_link = fossil_store.get_batch_first_block_parent_hash(journal.batch_index);
+            }
+
+            println!("batch_link: {}", batch_link);
+            println!("journal.first_block_parent_hash: {}", journal.first_block_parent_hash);
             assert!(batch_link == journal.first_block_parent_hash, "Batch link mismatch");
         }
 
-        fossil_store.update_mmr_state(journal, ipfs_hash);
+        fossil_store.update_store_state(journal, ipfs_hash);
 
         self
             .emit(
