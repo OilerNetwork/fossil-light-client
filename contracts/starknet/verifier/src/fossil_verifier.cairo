@@ -75,7 +75,7 @@ mod FossilVerifier {
             assert!(batch_link == journal.first_block_parent_hash, "Batch link mismatch");
         }
 
-        fossil_store.update_mmr_state(journal, ipfs_hash);
+        fossil_store.update_store_state(journal, ipfs_hash);
 
         self
             .emit(

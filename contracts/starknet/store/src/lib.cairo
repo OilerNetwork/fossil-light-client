@@ -6,13 +6,17 @@ pub trait IFossilStore<TContractState> {
         min_update_interval: u64,
     );
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
-    fn update_mmr_state(ref self: TContractState, journal: verifier::Journal, ipfs_hash: ByteArray);
+    fn update_store_state(ref self: TContractState, journal: verifier::Journal, ipfs_hash: ByteArray);
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
     fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
     fn get_latest_mmr_block(self: @TContractState) -> u64;
     fn get_min_mmr_block(self: @TContractState) -> u64;
     fn get_batch_last_block_link(self: @TContractState, batch_index: u64) -> u256;
     fn get_batch_first_block_parent_hash(self: @TContractState, batch_index: u64) -> u256;
+    fn get_avg_fee(self: @TContractState, batch_index: usize) -> u64;
+    fn get_avg_fees_in_range(
+        self: @TContractState, start_batch_index: usize, end_batch_index: usize,
+    ) -> Array<u64>;
 }
 
 #[starknet::contract]
@@ -50,6 +54,7 @@ mod Store {
         mmr_batches: Map<u64, MMRBatch>,
         min_mmr_block: u64,
         min_update_interval: u64,
+        avg_fees: Map<usize, u64>,
     }
 
     #[event]
@@ -98,7 +103,7 @@ mod Store {
             self.latest_blockhash_from_l1.read()
         }
 
-        fn update_mmr_state(
+        fn update_store_state(
             ref self: ContractState, journal: verifier::Journal, ipfs_hash: ByteArray,
         ) {
             assert!(
@@ -140,6 +145,21 @@ mod Store {
             curr_state.ipfs_hash.write(ipfs_hash);
             curr_state.first_block_parent_hash.write(journal.first_block_parent_hash);
 
+            let [(i_0, fees_0), (i_1, fees_1), (i_2, fees_2), (i_3, fees_3)] = journal.avg_fees;
+
+            if fees_0 != 0 {
+                self.avg_fees.write(i_0, fees_0);
+            }
+            if fees_1 != 0 {
+                self.avg_fees.write(i_1, fees_1);
+            }
+            if fees_2 != 0 {
+                self.avg_fees.write(i_2, fees_2);
+            }
+            if fees_3 != 0 {
+                self.avg_fees.write(i_3, fees_3);
+            }
+
             self
                 .emit(
                     MmrStateUpdated {
@@ -180,6 +200,20 @@ mod Store {
         fn get_batch_first_block_parent_hash(self: @ContractState, batch_index: u64) -> u256 {
             let curr_state = self.mmr_batches.entry(batch_index - 1);
             curr_state.latest_mmr_block_hash.read()
+        }
+
+        fn get_avg_fee(self: @ContractState, batch_index: usize) -> u64 {
+            self.avg_fees.read(batch_index)
+        }
+
+        fn get_avg_fees_in_range(
+            self: @ContractState, start_batch_index: usize, end_batch_index: usize,
+        ) -> Array<u64> {
+            let mut fees = array![];
+            for i in start_batch_index..end_batch_index {
+                fees.append(self.get_avg_fee(i));
+            };
+            fees
         }
     }
 }

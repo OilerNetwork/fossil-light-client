@@ -12,6 +12,7 @@ pub struct Journal {
     pub root_hash: u256,
     pub leaves_count: u64,
     pub first_block_parent_hash: u256,
+    pub avg_fees: [(usize, u64); 4],
 }
 
 pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
@@ -125,6 +126,7 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
         root_hash,
         leaves_count,
         first_block_parent_hash,
+        avg_fees: [(0, 0), (0, 0), (0, 0), (0, 0)],
     }
 }
 
