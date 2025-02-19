@@ -3,13 +3,13 @@ use crate::db::DbConnection;
 use crate::errors::AccumulatorError;
 use crate::utils::BatchResult;
 use common::get_or_create_db_path;
+use eth_rlp_types::BlockHeader;
 use guest_types::{CombinedInput, GuestOutput, MMRInput};
 use ipfs_utils::IpfsManager;
 use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
 use std::path::PathBuf;
 use tracing::{debug, error, info, warn};
-
 pub struct BatchProcessor<'a> {
     batch_size: u64,
     proof_generator: ProofGenerator<CombinedInput>,
@@ -136,6 +136,15 @@ impl<'a> BatchProcessor<'a> {
             });
         }
 
+        let new_headers: Vec<String> = headers.iter().map(|h| h.block_hash.clone()).collect();
+        let grouped_headers = group_headers_by_hour(headers);
+
+        info!(
+            "Grouped {} headers into {} hourly groups",
+            new_headers.len(),
+            grouped_headers.len()
+        );
+
         let current_peaks = mmr.get_peaks(PeaksOptions::default()).await.map_err(|e| {
             error!(error = %e, "Failed to get current peaks");
             e
@@ -149,8 +158,6 @@ impl<'a> BatchProcessor<'a> {
             e
         })?;
 
-        let new_headers: Vec<String> = headers.iter().map(|h| h.block_hash.clone()).collect();
-
         let mmr_input = MMRInput::new(
             current_peaks,
             current_elements_count,
@@ -161,7 +168,7 @@ impl<'a> BatchProcessor<'a> {
         let combined_input = CombinedInput::new(
             chain_id,
             self.batch_size,
-            headers.clone(),
+            grouped_headers,
             mmr_input,
             self.skip_proof_verification,
         );
@@ -195,6 +202,7 @@ impl<'a> BatchProcessor<'a> {
 
             (Some(guest_output), Some(proof))
         };
+        println!("Guest output: {:?}", guest_output);
 
         let new_mmr_state = self
             .mmr_state_manager
@@ -318,6 +326,78 @@ impl BatchRange {
         }
         Ok(Self { start, end })
     }
+}
+
+/// Groups block headers into vectors based on their timestamp hour and finds representative timestamps
+fn group_headers_by_hour(headers: Vec<BlockHeader>) -> Vec<(i64, Vec<BlockHeader>)> {
+    let total_headers = headers.len();
+    let mut grouped_headers: Vec<(i64, Vec<BlockHeader>)> = Vec::new();
+    let mut current_group: Vec<BlockHeader> = Vec::new();
+    let mut current_hour: Option<i64> = None;
+
+    for header in headers {
+        let timestamp = header
+            .timestamp
+            .as_ref()
+            .and_then(|ts| i64::from_str_radix(ts.trim_start_matches("0x"), 16).ok())
+            .unwrap_or_default();
+
+        let hour = timestamp / 3600;
+
+        match current_hour {
+            None => {
+                current_hour = Some(hour);
+                current_group.push(header);
+            }
+            Some(h) if h == hour => {
+                current_group.push(header);
+            }
+            Some(h) => {
+                if !current_group.is_empty() {
+                    // Find timestamp closest to the hour
+                    let representative_timestamp = h * 3600;
+                    grouped_headers
+                        .push((representative_timestamp, std::mem::take(&mut current_group)));
+                }
+                current_hour = Some(hour);
+                current_group.push(header);
+            }
+        }
+    }
+
+    // Push the last group
+    if !current_group.is_empty() {
+        if let Some(h) = current_hour {
+            let representative_timestamp = h * 3600;
+            grouped_headers.push((representative_timestamp, current_group));
+        }
+    }
+
+    info!(
+        "Grouping summary: {} total headers grouped into {} groups",
+        total_headers,
+        grouped_headers.len()
+    );
+    for (i, (timestamp, group)) in grouped_headers.iter().enumerate() {
+        let first = group.first().unwrap();
+        let last = group.last().unwrap();
+        info!(
+            "Group {}: size={}, block range={}-{}, timestamp range={}-{}, representative_timestamp={}",
+            i,
+            group.len(),
+            first.number,
+            last.number,
+            first.timestamp.as_ref()
+                .and_then(|ts| i64::from_str_radix(ts.trim_start_matches("0x"), 16).ok())
+                .unwrap_or_default(),
+            last.timestamp.as_ref()
+                .and_then(|ts| i64::from_str_radix(ts.trim_start_matches("0x"), 16).ok())
+                .unwrap_or_default(),
+            timestamp
+        );
+    }
+
+    grouped_headers
 }
 
 #[cfg(test)]

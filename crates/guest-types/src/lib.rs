@@ -67,7 +67,7 @@ pub struct GuestOutput {
     root_hash: String,
     leaves_count: usize,
     first_block_parent_hash: String,
-    avg_fees: [(usize, u64); 4],
+    avg_fees: Vec<(usize, usize, u64)>, // (timestamp, data_points, avg_fee)
 }
 
 impl GuestOutput {
@@ -78,7 +78,7 @@ impl GuestOutput {
         root_hash: String,
         leaves_count: usize,
         first_block_parent_hash: String,
-        avg_fees: [(usize, u64); 4],
+        avg_fees: Vec<(usize, usize, u64)>,
     ) -> Self {
         Self {
             batch_index,
@@ -121,7 +121,7 @@ impl GuestOutput {
 pub struct CombinedInput {
     chain_id: u64,
     batch_size: u64,
-    headers: Vec<BlockHeader>,
+    headers: Vec<(i64, Vec<BlockHeader>)>, // (representative_timestamp, headers)
     mmr_input: MMRInput,
     skip_proof_verification: bool,
 }
@@ -130,7 +130,7 @@ impl CombinedInput {
     pub fn new(
         chain_id: u64,
         batch_size: u64,
-        headers: Vec<BlockHeader>,
+        headers: Vec<(i64, Vec<BlockHeader>)>,
         mmr_input: MMRInput,
         skip_proof_verification: bool,
     ) -> Self {
@@ -151,7 +151,7 @@ impl CombinedInput {
         self.batch_size
     }
 
-    pub fn headers(&self) -> &Vec<BlockHeader> {
+    pub fn headers(&self) -> &Vec<(i64, Vec<BlockHeader>)> {
         &self.headers
     }
 
@@ -316,7 +316,7 @@ mod tests {
             "root_hash".to_string(),
             50,
             "first_block_parent_hash".to_string(),
-            [(0, 100), (1, 200), (2, 300), (3, 400)],
+            vec![(0, 0, 100), (1, 0, 200), (2, 0, 300), (3, 0, 400)],
         );
 
         assert_eq!(output.batch_index(), 1);
