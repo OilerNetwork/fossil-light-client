@@ -202,7 +202,6 @@ impl<'a> BatchProcessor<'a> {
 
             (Some(guest_output), Some(proof))
         };
-        println!("Guest output: {:?}", guest_output);
 
         let new_mmr_state = self
             .mmr_state_manager

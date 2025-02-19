@@ -12,10 +12,16 @@ pub struct Journal {
     pub root_hash: u256,
     pub leaves_count: u64,
     pub first_block_parent_hash: u256,
-    pub avg_fees: [(u64, u64); 4],
 }
 
-pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
+#[derive(Drop, Serde)]
+pub struct AvgFees {
+    pub timestamp: u64,
+    pub data_points: u64,
+    pub avg_fee: u64,
+}
+
+pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
     let mut offset = 0; // Skip initial bytes
 
     // Parse batch_index
@@ -121,94 +127,66 @@ pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> Journal {
 
     // Parse avg_fees
     offset += 66;
-    let mut i_0: u64 = 0;
-    let mut j = 0;
-    while j < 8 {
-        let f0: u64 = (*journal_bytes.at(offset + j)).into();
-        let f1: u64 = BitShift::shl(f0, 8 * j.into());
-        i_0 += f1;
-        j += 1;
-    };
-    offset += 8;
-    let mut fee_0: u64 = 0;
-    let mut j = 0;
-    while j < 8 {
-        let f0: u64 = (*journal_bytes.at(offset + j)).into();
-        let f1: u64 = BitShift::shl(f0, 8 * j.into());
-        fee_0 += f1;
-        j += 1;
-    };
-    let avg_fees_0 = (i_0, fee_0);
 
-    offset += 8;
-    let mut i_1: u64 = 0;
-    let mut j = 0;
-    while j < 8 {
-        let f0: u64 = (*journal_bytes.at(offset + j)).into();
-        let f1: u64 = BitShift::shl(f0, 8 * j.into());
-        i_1 += f1;
-        j += 1;
+    let mut avg_fees_len: usize = 0;
+    let mut i = 0;
+    while i < 4 {
+        let f0: u32 = (*journal_bytes.at(offset + i)).into();
+        let f1: u32 = BitShift::shl(f0, 8 * i.into());
+        avg_fees_len += f1;
+        i += 1;
     };
-    offset += 8;
-    let mut fee_1: u64 = 0;
-    let mut j = 0;
-    while j < 8 {
-        let f0: u64 = (*journal_bytes.at(offset + j)).into();
-        let f1: u64 = BitShift::shl(f0, 8 * j.into());
-        fee_1 += f1;
-        j += 1;
-    };
-    let avg_fees_1 = (i_1, fee_1);
 
-    offset += 8;
-    let mut i_2: u64 = 0;
-    let mut j = 0;
-    while j < 8 {
-        let f0: u64 = (*journal_bytes.at(offset + j)).into();
-        let f1: u64 = BitShift::shl(f0, 8 * j.into());
-        i_2 += f1;
-        j += 1;
-    };
-    offset += 8;
-    let mut fee_2: u64 = 0;
-    let mut j = 0;
-    while j < 8 {
-        let f0: u64 = (*journal_bytes.at(offset + j)).into();
-        let f1: u64 = BitShift::shl(f0, 8 * j.into());
-        fee_2 += f1;
-        j += 1;
-    };
-    let avg_fees_2 = (i_2, fee_2);
+    offset += 4;
+    let mut avg_fees: Array<AvgFees> = array![];
 
-    offset += 8;
-    let mut i_3: u64 = 0;
-    let mut j = 0;
-    while j < 8 {
-        let f0: u64 = (*journal_bytes.at(offset + j)).into();
-        let f1: u64 = BitShift::shl(f0, 8 * j.into());
-        i_3 += f1;
-        j += 1;
-    };
-    offset += 8;
-    let mut fee_3: u64 = 0;
-    let mut j = 0;
-    while j < 8 {
-        let f0: u64 = (*journal_bytes.at(offset + j)).into();
-        let f1: u64 = BitShift::shl(f0, 8 * j.into());
-        fee_3 += f1;
-        j += 1;
-    };
-    let avg_fees_3 = (i_3, fee_3);
+    for _ in 0..avg_fees_len {
+        let mut timestamp: u64 = 0;
+        let mut data_points: u64 = 0;
+        let mut avg_fee: u64 = 0;
 
-    Journal {
-        batch_index,
-        latest_mmr_block,
-        latest_mmr_block_hash,
-        root_hash,
-        leaves_count,
-        first_block_parent_hash,
-        avg_fees: [avg_fees_0, avg_fees_1, avg_fees_2, avg_fees_3],
-    }
+        let mut j = 0;
+        while j < 8 {
+            let f0: u64 = (*journal_bytes.at(offset + j)).into();
+            let f1: u64 = BitShift::shl(f0, 8 * j.into());
+            timestamp += f1;
+            j += 1;
+        };
+
+        offset += 8;
+        let mut j = 0;
+        while j < 8 {
+            let f0: u64 = (*journal_bytes.at(offset + j)).into();
+            let f1: u64 = BitShift::shl(f0, 8 * j.into());
+            data_points += f1;
+            j += 1;
+        };
+
+        offset += 8;
+        let mut j = 0;
+        while j < 8 {
+            let f0: u64 = (*journal_bytes.at(offset + j)).into();
+            let f1: u64 = BitShift::shl(f0, 8 * j.into());
+            avg_fee += f1;
+            j += 1;
+        };
+
+        offset += 8;
+
+        avg_fees.append(AvgFees { timestamp, data_points, avg_fee });
+    };
+
+    (
+        Journal {
+            batch_index,
+            latest_mmr_block,
+            latest_mmr_block_hash,
+            root_hash,
+            leaves_count,
+            first_block_parent_hash,
+        },
+        avg_fees,
+    )
 }
 
 trait BitShift<T> {
@@ -223,6 +201,16 @@ impl U256BitShift of BitShift<u256> {
     }
 
     fn shr(x: u256, n: u256) -> u256 {
+        x / pow(2, n)
+    }
+}
+
+impl U32BitShift of BitShift<u32> {
+    fn shl(x: u32, n: u32) -> u32 {
+        (WideMul::wide_mul(x, pow(2, n)) & Bounded::<u32>::MAX.into()).try_into().unwrap()
+    }
+
+    fn shr(x: u32, n: u32) -> u32 {
         x / pow(2, n)
     }
 }
@@ -270,27 +258,34 @@ mod tests {
     fn decode_journal_test() {
         let journal_bytes = get_journal_bytes();
 
-        let journal = decode_journal(journal_bytes);
-        assert_eq!(journal.batch_index, 21356);
-        assert_eq!(journal.latest_mmr_block, 21869567);
+        let (journal, avg_fees) = decode_journal(journal_bytes);
+        assert_eq!(journal.batch_index, 21369);
+        assert_eq!(journal.latest_mmr_block, 21882622);
         assert_eq!(
             journal.latest_mmr_block_hash,
-            0xef3bf25494173c997a6f53b065a90d186fb7b05058b71728c55785a61b2283a3,
+            0x930046a42d2e9ae094e48890903f998d6edf12265aad7f5f620be4507e961d48,
         );
         assert_eq!(
-            journal.root_hash, 0x12060ac56fb36e69ba68f0914aab0b7cf1c97e7d667c4010411b5d93a1a81336,
+            journal.root_hash, 0x930aa189e5be10188debe34e6df8930d0bce5ee7c61ff26222e5a33e2ce421fb,
         );
-        assert_eq!(journal.leaves_count, 1024);
-        let [fees_0, fees_1, fees_2, fees_3] = journal.avg_fees;
-        assert_eq!(fees_0, (85425, 1311344000));
-        assert_eq!(fees_1, (85426, 1240653577));
-        assert_eq!(fees_2, (85427, 902624002));
-        assert_eq!(fees_3, (85428, 846720077));
+        assert_eq!(journal.leaves_count, 767);
+        assert_eq!(avg_fees.len(), 3);
+        assert_eq!(*avg_fees[0].timestamp, 1739984400);
+        assert_eq!(*avg_fees[0].data_points, 210);
+        assert_eq!(*avg_fees[0].avg_fee, 1356994173);
+
+        assert_eq!(*avg_fees[1].timestamp, 1739988000);
+        assert_eq!(*avg_fees[1].data_points, 297);
+        assert_eq!(*avg_fees[1].avg_fee, 957746452);
+
+        assert_eq!(*avg_fees[2].timestamp, 1739991600);
+        assert_eq!(*avg_fees[2].data_points, 260);
+        assert_eq!(*avg_fees[2].avg_fee, 864421784);
     }
 
     fn get_journal_bytes() -> Span<u8> {
         array![
-            108,
+            121,
             83,
             0,
             0,
@@ -298,8 +293,8 @@ mod tests {
             0,
             0,
             0,
-            255,
-            179,
+            254,
+            230,
             77,
             1,
             0,
@@ -312,70 +307,150 @@ mod tests {
             0,
             48,
             120,
-            101,
-            102,
-            51,
-            98,
-            102,
-            50,
-            53,
-            52,
             57,
-            52,
-            49,
-            55,
             51,
-            99,
-            57,
-            57,
-            55,
-            97,
-            54,
-            102,
-            53,
-            51,
-            98,
             48,
+            48,
+            52,
+            54,
+            97,
+            52,
+            50,
+            100,
+            50,
+            101,
+            57,
+            97,
+            101,
+            48,
+            57,
+            52,
+            101,
+            52,
+            56,
+            56,
+            57,
+            48,
+            57,
+            48,
+            51,
+            102,
+            57,
+            57,
+            56,
+            100,
+            54,
+            101,
+            100,
+            102,
+            49,
+            50,
+            50,
             54,
             53,
             97,
+            97,
+            100,
+            55,
+            102,
+            53,
+            102,
+            54,
+            50,
+            48,
+            98,
+            101,
+            52,
+            53,
+            48,
+            55,
+            101,
             57,
+            54,
+            49,
+            100,
+            52,
+            56,
+            0,
+            0,
+            66,
+            0,
+            0,
+            0,
+            48,
+            120,
+            57,
+            51,
+            48,
+            97,
+            97,
+            49,
+            56,
+            57,
+            101,
+            53,
+            98,
+            101,
+            49,
+            48,
+            49,
+            56,
+            56,
+            100,
+            101,
+            98,
+            101,
+            51,
+            52,
+            101,
+            54,
+            100,
+            102,
+            56,
+            57,
+            51,
             48,
             100,
-            49,
-            56,
+            48,
+            98,
+            99,
+            101,
+            53,
+            101,
+            101,
+            55,
+            99,
             54,
+            49,
+            102,
+            102,
+            50,
+            54,
+            50,
+            50,
+            50,
+            101,
+            53,
+            97,
+            51,
+            51,
+            101,
+            50,
+            99,
+            101,
+            52,
+            50,
+            49,
             102,
             98,
-            55,
-            98,
-            48,
-            53,
-            48,
-            53,
-            56,
-            98,
-            55,
-            49,
-            55,
-            50,
-            56,
-            99,
-            53,
-            53,
-            55,
-            56,
-            53,
-            97,
-            54,
-            49,
-            98,
-            50,
-            50,
-            56,
-            51,
-            97,
-            51,
+            0,
+            0,
+            255,
+            2,
+            0,
+            0,
+            0,
+            0,
             0,
             0,
             66,
@@ -385,211 +460,143 @@ mod tests {
             48,
             120,
             49,
+            100,
+            51,
+            52,
+            97,
+            52,
+            51,
             50,
-            48,
-            54,
-            48,
-            97,
-            99,
-            53,
-            54,
-            102,
-            98,
             51,
+            102,
             54,
-            101,
-            54,
-            57,
-            98,
+            55,
             97,
-            54,
+            50,
+            55,
+            57,
+            53,
+            98,
             56,
-            102,
-            48,
-            57,
-            49,
+            51,
             52,
-            97,
-            97,
-            98,
-            48,
-            98,
-            55,
-            99,
             102,
-            49,
-            99,
-            57,
-            55,
-            101,
             55,
             100,
             54,
-            54,
-            55,
-            99,
             52,
-            48,
-            49,
-            48,
-            52,
-            49,
-            49,
-            98,
             53,
-            100,
+            98,
+            48,
             57,
+            102,
+            100,
+            100,
+            102,
             51,
+            55,
             97,
+            50,
+            99,
+            99,
             49,
-            97,
+            49,
+            100,
+            52,
+            100,
+            98,
+            51,
+            50,
             56,
-            49,
-            51,
-            51,
+            52,
+            102,
+            52,
+            56,
+            55,
+            100,
+            102,
+            52,
+            53,
+            102,
+            102,
+            53,
             54,
+            101,
+            101,
+            0,
+            0,
+            3,
+            0,
+            0,
+            0,
+            16,
+            14,
+            182,
+            103,
+            0,
+            0,
+            0,
+            0,
+            210,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            125,
+            22,
+            226,
+            80,
+            0,
+            0,
+            0,
+            0,
+            32,
+            28,
+            182,
+            103,
+            0,
+            0,
+            0,
+            0,
+            41,
+            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            20,
+            13,
+            22,
+            57,
+            0,
+            0,
+            0,
+            0,
+            48,
+            42,
+            182,
+            103,
+            0,
             0,
             0,
             0,
             4,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            66,
-            0,
-            0,
-            0,
-            48,
-            120,
-            52,
-            53,
-            54,
-            102,
-            97,
-            54,
-            49,
-            49,
-            51,
-            53,
-            100,
-            54,
-            48,
-            53,
-            56,
-            51,
-            98,
-            102,
-            55,
-            51,
-            100,
-            55,
-            53,
-            50,
-            57,
-            101,
-            98,
-            50,
-            101,
-            51,
-            49,
-            99,
-            56,
-            53,
-            101,
-            49,
-            57,
-            99,
-            50,
-            99,
-            55,
-            101,
-            101,
-            101,
-            57,
-            100,
-            56,
-            48,
-            48,
-            52,
-            51,
-            98,
-            48,
-            55,
-            57,
-            97,
-            97,
-            101,
-            51,
-            97,
-            100,
-            48,
-            101,
-            57,
-            0,
-            0,
-            177,
-            77,
             1,
             0,
             0,
             0,
             0,
             0,
-            128,
-            133,
-            41,
-            78,
             0,
-            0,
-            0,
-            0,
-            178,
-            77,
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-            9,
-            223,
-            242,
-            73,
-            0,
-            0,
-            0,
-            0,
-            179,
-            77,
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-            2,
-            243,
-            204,
-            53,
-            0,
-            0,
-            0,
-            0,
-            180,
-            77,
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-            77,
-            236,
-            119,
-            50,
+            152,
+            7,
+            134,
+            51,
             0,
             0,
             0,
