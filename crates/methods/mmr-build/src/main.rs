@@ -48,15 +48,16 @@ fn main() {
     let sub_batch_size = 256;
     let mut avg_fees: [(usize, u64); 4] = [(0, 0); 4];
 
-    // Calculate which sub-batch we're starting from (0-3)
-    let start_sub_batch = (first_block_number % 1024) / 256;
-    let batch_base_index = first_batch_index * 4;
-    
     for (i, chunk) in input.headers().chunks(sub_batch_size).enumerate() {
+        if i >= 4 {
+            break;
+        }
+
         let total_fees: u64 = chunk
             .iter()
             .filter_map(|header| {
                 header.base_fee_per_gas.as_ref().and_then(|fee| {
+                    // Remove "0x" prefix and parse as hex
                     u64::from_str_radix(fee.trim_start_matches("0x"), 16).ok()
                 })
             })
@@ -68,14 +69,9 @@ fn main() {
             total_fees / chunk.len() as u64
         };
 
-        // Calculate the actual sub-batch index (0-3) within the 1024 block batch
-        let sub_batch_index = (start_sub_batch as usize + i) % 4;
-        let global_index = (batch_base_index + sub_batch_index as u64 + 1) as usize;
+        // Calculate global index based on batch_index
+        let global_index = (first_batch_index * 4 + i as u64 + 1) as usize;
         avg_fees[i] = (global_index, avg_fee);
-
-        if i >= 3 {
-            break;
-        }
     }
 
     let first_block_parent_hash = if first_batch_index == 0 {

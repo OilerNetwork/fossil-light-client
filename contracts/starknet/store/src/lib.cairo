@@ -127,6 +127,43 @@ mod Store {
 
             let mut curr_state = self.mmr_batches.entry(journal.batch_index);
 
+            let [(i_0, fees_0), (i_1, fees_1), (i_2, fees_2), (i_3, fees_3)] = journal.avg_fees;
+            let curr_leaves_count = curr_state.leaves_count.read();
+
+            if curr_leaves_count == 0 {
+                if fees_0 != 0 {
+                    self.avg_fees.write(i_0, fees_0);
+                }
+                if fees_1 != 0 {
+                    self.avg_fees.write(i_1, fees_1);
+                }
+                if fees_2 != 0 {
+                    self.avg_fees.write(i_2, fees_2);
+                }
+                if fees_3 != 0 {
+                    self.avg_fees.write(i_3, fees_3);
+                }
+            } else {
+                let fees = journal.avg_fees.span();
+                for fee in fees {
+                    let (i, fee) = *fee;
+                    let curr_fee = self.avg_fees.read(i);
+                    if curr_fee == 0 {
+                        self.avg_fees.write(i, fee);
+                    } else {
+                        let curr_sub_batch_leaves_count = curr_leaves_count % 256;
+                        let new_sub_batch_leaves_count = journal.leaves_count % 256;
+                        let sub_batch_size = new_sub_batch_leaves_count
+                            - curr_sub_batch_leaves_count;
+
+                        let new_fee = (curr_fee * curr_sub_batch_leaves_count
+                            + fee * sub_batch_size)
+                            / (curr_sub_batch_leaves_count + sub_batch_size);
+                        self.avg_fees.write(i, new_fee);
+                    }
+                }
+            }
+
             curr_state.latest_mmr_block.write(journal.latest_mmr_block);
 
             let min_mmr_block = self.min_mmr_block.read();
@@ -144,116 +181,6 @@ mod Store {
             curr_state.root_hash.write(journal.root_hash);
             curr_state.ipfs_hash.write(ipfs_hash);
             curr_state.first_block_parent_hash.write(journal.first_block_parent_hash);
-
-            let [(i_0, fees_0), (i_1, fees_1), (i_2, fees_2), (i_3, fees_3)] = journal.avg_fees;
-            let batch_size: u64 = 256;
-
-            // Calculate the first block number in this update
-            let first_block = journal.latest_mmr_block - journal.leaves_count + 1;
-            // Calculate which 256-block sub-batch we're starting from (0-3)
-            let start_sub_batch = (first_block % 1024) / 256;
-
-            if fees_0 != 0 {
-                let existing_fee = self.avg_fees.read(i_0);
-                if existing_fee != 0 && existing_fee != batch_size {
-                    let blocks_in_update = if start_sub_batch == 0 {
-                        if journal.leaves_count > 256 {
-                            256
-                        } else {
-                            journal.leaves_count
-                        }
-                    } else {
-                        0
-                    };
-
-                    if blocks_in_update > 0 {
-                        let existing_blocks = batch_size - blocks_in_update;
-                        let new_fee = (existing_fee * existing_blocks + fees_0 * blocks_in_update)
-                            / batch_size;
-                        self.avg_fees.write(i_0, new_fee);
-                    }
-                } else {
-                    self.avg_fees.write(i_0, fees_0);
-                }
-            }
-
-            if fees_1 != 0 {
-                let existing_fee = self.avg_fees.read(i_1);
-                if existing_fee != 0 && existing_fee != batch_size {
-                    let blocks_in_update = if start_sub_batch <= 1 {
-                        if journal.leaves_count > 512 {
-                            256
-                        } else if journal.leaves_count > 256 {
-                            journal.leaves_count - 256
-                        } else {
-                            0
-                        }
-                    } else {
-                        0
-                    };
-
-                    if blocks_in_update > 0 {
-                        let existing_blocks = batch_size - blocks_in_update;
-                        let new_fee = (existing_fee * existing_blocks + fees_1 * blocks_in_update)
-                            / batch_size;
-                        self.avg_fees.write(i_1, new_fee);
-                    }
-                } else {
-                    self.avg_fees.write(i_1, fees_1);
-                }
-            }
-
-            if fees_2 != 0 {
-                let existing_fee = self.avg_fees.read(i_2);
-                if existing_fee != 0 && existing_fee != batch_size {
-                    let blocks_in_update = if start_sub_batch <= 2 {
-                        if journal.leaves_count > 768 {
-                            256
-                        } else if journal.leaves_count > 512 {
-                            journal.leaves_count - 512
-                        } else {
-                            0
-                        }
-                    } else {
-                        0
-                    };
-
-                    if blocks_in_update > 0 {
-                        let existing_blocks = batch_size - blocks_in_update;
-                        let new_fee = (existing_fee * existing_blocks + fees_2 * blocks_in_update)
-                            / batch_size;
-                        self.avg_fees.write(i_2, new_fee);
-                    }
-                } else {
-                    self.avg_fees.write(i_2, fees_2);
-                }
-            }
-
-            if fees_3 != 0 {
-                let existing_fee = self.avg_fees.read(i_3);
-                if existing_fee != 0 && existing_fee != batch_size {
-                    let blocks_in_update = if start_sub_batch <= 3 {
-                        if journal.leaves_count > 1024 {
-                            256
-                        } else if journal.leaves_count > 768 {
-                            journal.leaves_count - 768
-                        } else {
-                            0
-                        }
-                    } else {
-                        0
-                    };
-
-                    if blocks_in_update > 0 {
-                        let existing_blocks = batch_size - blocks_in_update;
-                        let new_fee = (existing_fee * existing_blocks + fees_3 * blocks_in_update)
-                            / batch_size;
-                        self.avg_fees.write(i_3, new_fee);
-                    }
-                } else {
-                    self.avg_fees.write(i_3, fees_3);
-                }
-            }
 
             self
                 .emit(
