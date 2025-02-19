@@ -73,10 +73,11 @@ impl IpfsManager {
         let data = std::fs::read(file_path).context("Failed to read file")?;
         let cursor = Cursor::new(data);
 
-        let res = self
-            .client
-            .add(cursor)
+        // Add timeout for the upload operation
+        let timeout_duration = std::time::Duration::from_secs(30);
+        let res = tokio::time::timeout(timeout_duration, self.client.add(cursor))
             .await
+            .context("IPFS upload timed out after 30 seconds")?
             .context("Failed to upload file to IPFS")?;
 
         info!("Successfully uploaded file. CID: {}", res.hash);

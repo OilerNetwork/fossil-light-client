@@ -15,10 +15,8 @@ pub trait IFossilStore<TContractState> {
     fn get_min_mmr_block(self: @TContractState) -> u64;
     fn get_batch_last_block_link(self: @TContractState, batch_index: u64) -> u256;
     fn get_batch_first_block_parent_hash(self: @TContractState, batch_index: u64) -> u256;
-    fn get_avg_fee(self: @TContractState, batch_index: u64) -> u64;
-    fn get_avg_fees_in_range(
-        self: @TContractState, start_batch_index: u64, end_batch_index: u64,
-    ) -> Array<u64>;
+    fn get_avg_fee(self: @TContractState, block_number: u64) -> u64;
+    fn get_avg_fees_in_range(self: @TContractState, start_block: u64, end_block: u64) -> Array<u64>;
 }
 
 #[starknet::contract]
@@ -129,6 +127,43 @@ mod Store {
 
             let mut curr_state = self.mmr_batches.entry(journal.batch_index);
 
+            let [(i_0, fees_0), (i_1, fees_1), (i_2, fees_2), (i_3, fees_3)] = journal.avg_fees;
+            let curr_leaves_count = curr_state.leaves_count.read();
+
+            if curr_leaves_count == 0 {
+                if fees_0 != 0 {
+                    self.avg_fees.write(i_0, fees_0);
+                }
+                if fees_1 != 0 {
+                    self.avg_fees.write(i_1, fees_1);
+                }
+                if fees_2 != 0 {
+                    self.avg_fees.write(i_2, fees_2);
+                }
+                if fees_3 != 0 {
+                    self.avg_fees.write(i_3, fees_3);
+                }
+            } else {
+                let fees = journal.avg_fees.span();
+                for fee in fees {
+                    let (i, fee) = *fee;
+                    let curr_fee = self.avg_fees.read(i);
+                    if curr_fee == 0 {
+                        self.avg_fees.write(i, fee);
+                    } else {
+                        let curr_sub_batch_leaves_count = curr_leaves_count % 256;
+                        let new_sub_batch_leaves_count = journal.leaves_count % 256;
+                        let sub_batch_size = new_sub_batch_leaves_count
+                            - curr_sub_batch_leaves_count;
+
+                        let new_fee = (curr_fee * curr_sub_batch_leaves_count
+                            + fee * sub_batch_size)
+                            / (curr_sub_batch_leaves_count + sub_batch_size);
+                        self.avg_fees.write(i, new_fee);
+                    }
+                }
+            }
+
             curr_state.latest_mmr_block.write(journal.latest_mmr_block);
 
             let min_mmr_block = self.min_mmr_block.read();
@@ -146,21 +181,6 @@ mod Store {
             curr_state.root_hash.write(journal.root_hash);
             curr_state.ipfs_hash.write(ipfs_hash);
             curr_state.first_block_parent_hash.write(journal.first_block_parent_hash);
-
-            let [(i_0, fees_0), (i_1, fees_1), (i_2, fees_2), (i_3, fees_3)] = journal.avg_fees;
-
-            if fees_0 != 0 {
-                self.avg_fees.write(i_0, fees_0);
-            }
-            if fees_1 != 0 {
-                self.avg_fees.write(i_1, fees_1);
-            }
-            if fees_2 != 0 {
-                self.avg_fees.write(i_2, fees_2);
-            }
-            if fees_3 != 0 {
-                self.avg_fees.write(i_3, fees_3);
-            }
 
             self
                 .emit(
@@ -204,14 +224,18 @@ mod Store {
             curr_state.latest_mmr_block_hash.read()
         }
 
-        fn get_avg_fee(self: @ContractState, batch_index: u64) -> u64 {
+        fn get_avg_fee(self: @ContractState, block_number: u64) -> u64 {
+            let batch_index = block_number / 256;
             self.avg_fees.read(batch_index)
         }
 
         fn get_avg_fees_in_range(
-            self: @ContractState, start_batch_index: u64, end_batch_index: u64,
+            self: @ContractState, start_block: u64, end_block: u64,
         ) -> Array<u64> {
             let mut fees = array![];
+            let start_batch_index = start_block / 256;
+            let end_batch_index = end_block / 256;
+
             for i in start_batch_index..end_batch_index {
                 fees.append(self.get_avg_fee(i));
             };

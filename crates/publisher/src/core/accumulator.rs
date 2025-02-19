@@ -258,7 +258,6 @@ impl<'a> AccumulatorBuilder<'a> {
         is_build: bool,
     ) -> Result<(), AccumulatorError> {
         let starknet_account = self.batch_processor.mmr_state_manager().account();
-        println!("is_build: {}", is_build);
 
         info!("Verifying MMR proof");
         starknet_account

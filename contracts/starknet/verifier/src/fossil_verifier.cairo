@@ -68,8 +68,6 @@ mod FossilVerifier {
             // If the batch link is zero, it means that the batch is the first batch, and we don't
             // need to check the batch link
             if !batch_link.is_zero() {
-                println!("batch_link: {}", batch_link);
-                println!("journal.latest_mmr_block_hash: {}", journal.latest_mmr_block_hash);
                 assert!(batch_link == journal.latest_mmr_block_hash, "Batch link mismatch");
             }
         } else {
@@ -82,8 +80,6 @@ mod FossilVerifier {
                 batch_link = fossil_store.get_batch_first_block_parent_hash(journal.batch_index);
             }
 
-            println!("batch_link: {}", batch_link);
-            println!("journal.first_block_parent_hash: {}", journal.first_block_parent_hash);
             assert!(batch_link == journal.first_block_parent_hash, "Batch link mismatch");
         }
 
