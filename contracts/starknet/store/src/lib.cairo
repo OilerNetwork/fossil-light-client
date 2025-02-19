@@ -15,7 +15,7 @@ pub trait IFossilStore<TContractState> {
     fn get_min_mmr_block(self: @TContractState) -> u64;
     fn get_batch_last_block_link(self: @TContractState, batch_index: u64) -> u256;
     fn get_batch_first_block_parent_hash(self: @TContractState, batch_index: u64) -> u256;
-    fn get_avg_fee(self: @TContractState, block_number: u64) -> u64;
+    fn get_avg_fee(self: @TContractState, batch_index: u64) -> u64;
     fn get_avg_fees_in_range(self: @TContractState, start_block: u64, end_block: u64) -> Array<u64>;
 }
 
@@ -224,8 +224,7 @@ mod Store {
             curr_state.latest_mmr_block_hash.read()
         }
 
-        fn get_avg_fee(self: @ContractState, block_number: u64) -> u64 {
-            let batch_index = block_number / 256;
+        fn get_avg_fee(self: @ContractState, batch_index: u64) -> u64 {
             self.avg_fees.read(batch_index)
         }
 

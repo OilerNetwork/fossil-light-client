@@ -73,7 +73,7 @@ RED='\033[0;31m'
 echo -e "\n${BLUE}${BOLD}Building Starknet contracts...${NC}"
 cd "$STARKNET_DIR"
 
-# scarb build
+scarb build
 
 echo -e "\n${BLUE}${BOLD}Deploying Starknet contracts...${NC}"
 # Declare and deploy Fossil Store contract
