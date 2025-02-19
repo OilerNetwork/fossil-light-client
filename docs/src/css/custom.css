@@ -6,25 +6,75 @@
 
 /* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
+  --ifm-color-primary: #5D7278;
+  --ifm-color-primary-dark: #494237;
+  --ifm-color-primary-darker: #5C605C;
+  --ifm-color-primary-darkest: #1A1715;
+  --ifm-color-primary-light: #6d8589;
+  --ifm-color-primary-lighter: #7d959a;
+  --ifm-color-primary-lightest: #8da5ab;
   --ifm-code-font-size: 95%;
+  --ifm-background-color: #ffffff;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
 [data-theme='dark'] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
-  --ifm-color-primary-light: #29d5b0;
-  --ifm-color-primary-lighter: #32d8b4;
-  --ifm-color-primary-lightest: #4fddbf;
+  --ifm-color-primary: #5D7278;
+  --ifm-color-primary-dark: #494237;
+  --ifm-color-primary-darker: #5C605C;
+  --ifm-color-primary-darkest: #1A1715;
+  --ifm-color-primary-light: #6d8589;
+  --ifm-color-primary-lighter: #7d959a;
+  --ifm-color-primary-lightest: #8da5ab;
+  --ifm-background-color: #0E1115;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+.hero--primary {
+  --ifm-hero-background-color: #1A1715;
+  --ifm-hero-text-color: #ffffff;
+  background-color: #1A1715;
+  padding: 4rem 0;
+}
+
+.footer--dark {
+  --ifm-footer-background-color: #1A1715;
+  --ifm-footer-color: #ffffff;
+  padding: 3rem 0;
+}
+
+.button.button--secondary {
+  background-color: #5D7278;
+  border-color: #5D7278;
+  color: #ffffff;
+  margin: 2rem 0;
+  padding: 0.8rem 2rem;
+}
+
+.button.button--secondary:hover {
+  background-color: #494237;
+  border-color: #494237;
+}
+
+/* Improve text readability */
+p {
+  line-height: 1.7;
+  margin-bottom: 1.5rem;
+  font-size: 1.1rem;
+}
+
+.hero__subtitle {
+  margin: 2rem 0;
+  font-size: 1.2rem;
+  line-height: 1.5;
+}
+
+.padding-horiz--md {
+  padding: 2rem 3rem;
+}
+
+.text--center {
+  max-width: 800px;
+  margin: 0 auto;
 }

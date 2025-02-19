@@ -42,3 +42,4 @@ terminal
 logs/anvil.log
 
 .cursorrules
+node_modules

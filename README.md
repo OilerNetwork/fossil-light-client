@@ -199,30 +199,11 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    cargo run --bin client -- --batch-size 4 --env-file .env.local
    ```
 
-7. Start the State Proof API:
-   In a new terminal, start the state proof API service. This provides endpoints to query the MMR state and generate inclusion proofs.
+7. Test Fee Proof Fetching:
+   In a new terminal, fetch the fees for a block range from the Fossil Store contract:
 
    ```bash
-   cargo run --bin state-proof-api -- --batch-size 4 --env-file .env.local
-   ```
-
-   Wait for the service to start up and begin listening for requests.
-
-8. Test Fee Proof Fetching:
-   In a new terminal, run the fee proof fetcher using a block range from the processed blocks. This example binary will:
-   - Send a request to the API for fees within the specified block range
-   - The API will fetch the corresponding block data from the Fossil database
-   - Each block's integrity will be cryptographically verified
-   - Block fees will be extracted and computed within a zkVM environment
-
-   ```bash
-   cargo run --bin fetch-fees-proof -- --from-block <start_block> --to-block <end_block> --env-file .env.local
-   ```
-
-   For example:
-
-   ```bash
-   cargo run --bin fetch-fees-proof -- --from-block 7494088 --to-block 7494095 --env-file .env.local
+   starkli call <fossil_store_contract_address> get_avg_fees_in_range <start_block_number> <end_block_number> --rpc http://localhost:5050
    ```
 
    Note: The block range should match the blocks that were added to the MMR in step 4. You can find these numbers in the build_mmr output logs.

@@ -4,14 +4,14 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'Fossil Light Client',
-  tagline: 'Trustless Ethereum Block Verification',
-  favicon: 'img/fossil-icon.webp',
+  tagline: 'Technical Documentation',
+  favicon: 'img/favicon.ico',
 
-  url: 'https://your-fossil-site.com',
+  url: 'https://your-docusaurus-site.example.com',
   baseUrl: '/',
 
-  organizationName: 'your-org', // Update this to your GitHub org/user
-  projectName: 'fossil-light-client', // Update to your actual repo
+  organizationName: 'OilerNetwork',
+  projectName: 'fossil-light-client',
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -27,18 +27,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/your-org/fossil-light-client/edit/main/docs/',
-        },
-        blog: {
-          showReadingTime: true,
-          feedOptions: {
-            type: ['rss', 'atom'],
-            xslt: true,
-          },
-          editUrl: 'https://github.com/your-org/fossil-light-client/edit/main/blog/',
-          onInlineTags: 'warn',
-          onInlineAuthors: 'warn',
-          onUntruncatedBlogPosts: 'warn',
+          editUrl: 'https://github.com/OilerNetwork/fossil-light-client/tree/main/docs/',
         },
         theme: {
           customCss: './src/css/custom.css',
@@ -62,9 +51,8 @@ const config: Config = {
           position: 'left',
           label: 'Documentation',
         },
-        { to: '/blog', label: 'Blog', position: 'left' },
         {
-          href: 'https://github.com/your-org/fossil-light-client',
+          href: 'https://github.com/OilerNetwork/fossil-light-client',
           label: 'GitHub',
           position: 'right',
         },
@@ -77,43 +65,13 @@ const config: Config = {
           title: 'Docs',
           items: [
             {
-              label: 'Introduction',
+              label: 'Documentation',
               to: '/docs/intro',
             },
           ],
         },
-        {
-          title: 'Community',
-          items: [
-            {
-              label: 'Stack Overflow',
-              href: 'https://stackoverflow.com/questions/tagged/docusaurus',
-            },
-            {
-              label: 'Discord',
-              href: 'https://discordapp.com/invite/docusaurus',
-            },
-            {
-              label: 'X',
-              href: 'https://x.com/docusaurus',
-            },
-          ],
-        },
-        {
-          title: 'More',
-          items: [
-            {
-              label: 'Blog',
-              to: '/blog',
-            },
-            {
-              label: 'GitHub',
-              href: 'https://github.com/your-org/fossil-light-client',
-            },
-          ],
-        },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Fossil Light Client. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Oiler Network. Built with Docusaurus.`,
     },
     prism: {
       theme: prismThemes.github,

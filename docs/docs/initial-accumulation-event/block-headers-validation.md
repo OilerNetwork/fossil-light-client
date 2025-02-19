@@ -5,8 +5,17 @@ title: Block Header Validation (Keccak Hash Verification and Parent-Child Relati
 
 Validation ensures each block header is both internally consistent and part of a valid chain:
 
-- **Integrity Check**: The Keccak hash of relevant fields in each block header is recomputed. The result must match the `block_hash` field. Any discrepancy indicates corruption or tampering of the blocks’ data. This step also ensures that the parent hash field in the block header is valid providing a guarantee of block_hash - parent_hash relationship.
-- **Chain Validity Check**: The `parent_hash` field of each block is compared with the `block_hash` of the preceding block. This ensures the headers form a valid, unbroken chain within a batch.
+- **Integrity Check**: The Keccak hash of relevant fields in each block header is recomputed.
+
+The result must match the `block_hash` field.
+
+Any discrepancy indicates corruption or tampering of the blocks' data.
+
+This step also ensures that the parent hash field in the block header is valid providing a guarantee of block_hash - parent_hash relationship.
+
+- **Chain Validity Check**: The `parent_hash` field of each block is compared with the `block_hash` of the preceding block.
+
+This ensures the headers form a valid, unbroken chain within a batch.
 
 ```rust
 pub fn are_blocks_and_chain_valid(block_headers: &[VerifiableBlockHeader], chain_id: u64) -> bool {
