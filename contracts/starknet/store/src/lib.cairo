@@ -7,7 +7,10 @@ pub trait IFossilStore<TContractState> {
     );
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_store_state(
-        ref self: TContractState, journal: verifier::Journal, ipfs_hash: ByteArray,
+        ref self: TContractState,
+        journal: verifier::Journal,
+        avg_fees: Span<verifier::AvgFees>,
+        ipfs_hash: ByteArray,
     );
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
     fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
@@ -15,8 +18,10 @@ pub trait IFossilStore<TContractState> {
     fn get_min_mmr_block(self: @TContractState) -> u64;
     fn get_batch_last_block_link(self: @TContractState, batch_index: u64) -> u256;
     fn get_batch_first_block_parent_hash(self: @TContractState, batch_index: u64) -> u256;
-    fn get_avg_fee(self: @TContractState, batch_index: u64) -> u64;
-    fn get_avg_fees_in_range(self: @TContractState, start_block: u64, end_block: u64) -> Array<u64>;
+    fn get_avg_fee(self: @TContractState, timestamp: u64) -> u64;
+    fn get_avg_fees_in_range(
+        self: @TContractState, start_timestamp: u64, end_timestamp: u64,
+    ) -> Array<u64>;
 }
 
 #[starknet::contract]
@@ -24,6 +29,8 @@ mod Store {
     use core::starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
+
+    const HOUR_IN_SECONDS: u64 = 3600;
 
     #[starknet::storage_node]
     pub(crate) struct MMRBatch {
@@ -33,6 +40,12 @@ mod Store {
         root_hash: u256,
         first_block_parent_hash: u256,
         ipfs_hash: ByteArray,
+    }
+
+    #[starknet::storage_node]
+    pub struct AvgFees {
+        data_points: u64,
+        avg_fee: u64,
     }
 
     #[derive(Drop, Serde, Debug)]
@@ -54,7 +67,7 @@ mod Store {
         mmr_batches: Map<u64, MMRBatch>,
         min_mmr_block: u64,
         min_update_interval: u64,
-        avg_fees: Map<u64, u64>,
+        avg_fees: Map<u64, AvgFees>,
     }
 
     #[event]
@@ -104,7 +117,10 @@ mod Store {
         }
 
         fn update_store_state(
-            ref self: ContractState, journal: verifier::Journal, ipfs_hash: ByteArray,
+            ref self: ContractState,
+            journal: verifier::Journal,
+            avg_fees: Span<verifier::AvgFees>,
+            ipfs_hash: ByteArray,
         ) {
             assert!(
                 starknet::get_caller_address() == self.verifier_address.read(),
@@ -127,43 +143,6 @@ mod Store {
 
             let mut curr_state = self.mmr_batches.entry(journal.batch_index);
 
-            let [(i_0, fees_0), (i_1, fees_1), (i_2, fees_2), (i_3, fees_3)] = journal.avg_fees;
-            let curr_leaves_count = curr_state.leaves_count.read();
-
-            if curr_leaves_count == 0 {
-                if fees_0 != 0 {
-                    self.avg_fees.write(i_0, fees_0);
-                }
-                if fees_1 != 0 {
-                    self.avg_fees.write(i_1, fees_1);
-                }
-                if fees_2 != 0 {
-                    self.avg_fees.write(i_2, fees_2);
-                }
-                if fees_3 != 0 {
-                    self.avg_fees.write(i_3, fees_3);
-                }
-            } else {
-                let fees = journal.avg_fees.span();
-                for fee in fees {
-                    let (i, fee) = *fee;
-                    let curr_fee = self.avg_fees.read(i);
-                    if curr_fee == 0 {
-                        self.avg_fees.write(i, fee);
-                    } else {
-                        let curr_sub_batch_leaves_count = curr_leaves_count % 256;
-                        let new_sub_batch_leaves_count = journal.leaves_count % 256;
-                        let sub_batch_size = new_sub_batch_leaves_count
-                            - curr_sub_batch_leaves_count;
-
-                        let new_fee = (curr_fee * curr_sub_batch_leaves_count
-                            + fee * sub_batch_size)
-                            / (curr_sub_batch_leaves_count + sub_batch_size);
-                        self.avg_fees.write(i, new_fee);
-                    }
-                }
-            }
-
             curr_state.latest_mmr_block.write(journal.latest_mmr_block);
 
             let min_mmr_block = self.min_mmr_block.read();
@@ -181,6 +160,23 @@ mod Store {
             curr_state.root_hash.write(journal.root_hash);
             curr_state.ipfs_hash.write(ipfs_hash);
             curr_state.first_block_parent_hash.write(journal.first_block_parent_hash);
+
+            for avg_fee in avg_fees {
+                let mut curr_avg_fee = self.avg_fees.entry(*avg_fee.timestamp);
+                if curr_avg_fee.data_points.read() == 0 {
+                    curr_avg_fee.data_points.write(*avg_fee.data_points);
+                    curr_avg_fee.avg_fee.write(*avg_fee.avg_fee);
+                } else {
+                    let existing_points = curr_avg_fee.data_points.read();
+                    let existing_fee = curr_avg_fee.avg_fee.read();
+                    let new_data_points = existing_points + *avg_fee.data_points;
+                    let new_avg_fee = (existing_fee * existing_points
+                        + *avg_fee.avg_fee * *avg_fee.data_points)
+                        / new_data_points;
+                    curr_avg_fee.data_points.write(new_data_points);
+                    curr_avg_fee.avg_fee.write(new_avg_fee);
+                }
+            };
 
             self
                 .emit(
@@ -224,19 +220,33 @@ mod Store {
             curr_state.latest_mmr_block_hash.read()
         }
 
-        fn get_avg_fee(self: @ContractState, batch_index: u64) -> u64 {
-            self.avg_fees.read(batch_index)
+        fn get_avg_fee(self: @ContractState, timestamp: u64) -> u64 {
+            assert!(timestamp % HOUR_IN_SECONDS == 0, "Timestamp must be a multiple of 3600");
+            let curr_state = self.avg_fees.entry(timestamp);
+            curr_state.avg_fee.read()
         }
 
         fn get_avg_fees_in_range(
-            self: @ContractState, start_block: u64, end_block: u64,
+            self: @ContractState, start_timestamp: u64, end_timestamp: u64,
         ) -> Array<u64> {
-            let mut fees = array![];
-            let start_batch_index = start_block / 256;
-            let end_batch_index = end_block / 256;
+            assert!(
+                start_timestamp <= end_timestamp,
+                "Start timestamp must be less than or equal to end timestamp",
+            );
+            assert!(
+                start_timestamp % HOUR_IN_SECONDS == 0,
+                "Start timestamp must be a multiple of 3600",
+            );
+            assert!(
+                end_timestamp % HOUR_IN_SECONDS == 0, "End timestamp must be a multiple of 3600",
+            );
 
-            for i in start_batch_index..end_batch_index {
+            let mut fees = array![];
+
+            let mut i = start_timestamp;
+            while i <= end_timestamp {
                 fees.append(self.get_avg_fee(i));
+                i += HOUR_IN_SECONDS;
             };
             fees
         }

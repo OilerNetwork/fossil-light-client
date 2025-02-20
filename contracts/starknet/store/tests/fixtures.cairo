@@ -11,11 +11,16 @@ pub fn test_journal() -> Journal {
     }
 }
 
-pub fn test_avg_fees() -> Array<AvgFees> {
+pub fn test_avg_fees_1() -> Span<AvgFees> {
     array![
         AvgFees { timestamp: 1740020400, data_points: 120, avg_fee: 647012712 },
         AvgFees { timestamp: 1740024000, data_points: 208, avg_fee: 640408910 },
     ]
+        .span()
+}
+
+pub fn test_avg_fees_2() -> Span<AvgFees> {
+    array![AvgFees { timestamp: 1740020400, data_points: 80, avg_fee: 647000000 }].span()
 }
 
 pub fn calldata_default() -> Span<felt252> {

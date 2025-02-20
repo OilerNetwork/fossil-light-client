@@ -59,7 +59,7 @@ mod FossilVerifier {
             .verify_groth16_proof_bn254(proof)
             .expect('Failed to verify proof');
 
-        let journal = decode_journal(journal);
+        let (journal, avg_fees) = decode_journal(journal);
 
         let fossil_store = self.fossil_store.read();
 
@@ -83,7 +83,7 @@ mod FossilVerifier {
             assert!(batch_link == journal.first_block_parent_hash, "Batch link mismatch");
         }
 
-        fossil_store.update_store_state(journal, ipfs_hash);
+        fossil_store.update_store_state(journal, avg_fees.span(), ipfs_hash);
 
         self
             .emit(
