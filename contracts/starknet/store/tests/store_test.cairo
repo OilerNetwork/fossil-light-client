@@ -1,11 +1,13 @@
 use fossil_store::{IFossilStoreDispatcher, IFossilStoreDispatcherTrait};
-use snforge_std::{ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address_global};
+use snforge_std::{
+    ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address_global,
+};
 use super::fixtures::{test_avg_fees_1, test_avg_fees_2, test_journal};
 
 
 fn deploy() -> IFossilStoreDispatcher {
     let contract = declare("Store").unwrap().contract_class();
-  
+
     let (contract_address, _) = contract.deploy(@array![]).unwrap();
 
     // Create a Dispatcher object that will allow interacting with the deployed contract
