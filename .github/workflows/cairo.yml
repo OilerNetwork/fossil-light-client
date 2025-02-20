@@ -1,10 +1,13 @@
-name: Cairo fmt
+name: Cairo fmt - build - test
 on:
   pull_request:
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Setup Starknet Foundry
         uses: foundry-rs/setup-snfoundry@v4
 
