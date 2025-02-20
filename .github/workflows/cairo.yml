@@ -18,4 +18,4 @@ jobs:
 
       - run: cd contracts/starknet && scarb fmt --check
       - run: cd contracts/starknet && scarb build
-      - run: snforge test
+      - run: cd contracts/starknet && snforge test
