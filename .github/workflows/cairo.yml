@@ -11,8 +11,8 @@ jobs:
       - name: Setup Scarb
         uses: software-mansion/setup-scarb@v1
         with:
-          scarb-lock: ./contracts/starknet/Scarb.lock
-          
+          scarb-lock: contracts/starknet/Scarb.lock
+
       - run: cd contracts/starknet && scarb fmt --check
       - run: cd contracts/starknet && scarb build
       - run: snforge test
