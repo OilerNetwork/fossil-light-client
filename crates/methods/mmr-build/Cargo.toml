@@ -13,7 +13,7 @@ common = { path = "../../common" }
 eth-rlp-types = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", package = "eth-rlp-types", branch = "tiny-keccak" }
 eth-rlp-verify = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", branch = "tiny-keccak" }
 
-risc0-zkvm = { version = "1.2.1", default-features = false, features = [
+risc0-zkvm = { version = "1.2.4", default-features = false, features = [
     "std",
     "unstable",
 ] }

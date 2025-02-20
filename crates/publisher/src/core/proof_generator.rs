@@ -8,12 +8,16 @@ use risc0_ethereum_contracts::encode_seal;
 use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, VerifierContext};
 use serde::Deserialize;
 use tokio::task;
+use tokio::time::{sleep, Duration};
 use tracing::{debug, error, info};
 
 use crate::{
     errors::ProofGeneratorError,
     utils::{Groth16, Stark},
 };
+
+const MAX_RETRIES: u32 = 3;
+const INITIAL_RETRY_DELAY_MS: u64 = 1000;
 
 #[derive(Debug)]
 pub struct ProofGenerator<T> {
@@ -108,6 +112,63 @@ where
 
     /// Generate a Groth16 proof for the final batch
     pub async fn generate_groth16_proof(&self, input: T) -> Result<Groth16, ProofGeneratorError> {
+        self.generate_groth16_proof_with_retry(input).await
+    }
+
+    pub fn decode_journal<U: for<'a> Deserialize<'a>>(
+        &self,
+        proof: &Groth16,
+    ) -> Result<U, ProofGeneratorError> {
+        if proof.receipt().journal.bytes.is_empty() {
+            return Err(ProofGeneratorError::InvalidInput(
+                "Proof journal cannot be empty",
+            ));
+        }
+
+        let receipt = proof.receipt();
+        Ok(receipt.journal.decode()?)
+    }
+
+    async fn generate_groth16_proof_with_retry(
+        &self,
+        input: T,
+    ) -> Result<Groth16, ProofGeneratorError> {
+        let mut retries = 0;
+        let mut last_error = None;
+
+        while retries < MAX_RETRIES {
+            match self.generate_groth16_proof_internal(input.clone()).await {
+                Ok(proof) => return Ok(proof),
+                Err(e) => {
+                    last_error = Some(e);
+                    retries += 1;
+
+                    if retries < MAX_RETRIES {
+                        let delay = INITIAL_RETRY_DELAY_MS * (2_u64.pow(retries - 1));
+                        tracing::warn!(
+                            "Failed to generate Groth16 proof, retrying in {}ms (attempt {}/{})",
+                            delay,
+                            retries,
+                            MAX_RETRIES
+                        );
+                        sleep(Duration::from_millis(delay)).await;
+                    }
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| {
+            ProofGeneratorError::ReceiptError(format!(
+                "Failed to generate Groth16 proof after {} attempts",
+                MAX_RETRIES
+            ))
+        }))
+    }
+
+    async fn generate_groth16_proof_internal(
+        &self,
+        input: T,
+    ) -> Result<Groth16, ProofGeneratorError> {
         let input_size = std::mem::size_of_val(&input);
         if input_size == 0 {
             return Err(ProofGeneratorError::InvalidInput("Input cannot be empty"));
@@ -185,20 +246,6 @@ where
         })?;
 
         Ok(proof)
-    }
-
-    pub fn decode_journal<U: for<'a> Deserialize<'a>>(
-        &self,
-        proof: &Groth16,
-    ) -> Result<U, ProofGeneratorError> {
-        if proof.receipt().journal.bytes.is_empty() {
-            return Err(ProofGeneratorError::InvalidInput(
-                "Proof journal cannot be empty",
-            ));
-        }
-
-        let receipt = proof.receipt();
-        Ok(receipt.journal.decode()?)
     }
 }
 

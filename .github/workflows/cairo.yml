@@ -1,16 +1,21 @@
-name: Cairo fmt
+name: Cairo fmt - build - test
 on:
   pull_request:
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Starknet Foundry
+        uses: foundry-rs/setup-snfoundry@v4
+
+      - name: Setup Scarb
+        uses: software-mansion/setup-scarb@v1
         with:
-          submodules: true
-      - uses: software-mansion/setup-scarb@v1
-        with:
-          scarb-version: "2.9.1"
+          scarb-lock: contracts/starknet/Scarb.lock
+
       - run: cd contracts/starknet && scarb fmt --check
       - run: cd contracts/starknet && scarb build
-    #   - run: snforge test
+      - run: cd contracts/starknet && snforge test
