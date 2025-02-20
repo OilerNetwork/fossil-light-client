@@ -9,7 +9,7 @@ pub trait IFossilStore<TContractState> {
     fn update_store_state(
         ref self: TContractState,
         journal: verifier::Journal,
-        avg_fees: Array<verifier::AvgFees>,
+        avg_fees: Span<verifier::AvgFees>,
         ipfs_hash: ByteArray,
     );
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
@@ -119,7 +119,7 @@ mod Store {
         fn update_store_state(
             ref self: ContractState,
             journal: verifier::Journal,
-            avg_fees: Array<verifier::AvgFees>,
+            avg_fees: Span<verifier::AvgFees>,
             ipfs_hash: ByteArray,
         ) {
             assert!(
@@ -162,16 +162,16 @@ mod Store {
             curr_state.first_block_parent_hash.write(journal.first_block_parent_hash);
 
             for avg_fee in avg_fees {
-                let mut curr_avg_fee = self.avg_fees.entry(avg_fee.timestamp);
+                let mut curr_avg_fee = self.avg_fees.entry(*avg_fee.timestamp);
                 if curr_avg_fee.data_points.read() == 0 {
-                    curr_avg_fee.data_points.write(avg_fee.data_points);
-                    curr_avg_fee.avg_fee.write(avg_fee.avg_fee);
+                    curr_avg_fee.data_points.write(*avg_fee.data_points);
+                    curr_avg_fee.avg_fee.write(*avg_fee.avg_fee);
                 } else {
                     let existing_points = curr_avg_fee.data_points.read();
                     let existing_fee = curr_avg_fee.avg_fee.read();
-                    let new_data_points = existing_points + avg_fee.data_points;
+                    let new_data_points = existing_points + *avg_fee.data_points;
                     let new_avg_fee = (existing_fee * existing_points
-                        + avg_fee.avg_fee * avg_fee.data_points)
+                        + *avg_fee.avg_fee * *avg_fee.data_points)
                         / new_data_points;
                     curr_avg_fee.data_points.write(new_data_points);
                     curr_avg_fee.avg_fee.write(new_avg_fee);

@@ -4,7 +4,7 @@ mod groth16_verifier_constants;
 pub mod universal_ecip;
 use core::num::traits::{Bounded, WideMul};
 
-#[derive(Drop, Copy, Serde)]
+#[derive(Drop, Debug, Copy, PartialEq, Serde)]
 pub struct Journal {
     pub batch_index: u64,
     pub latest_mmr_block: u64,
@@ -14,14 +14,14 @@ pub struct Journal {
     pub first_block_parent_hash: u256,
 }
 
-#[derive(Drop, Serde)]
+#[derive(Drop, Debug, PartialEq, Serde)]
 pub struct AvgFees {
     pub timestamp: u64,
     pub data_points: u64,
     pub avg_fee: u64,
 }
 
-pub(crate) fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
+pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
     let mut offset = 0; // Skip initial bytes
 
     // Parse batch_index

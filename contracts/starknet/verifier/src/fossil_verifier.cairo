@@ -83,7 +83,7 @@ mod FossilVerifier {
             assert!(batch_link == journal.first_block_parent_hash, "Batch link mismatch");
         }
 
-        fossil_store.update_store_state(journal, avg_fees, ipfs_hash);
+        fossil_store.update_store_state(journal, avg_fees.span(), ipfs_hash);
 
         self
             .emit(
