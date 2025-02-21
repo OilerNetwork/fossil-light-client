@@ -3,6 +3,7 @@ pub trait IFossilStore<TContractState> {
     fn initialize(
         ref self: TContractState,
         verifier_address: starknet::ContractAddress,
+        l1_message_proxy_address: starknet::ContractAddress,
         min_update_interval: u64,
     );
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
@@ -25,7 +26,7 @@ pub trait IFossilStore<TContractState> {
 }
 
 #[starknet::contract]
-mod Store {
+pub mod Store {
     use core::starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
@@ -50,18 +51,19 @@ mod Store {
 
     #[derive(Drop, Serde, Debug)]
     pub struct MMRSnapshot {
-        batch_index: u64,
-        latest_mmr_block: u64,
+        pub batch_index: u64,
+        pub latest_mmr_block: u64,
         pub latest_mmr_block_hash: u256,
-        root_hash: u256,
+        pub root_hash: u256,
         pub leaves_count: u64,
-        ipfs_hash: ByteArray,
+        pub ipfs_hash: ByteArray,
     }
 
     #[storage]
     struct Storage {
         initialized: bool,
         verifier_address: starknet::ContractAddress,
+        l1_message_proxy_address: starknet::ContractAddress,
         latest_blockhash_from_l1: (u64, u256),
         latest_mmr_block: u64,
         mmr_batches: Map<u64, MMRBatch>,
@@ -97,17 +99,23 @@ mod Store {
         fn initialize(
             ref self: ContractState,
             verifier_address: starknet::ContractAddress,
+            l1_message_proxy_address: starknet::ContractAddress,
             min_update_interval: u64,
         ) {
             assert!(!self.initialized.read(), "Contract already initialized");
             self.initialized.write(true);
             self.verifier_address.write(verifier_address);
+            self.l1_message_proxy_address.write(l1_message_proxy_address);
             self.min_update_interval.write(min_update_interval);
         }
 
         fn store_latest_blockhash_from_l1(
             ref self: ContractState, block_number: u64, blockhash: u256,
         ) {
+            assert!(
+                starknet::get_caller_address() == self.l1_message_proxy_address.read(),
+                "Only L1 Message Proxy can store latest blockhash from L1",
+            );
             self.latest_blockhash_from_l1.write((block_number, blockhash));
             self.emit(LatestBlockhashFromL1Stored { block_number, blockhash });
         }
@@ -216,6 +224,9 @@ mod Store {
         }
 
         fn get_batch_first_block_parent_hash(self: @ContractState, batch_index: u64) -> u256 {
+            if batch_index == 0 {
+                return 0;
+            }
             let curr_state = self.mmr_batches.entry(batch_index - 1);
             curr_state.latest_mmr_block_hash.read()
         }
