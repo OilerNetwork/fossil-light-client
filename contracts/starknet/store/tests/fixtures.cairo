@@ -15,6 +15,8 @@ pub fn test_avg_fees_1() -> Span<AvgFees> {
     array![
         AvgFees { timestamp: 1740020400, data_points: 120, avg_fee: 647012712 },
         AvgFees { timestamp: 1740024000, data_points: 208, avg_fee: 640408910 },
+        AvgFees { timestamp: 1740027600, data_points: 100, avg_fee: 640208910 },
+        AvgFees { timestamp: 1740031200, data_points: 100, avg_fee: 640404910 },
     ]
         .span()
 }
