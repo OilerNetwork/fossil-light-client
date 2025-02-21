@@ -9,7 +9,7 @@ cairo_test = "2.9.4"
 
 [dev-dependencies]
 snforge_std.workspace = true
-cairo_test.workspace = true
+# cairo_test.workspace = true
 
 [[target.starknet-contract]]
 casm = true

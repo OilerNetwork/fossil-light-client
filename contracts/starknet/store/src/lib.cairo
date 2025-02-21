@@ -224,6 +224,9 @@ pub mod Store {
         }
 
         fn get_batch_first_block_parent_hash(self: @ContractState, batch_index: u64) -> u256 {
+            if batch_index == 0 {
+                return 0;
+            }
             let curr_state = self.mmr_batches.entry(batch_index - 1);
             curr_state.latest_mmr_block_hash.read()
         }
