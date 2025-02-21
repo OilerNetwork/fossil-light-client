@@ -26,7 +26,7 @@ pub trait IFossilStore<TContractState> {
 }
 
 #[starknet::contract]
-mod Store {
+pub mod Store {
     use core::starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };

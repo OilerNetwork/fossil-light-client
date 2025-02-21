@@ -13,7 +13,7 @@ fossil_store = { path = "../store" }
 [dev-dependencies]
 snforge_std.workspace = true
 assert_macros.workspace = true
-cairo_test.workspace = true
+# cairo_test.workspace = true
 
 [tool]
 fmt.workspace = true
@@ -21,5 +21,6 @@ fmt.workspace = true
 [[target.starknet-contract]]
 casm = true
 casm-add-pythonic-hints = true
+build-external-contracts = ["fossil_store::Store"]
 
 [lib]
