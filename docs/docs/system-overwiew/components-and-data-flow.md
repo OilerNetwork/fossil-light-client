@@ -3,6 +3,8 @@ id: components-and-data-flow
 title: Components and Data Flow
 ---
 
+![Fossil Components and Data Flow](/img/02.png)
+
 - **L1 Message Sender (L1MS)**: An Ethereum L1 smart contract that sends finalized block hashes to Starknet via L1-to-L2 messaging.
 
 - **L1 Message Proxy (L1MP)**: A Starknet smart contract that receives messages from the L1MS and routes them to other contracts in the Fossil ecosystem.

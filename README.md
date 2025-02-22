@@ -5,6 +5,7 @@
 - [Fossil Light Client - Technical Documentation](#fossil-light-client---technical-documentation)
   - [📑 Index](#-index)
   - [Prerequisites for All Users](#prerequisites-for-all-users)
+  - [Documentation Setup](#documentation-setup)
   - [Docker-Based Deployment](#docker-based-deployment)
     - [Docker Prerequisites](#docker-prerequisites)
     - [Deployment Steps](#deployment-steps)
@@ -37,6 +38,18 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
    ```bash
    git submodule update --init --recursive
    ```
+
+## Documentation Setup
+
+To run the documentation locally:
+
+```bash
+cd docs/
+yarn
+yarn start
+```
+
+This will start a local server and open the documentation in your default browser. The documentation will automatically reload when you make changes to the source files.
 
 3. Install IPFS:
    - Download and install [IPFS Desktop](https://github.com/ipfs/ipfs-desktop/releases)

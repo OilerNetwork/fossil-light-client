@@ -1,11 +1,48 @@
 --- 
 id: onchain-submission
-title: On-Chain Submission (MMR Root, Batch Index, Block Hash, etc.)
+title: On-Chain Submission
 ---
 
 The Fossil Snark Verifier (FSV) deserializes the proof and verifies its validity through pairing checks.
 
 Upon successful verification, the FSV extracts the journal (proof output) directly on-chain, ensuring all relevant data is derived securely and trustlessly.
+
+## Journal Structure
+
+The journal is extracted, onchain, from the proof, this guarantees that the data is derived securely and trustlessly.
+
+The journal is composed of the following elements:
+```rust
+pub struct Journal {
+    pub batch_index: u64,
+    pub latest_mmr_block: u64,
+    pub latest_mmr_block_hash: u256,
+    pub root_hash: u256,
+    pub leaves_count: u64,
+    pub first_block_parent_hash: u256,
+}
+```
+
+## On-Chain Storage
+
+```rust
+    #[starknet::storage_node]
+    pub(crate) struct MMRBatch {
+        latest_mmr_block: u64,
+        latest_mmr_block_hash: u256,
+        leaves_count: u64,
+        root_hash: u256,
+        first_block_parent_hash: u256,
+        ipfs_hash: ByteArray,
+    }
+
+    #[storage]
+    struct Storage {
+        ...,
+        mmr_batches: Map<u64, MMRBatch>,
+        ...
+    }
+```
 
 The MMR state stored on-chain is composed of the following elements, all extracted from the proof journal:
 

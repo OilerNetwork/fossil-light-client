@@ -3,6 +3,15 @@ id: intro
 title: Initial Accumulation Event
 ---
 
+<div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: '32px'
+}}>
+    <img src="/img/06.png" alt="Initial Accumulation Event" width="300" />
+</div>
+
 The purpose of the initial accumulation event is to efficiently store all Ethereum block hashes from genesis on Starknet.
 
 These hashes are used to ensure that the data Fossil processes for computations belongs to the canonical Ethereum chain.
@@ -11,7 +20,7 @@ Before appending each block hash, integrity and chain validity checks are perfor
 
 To achieve efficient storage and fast append/proof generation, multiple MMRs, each with a maximum size of 1024 blocks, are constructed.
 
-To complement on-chain storage, the full structure of each MMR—including the root, element count, and all leaf and intermediate hashes—is stored off-chain in a LiteSQL database file (`.db`).
+To complement on-chain storage, the full structure of each MMR—including the root hash, element count, and all leaf and intermediate hashes—is stored off-chain in a LiteSQL database file (`.db`).
 
 Storing all intermediate hashes on-chain is unfeasible due to the total number of hashes in an MMR exceeding its leaf count.
 

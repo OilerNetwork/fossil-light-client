@@ -1,7 +1,9 @@
 ---
 id: block-headers-validation
-title: Block Header Validation (Keccak Hash Verification and Parent-Child Relation)
+title: Block Headers Validation
 ---
+
+![Block Header Validation](/img/03.png)
 
 Validation ensures each block header is both internally consistent and part of a valid chain:
 

@@ -1,6 +1,6 @@
 ---
 id: database-setup
-title: Database Setup and Access (PostgreSQL)
+title: Database Setup and Access
 ---
 
 The Fossil Headers Database schema represents all fields of an Ethereum block header. The database is populated using Fossil's indexer, which operates independently of the FLC. Data is fetched via RPC calls to a Nethermind Ethereum client.
