@@ -42,6 +42,17 @@ const sidebars: SidebarsConfig = {
         "updating-light-client/initiating-update",
       ],
     },
+    {
+      type: "category",
+      label: "Calculating Average Gas Fees",
+      collapsed: false,
+      items: [
+        "calculating-avg-gas-fees/intro",
+        "calculating-avg-gas-fees/grouping-headers",
+        "calculating-avg-gas-fees/zkvm-calculation",
+        "calculating-avg-gas-fees/storage-and-retrieval",
+      ],
+    },
   ],
 };
 
