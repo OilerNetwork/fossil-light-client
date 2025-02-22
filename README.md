@@ -39,19 +39,41 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
    git submodule update --init --recursive
    ```
 
-## Documentation Setup
+3. Install Yarn:
+   - **For macOS:**
+     ```bash
+     # Using Homebrew
+     brew install yarn
 
-To run the documentation locally:
+     # Using npm
+     npm install --global yarn
+     ```
 
-```bash
-cd docs/
-yarn
-yarn start
-```
+   - **For Linux:**
+     ```bash
+     # Using npm
+     npm install --global yarn
 
-This will start a local server and open the documentation in your default browser. The documentation will automatically reload when you make changes to the source files.
+     # Using Debian/Ubuntu
+     curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+     echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+     sudo apt update
+     sudo apt install yarn
+     ```
 
-3. Install IPFS:
+   - **For Windows:**
+     ```bash
+     # Using npm
+     npm install --global yarn
+
+     # Using Chocolatey
+     choco install yarn
+
+     # Using Scoop
+     scoop install yarn
+     ```
+
+4. Install IPFS:
    - Download and install [IPFS Desktop](https://github.com/ipfs/ipfs-desktop/releases)
    - Ensure IPFS daemon is running before proceeding
 
@@ -68,6 +90,18 @@ This will start a local server and open the documentation in your default browse
      ```
 
    - **For Linux users:** No additional requirements
+
+## Documentation Setup
+
+To run the documentation locally:
+
+```bash
+cd docs/
+yarn
+yarn start
+```
+
+This will start a local server and open the documentation in your default browser. The documentation will automatically reload when you make changes to the source files.
 
 ## Docker-Based Deployment
 
