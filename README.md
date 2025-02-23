@@ -39,19 +39,41 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
    git submodule update --init --recursive
    ```
 
-## Documentation Setup
+3. Install Yarn:
+   - **For macOS:**
+     ```bash
+     # Using Homebrew
+     brew install yarn
 
-To run the documentation locally:
+     # Using npm
+     npm install --global yarn
+     ```
 
-```bash
-cd docs/
-yarn
-yarn start
-```
+   - **For Linux:**
+     ```bash
+     # Using npm
+     npm install --global yarn
 
-This will start a local server and open the documentation in your default browser. The documentation will automatically reload when you make changes to the source files.
+     # Using Debian/Ubuntu
+     curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+     echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
+     sudo apt update
+     sudo apt install yarn
+     ```
 
-3. Install IPFS:
+   - **For Windows:**
+     ```bash
+     # Using npm
+     npm install --global yarn
+
+     # Using Chocolatey
+     choco install yarn
+
+     # Using Scoop
+     scoop install yarn
+     ```
+
+4. Install IPFS:
    - Download and install [IPFS Desktop](https://github.com/ipfs/ipfs-desktop/releases)
    - Ensure IPFS daemon is running before proceeding
 
@@ -68,6 +90,18 @@ This will start a local server and open the documentation in your default browse
      ```
 
    - **For Linux users:** No additional requirements
+
+## Documentation Setup
+
+To run the documentation locally:
+
+```bash
+cd docs/
+yarn
+yarn start
+```
+
+This will start a local server and open the documentation in your default browser. The documentation will automatically reload when you make changes to the source files.
 
 ## Docker-Based Deployment
 
@@ -216,22 +250,27 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    In a new terminal, fetch the fees for a block range from the Fossil Store contract:
 
    ```bash
-   starkli call <fossil_store_contract_address> get_avg_fees_in_range <start_block_number> <end_block_number> --rpc http://localhost:5050
+   starkli call <fossil_store_contract_address> get_avg_fees_in_range <start_timestamp> <end_timestamp> --rpc http://localhost:5050
    ```
 
    Note: The block range should match the blocks that were added to the MMR in step 4. You can find these numbers in the build_mmr output logs.
 
 ### Block Range Selection for Fee State Proofs
 
-When requesting state proofs for fees, you can specify any block range within the available processed blocks. The system processes blocks in batches, but proofs can be requested for any valid range within those batches.
+When requesting state proofs for fees, you can query any hour-aligned timestamp or range within the processed blocks. The system aggregates fees hourly and requires timestamps to be multiples of 3600 seconds (1 hour).
 
-For example, if blocks 7494088-7494095 have been processed:
+For example, if blocks from timestamp 1704067200 (Jan 1, 2024 00:00:00 UTC) to 1704153600 (Jan 2, 2024 00:00:00 UTC) have been processed:
 
-- You can request proofs for block range 7494090-7494093
-- Or 7494088-7494095 (full range)
-- Or any other valid subset within these bounds
+- You can query a single hour: 1704070800 (Jan 1, 2024 01:00:00 UTC)
+- Or a range: 1704067200 to 1704153600 (full 24 hours)
+- Or any subset of hours within these bounds
 
-Note: While the MMR internally processes batches from higher to lower block numbers (e.g., batch 1: 7494092-7494095, batch 2: 7494088-7494091), this is an implementation detail. Your proof requests can span across these internal batch boundaries.
+Key validation rules:
+- All timestamps must be hour-aligned (multiples of 3600 seconds)
+- For range queries, start timestamp must be ≤ end timestamp
+- Queries return weighted average fees based on number of blocks in each hour
+
+Note: While blocks are processed in batches internally, fee queries operate on hour boundaries regardless of batch structure.
 
 ## Troubleshooting
 

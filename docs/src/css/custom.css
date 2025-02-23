@@ -4,57 +4,91 @@
  * work well for content-centric websites.
  */
 
-/* You can override the default Infima variables here. */
+/* Light mode palette */
 :root {
-  --ifm-color-primary: #5D7278;
-  --ifm-color-primary-dark: #494237;
-  --ifm-color-primary-darker: #5C605C;
-  --ifm-color-primary-darkest: #1A1715;
-  --ifm-color-primary-light: #6d8589;
-  --ifm-color-primary-lighter: #7d959a;
-  --ifm-color-primary-lightest: #8da5ab;
+  --ifm-color-primary: #084887;
+  --ifm-color-primary-dark: #074179;
+  --ifm-primary-darker: #063b72;
+  --ifm-color-primary-darkest: #05315e;
+  --ifm-color-primary-light: #094f95;
+  --ifm-color-primary-lighter: #0a559c;
+  --ifm-color-primary-lightest: #0b5fb0;
   --ifm-code-font-size: 95%;
-  --ifm-background-color: #ffffff;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-background-color: #f7f5fb;
+  --ifm-heading-color: #084887;
+  --ifm-text-color: #1c1e21;
+  --docusaurus-highlighted-code-line-bg: rgba(8, 72, 135, 0.1);
+  --ifm-secondary-color: #f58a07;
+  --ifm-accent-color: #f9ab55;
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
+/* Dark mode - adapted palette */
 [data-theme='dark'] {
-  --ifm-color-primary: #5D7278;
-  --ifm-color-primary-dark: #494237;
-  --ifm-color-primary-darker: #5C605C;
-  --ifm-color-primary-darkest: #1A1715;
-  --ifm-color-primary-light: #6d8589;
-  --ifm-color-primary-lighter: #7d959a;
-  --ifm-color-primary-lightest: #8da5ab;
-  --ifm-background-color: #0E1115;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  --ifm-color-primary: #f58a07;
+  --ifm-color-primary-dark: #dd7c06;
+  --ifm-color-primary-darker: #d07506;
+  --ifm-color-primary-darkest: #ab6105;
+  --ifm-color-primary-light: #f69622;
+  --ifm-color-primary-lighter: #f69c2e;
+  --ifm-color-primary-lightest: #f8ac52;
+  --ifm-background-color: #084887;
+  --ifm-heading-color: #f9ab55;
+  --ifm-text-color: #f7f5fb;
+  --docusaurus-highlighted-code-line-bg: rgba(245, 138, 7, 0.1);
+  --ifm-secondary-color: #909cc2;
+  --ifm-accent-color: #f9ab55;
 }
 
 .hero--primary {
-  --ifm-hero-background-color: #1A1715;
   --ifm-hero-text-color: #ffffff;
-  background-color: #1A1715;
+  background-color: #084887;
   padding: 4rem 0;
 }
 
+[data-theme='dark'] .hero--primary {
+  background-color: #f58a07;
+}
+
 .footer--dark {
-  --ifm-footer-background-color: #1A1715;
+  --ifm-footer-background-color: #084887;
   --ifm-footer-color: #ffffff;
+  --ifm-footer-link-color: #ffffff;
+  --ifm-footer-title-color: #ffffff;
   padding: 3rem 0;
 }
 
+[data-theme='dark'] .footer--dark {
+  --ifm-footer-background-color: #f58a07;
+  --ifm-footer-color: #1c1e21;
+  --ifm-footer-link-color: #1c1e21;
+  --ifm-footer-title-color: #1c1e21;
+  padding: 3rem 0;
+}
+
+/* Add specific footer link styles */
+[data-theme='dark'] .footer__link-item {
+  color: #1c1e21;
+}
+
+[data-theme='dark'] .footer__title {
+  color: #1c1e21;
+}
+
 .button.button--secondary {
-  background-color: #5D7278;
-  border-color: #5D7278;
-  color: #ffffff;
+  background-color: #ffffff;
+  border-color: #ffffff;
+  color: var(--ifm-color-primary);
   margin: 2rem 0;
   padding: 0.8rem 2rem;
+  transition: all 0.2s ease-in-out;
+  font-weight: 600;
 }
 
 .button.button--secondary:hover {
-  background-color: #494237;
-  border-color: #494237;
+  background-color: var(--ifm-color-primary-lightest);
+  border-color: var(--ifm-color-primary-lightest);
+  color: var(--ifm-color-primary);
+  transform: translateY(-1px);
 }
 
 /* Improve text readability */
@@ -62,12 +96,14 @@ p {
   line-height: 1.7;
   margin-bottom: 1.5rem;
   font-size: 1.1rem;
+  color: var(--ifm-text-color);
 }
 
 .hero__subtitle {
   margin: 2rem 0;
   font-size: 1.2rem;
   line-height: 1.5;
+  color: var(--ifm-hero-text-color);
 }
 
 .padding-horiz--md {
@@ -77,4 +113,41 @@ p {
 .text--center {
   max-width: 800px;
   margin: 0 auto;
+}
+
+/* Additional styles for better contrast */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--ifm-heading-color);
+}
+
+.hero__title {
+  color: #ffffff;
+}
+
+code {
+  background-color: #f1f5f9;
+  color: var(--ifm-color-primary);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+[data-theme='dark'] code {
+  background-color: var(--ifm-primary-darker);
+  color: #ffffff;
+}
+
+/* Homepage specific styles */
+.homepage-content {
+  background-color: #ffffff;
+  color: #2d1a66;
+}
+
+[data-theme='dark'] .homepage-content {
+  background-color: #1a1025;
+  color: #f7f6c5;
+}
+
+/* Make navbar logo circular */
+.navbar__logo img {
+  border-radius: 50%;
 }
