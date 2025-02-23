@@ -4,57 +4,72 @@
  * work well for content-centric websites.
  */
 
-/* You can override the default Infima variables here. */
+/* Light mode palette */
 :root {
-  --ifm-color-primary: #5D7278;
-  --ifm-color-primary-dark: #494237;
-  --ifm-color-primary-darker: #5C605C;
-  --ifm-color-primary-darkest: #1A1715;
-  --ifm-color-primary-light: #6d8589;
-  --ifm-color-primary-lighter: #7d959a;
-  --ifm-color-primary-lightest: #8da5ab;
+  --ifm-color-primary: #5e2bff;
+  --ifm-color-primary-dark: #4a16ff;
+  --ifm-color-primary-darker: #3e05ff;
+  --ifm-color-primary-darkest: #3300d6;
+  --ifm-color-primary-light: #7240ff;
+  --ifm-color-primary-lighter: #7e51ff;
+  --ifm-color-primary-lightest: #9a77ff;
   --ifm-code-font-size: 95%;
   --ifm-background-color: #ffffff;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  --ifm-heading-color: #2d1a66;
+  --ifm-text-color: #2d1a66;
+  --docusaurus-highlighted-code-line-bg: rgba(94, 43, 255, 0.1);
+  --ifm-secondary-color: #c04cfd;
+  --ifm-accent-color: #fc6dab;
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
+/* Dark mode - adapted palette */
 [data-theme='dark'] {
-  --ifm-color-primary: #5D7278;
-  --ifm-color-primary-dark: #494237;
-  --ifm-color-primary-darker: #5C605C;
-  --ifm-color-primary-darkest: #1A1715;
-  --ifm-color-primary-light: #6d8589;
-  --ifm-color-primary-lighter: #7d959a;
-  --ifm-color-primary-lightest: #8da5ab;
-  --ifm-background-color: #0E1115;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  --ifm-color-primary: #c04cfd;
+  --ifm-color-primary-dark: #b52ffd;
+  --ifm-color-primary-darker: #b021fd;
+  --ifm-color-primary-darkest: #9503e2;
+  --ifm-color-primary-light: #cb69fd;
+  --ifm-color-primary-lighter: #d077fd;
+  --ifm-color-primary-lightest: #e0a3fe;
+  --ifm-background-color: #1a1025;
+  --ifm-heading-color: #fc6dab;
+  --ifm-text-color: #f7f6c5;
+  --docusaurus-highlighted-code-line-bg: rgba(192, 76, 253, 0.1);
+  --ifm-secondary-color: #5e2bff;
+  --ifm-accent-color: #fc6dab;
 }
 
 .hero--primary {
-  --ifm-hero-background-color: #1A1715;
   --ifm-hero-text-color: #ffffff;
-  background-color: #1A1715;
+  background: linear-gradient(135deg, #5e2bff 0%, #c04cfd 100%);
   padding: 4rem 0;
 }
 
+[data-theme='dark'] .hero--primary {
+  background: linear-gradient(135deg, #c04cfd 0%, #fc6dab 100%);
+}
+
 .footer--dark {
-  --ifm-footer-background-color: #1A1715;
+  --ifm-footer-background-color: #2d1a66;
   --ifm-footer-color: #ffffff;
   padding: 3rem 0;
 }
 
 .button.button--secondary {
-  background-color: #5D7278;
-  border-color: #5D7278;
-  color: #ffffff;
+  background-color: #ffffff;
+  border-color: #ffffff;
+  color: var(--ifm-color-primary);
   margin: 2rem 0;
   padding: 0.8rem 2rem;
+  transition: all 0.2s ease-in-out;
+  font-weight: 600;
 }
 
 .button.button--secondary:hover {
-  background-color: #494237;
-  border-color: #494237;
+  background-color: var(--ifm-color-primary-lightest);
+  border-color: var(--ifm-color-primary-lightest);
+  color: var(--ifm-color-primary);
+  transform: translateY(-1px);
 }
 
 /* Improve text readability */
@@ -62,12 +77,14 @@ p {
   line-height: 1.7;
   margin-bottom: 1.5rem;
   font-size: 1.1rem;
+  color: var(--ifm-text-color);
 }
 
 .hero__subtitle {
   margin: 2rem 0;
   font-size: 1.2rem;
   line-height: 1.5;
+  color: var(--ifm-hero-text-color);
 }
 
 .padding-horiz--md {
@@ -77,4 +94,41 @@ p {
 .text--center {
   max-width: 800px;
   margin: 0 auto;
+}
+
+/* Additional styles for better contrast */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--ifm-heading-color);
+}
+
+.hero__title {
+  color: #ffffff;
+}
+
+code {
+  background-color: #f1f5f9;
+  color: var(--ifm-color-primary);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+}
+
+[data-theme='dark'] code {
+  background-color: var(--ifm-primary-darker);
+  color: #ffffff;
+}
+
+/* Homepage specific styles */
+.homepage-content {
+  background-color: #ffffff;
+  color: #2d1a66;
+}
+
+[data-theme='dark'] .homepage-content {
+  background-color: #1a1025;
+  color: #f7f6c5;
+}
+
+/* Make navbar logo circular */
+.navbar__logo img {
+  border-radius: 50%;
 }
