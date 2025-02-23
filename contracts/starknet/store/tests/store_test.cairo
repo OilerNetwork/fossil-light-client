@@ -1,7 +1,5 @@
 use fossil_store::{IFossilStoreDispatcher, IFossilStoreDispatcherTrait};
-use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address_global,
-};
+use snforge_std::{ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address};
 use super::fixtures::{test_avg_fees_1, test_avg_fees_2, test_journal};
 
 fn verifier_address() -> starknet::ContractAddress {
@@ -13,15 +11,19 @@ fn l1_message_proxy_address() -> starknet::ContractAddress {
 }
 
 const MIN_UPDATE_INTERVAL: u64 = 10;
+fn OWNER() -> starknet::ContractAddress {
+    starknet::contract_address_const::<'OWNER'>()
+}
 
 
 fn deploy() -> IFossilStoreDispatcher {
     let contract = declare("Store").unwrap().contract_class();
 
-    let (contract_address, _) = contract.deploy(@array![]).unwrap();
+    let (contract_address, _) = contract.deploy(@array![OWNER().into()]).unwrap();
 
     // Create a Dispatcher object that will allow interacting with the deployed contract
     let dispatcher = IFossilStoreDispatcher { contract_address };
+    start_cheat_caller_address(contract_address, OWNER());
     dispatcher.initialize(verifier_address(), l1_message_proxy_address(), MIN_UPDATE_INTERVAL);
     dispatcher
 }
@@ -33,7 +35,7 @@ fn test_store_latest_blockhash_from_l1() {
     let block_number = 100;
     let block_hash = 0x1234567890abcdef;
 
-    start_cheat_caller_address_global(l1_message_proxy_address());
+    start_cheat_caller_address(dispatcher.contract_address, l1_message_proxy_address());
     dispatcher.store_latest_blockhash_from_l1(block_number, block_hash);
 
     let (stored_block_number, stored_block_hash) = dispatcher.get_latest_blockhash_from_l1();
@@ -47,8 +49,8 @@ fn test_update_store_state_no_weighted_avg_fee() {
 
     let IPFS_HASH = "IPFS_HASH_CID";
 
-    start_cheat_caller_address_global(verifier_address());
-    dispatcher.update_store_state(test_journal(), test_avg_fees_1(), IPFS_HASH.clone());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
+    dispatcher.update_store_state(OWNER(), test_journal(), test_avg_fees_1(), IPFS_HASH.clone());
 
     let timestamp_1 = test_avg_fees_1()[0].timestamp;
     let avg_fee_1 = dispatcher.get_avg_fee(*timestamp_1);
@@ -72,8 +74,8 @@ fn test_update_store_state_weighted_avg_fee() {
 
     let avg_fees_1 = test_avg_fees_1();
 
-    start_cheat_caller_address_global(verifier_address());
-    dispatcher.update_store_state(test_journal(), avg_fees_1, IPFS_HASH.clone());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
+    dispatcher.update_store_state(OWNER(), test_journal(), avg_fees_1, IPFS_HASH.clone());
 
     let timestamp_1 = avg_fees_1[0].timestamp;
     let timestamp_2 = avg_fees_1[1].timestamp;
@@ -85,7 +87,7 @@ fn test_update_store_state_weighted_avg_fee() {
     assert_eq!(avg_fee_2, *avg_fees_1[1].avg_fee);
 
     let avg_fees_2 = test_avg_fees_2();
-    dispatcher.update_store_state(test_journal(), avg_fees_2, IPFS_HASH);
+    dispatcher.update_store_state(OWNER(), test_journal(), avg_fees_2, IPFS_HASH);
 
     let updated_fee = dispatcher.get_avg_fee(*timestamp_1);
 
@@ -101,8 +103,8 @@ fn test_get_latest_mmr_block() {
 
     let IPFS_HASH = "IPFS_HASH_CID";
 
-    start_cheat_caller_address_global(verifier_address());
-    dispatcher.update_store_state(test_journal(), test_avg_fees_1(), IPFS_HASH.clone());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
+    dispatcher.update_store_state(OWNER(), test_journal(), test_avg_fees_1(), IPFS_HASH.clone());
 
     let mmr_block = dispatcher.get_latest_mmr_block();
     assert_eq!(mmr_block, test_journal().latest_mmr_block);
@@ -114,8 +116,8 @@ fn test_get_min_mmr_block() {
 
     let IPFS_HASH = "IPFS_HASH_CID";
 
-    start_cheat_caller_address_global(verifier_address());
-    dispatcher.update_store_state(test_journal(), test_avg_fees_1(), IPFS_HASH.clone());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
+    dispatcher.update_store_state(OWNER(), test_journal(), test_avg_fees_1(), IPFS_HASH.clone());
 
     let expected_min_mmr_block = test_journal().latest_mmr_block - test_journal().leaves_count + 1;
 
@@ -129,10 +131,10 @@ fn test_get_batch_last_block_link() {
 
     let IPFS_HASH = "IPFS_HASH_CID";
 
-    start_cheat_caller_address_global(verifier_address());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
     let mut journal = test_journal();
     journal.batch_index += 1;
-    dispatcher.update_store_state(journal, test_avg_fees_1(), IPFS_HASH.clone());
+    dispatcher.update_store_state(OWNER(), journal, test_avg_fees_1(), IPFS_HASH.clone());
 
     let batch_last_block_link = dispatcher.get_batch_last_block_link(test_journal().batch_index);
     assert_eq!(batch_last_block_link, test_journal().first_block_parent_hash);
@@ -144,10 +146,10 @@ fn test_get_batch_first_block_parent_hash() {
 
     let IPFS_HASH = "IPFS_HASH_CID";
 
-    start_cheat_caller_address_global(verifier_address());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
     let mut journal = test_journal();
     journal.batch_index -= 1;
-    dispatcher.update_store_state(journal, test_avg_fees_1(), IPFS_HASH.clone());
+    dispatcher.update_store_state(OWNER(), journal, test_avg_fees_1(), IPFS_HASH.clone());
 
     let batch_first_block_parent_hash = dispatcher
         .get_batch_first_block_parent_hash(test_journal().batch_index);
@@ -160,8 +162,8 @@ fn test_get_avg_fee() {
 
     let IPFS_HASH = "IPFS_HASH_CID";
 
-    start_cheat_caller_address_global(verifier_address());
-    dispatcher.update_store_state(test_journal(), test_avg_fees_1(), IPFS_HASH.clone());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
+    dispatcher.update_store_state(OWNER(), test_journal(), test_avg_fees_1(), IPFS_HASH.clone());
 
     let timestamp_1 = test_avg_fees_1()[0].timestamp;
     let avg_fee = dispatcher.get_avg_fee(*timestamp_1);
@@ -174,8 +176,8 @@ fn test_get_avg_fees_in_range() {
 
     let IPFS_HASH = "IPFS_HASH_CID";
 
-    start_cheat_caller_address_global(verifier_address());
-    dispatcher.update_store_state(test_journal(), test_avg_fees_1(), IPFS_HASH.clone());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
+    dispatcher.update_store_state(OWNER(), test_journal(), test_avg_fees_1(), IPFS_HASH.clone());
 
     let start_timestamp = test_avg_fees_1()[0].timestamp;
     let end_timestamp = test_avg_fees_1()[3].timestamp;
@@ -213,7 +215,7 @@ fn test_unauthorized_blockhash_update() {
 fn test_unauthorized_mmr_state_update() {
     let dispatcher = deploy();
     // Don't start cheating caller address, attempt update with default caller
-    dispatcher.update_store_state(test_journal(), test_avg_fees_1(), "IPFS_HASH_CID");
+    dispatcher.update_store_state(OWNER(), test_journal(), test_avg_fees_1(), "IPFS_HASH_CID");
 }
 
 #[test]
@@ -223,15 +225,15 @@ fn test_unauthorized_mmr_state_update() {
 fn test_min_update_interval_violation() {
     let dispatcher = deploy();
 
-    start_cheat_caller_address_global(verifier_address());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
 
     // First update
     let mut journal = test_journal();
-    dispatcher.update_store_state(journal, test_avg_fees_1(), "IPFS_HASH_CID");
+    dispatcher.update_store_state(OWNER(), journal, test_avg_fees_1(), "IPFS_HASH_CID");
 
     // Second update too soon
     journal.latest_mmr_block += MIN_UPDATE_INTERVAL - 1;
-    dispatcher.update_store_state(journal, test_avg_fees_1(), "IPFS_HASH_CID");
+    dispatcher.update_store_state(OWNER(), journal, test_avg_fees_1(), "IPFS_HASH_CID");
 }
 
 #[test]
@@ -258,7 +260,7 @@ fn test_invalid_timestamp_range() {
 fn test_empty_batch_first_block_parent_hash() {
     let dispatcher = deploy();
 
-    start_cheat_caller_address_global(verifier_address());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
 
     // Get parent hash for non-existent batch should return 0
     let parent_hash = dispatcher.get_batch_first_block_parent_hash(0);
@@ -283,7 +285,7 @@ fn test_empty_batch_mmr_state() {
 fn test_weighted_average_fee_calculation() {
     let dispatcher = deploy();
 
-    start_cheat_caller_address_global(verifier_address());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
 
     // Create test data with known weighted average result
     let timestamp: u64 = 3600; // 1 hour
@@ -293,7 +295,7 @@ fn test_weighted_average_fee_calculation() {
     ];
 
     // First update
-    dispatcher.update_store_state(test_journal(), avg_fees.span(), "IPFS_HASH_CID");
+    dispatcher.update_store_state(OWNER(), test_journal(), avg_fees.span(), "IPFS_HASH_CID");
 
     // Expected weighted average: (100 * 10 + 200 * 20) / (10 + 20) = 166.67 ≈ 166
     let fee = dispatcher.get_avg_fee(timestamp);
@@ -304,13 +306,13 @@ fn test_weighted_average_fee_calculation() {
 fn test_min_mmr_block_updates() {
     let dispatcher = deploy();
 
-    start_cheat_caller_address_global(verifier_address());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
 
     // First update
     let mut journal = test_journal();
     journal.latest_mmr_block = 1000;
     journal.leaves_count = 100;
-    dispatcher.update_store_state(journal, test_avg_fees_1(), "IPFS_HASH_CID");
+    dispatcher.update_store_state(OWNER(), journal, test_avg_fees_1(), "IPFS_HASH_CID");
 
     // Expected min block: 1000 - 100 + 1 = 901
     assert_eq!(dispatcher.get_min_mmr_block(), 901);
@@ -318,7 +320,7 @@ fn test_min_mmr_block_updates() {
     // Second update with lower min block
     journal.latest_mmr_block = 1500;
     journal.leaves_count = 700;
-    dispatcher.update_store_state(journal, test_avg_fees_1(), "IPFS_HASH_CID");
+    dispatcher.update_store_state(OWNER(), journal, test_avg_fees_1(), "IPFS_HASH_CID");
 
     // Expected min block: 1500 - 700 + 1 = 801
     assert_eq!(dispatcher.get_min_mmr_block(), 801);
@@ -328,19 +330,19 @@ fn test_min_mmr_block_updates() {
 fn test_batch_linking_sequence() {
     let dispatcher = deploy();
 
-    start_cheat_caller_address_global(verifier_address());
+    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
 
     // First batch
     let mut journal = test_journal();
     journal.batch_index = 1;
     journal.latest_mmr_block_hash = 0x1111;
-    dispatcher.update_store_state(journal, test_avg_fees_1(), "IPFS_HASH_CID");
+    dispatcher.update_store_state(OWNER(), journal, test_avg_fees_1(), "IPFS_HASH_CID");
 
     // Second batch
     journal.batch_index = 2;
     journal.first_block_parent_hash = 0x1111;
     journal.latest_mmr_block_hash = 0x2222;
-    dispatcher.update_store_state(journal, test_avg_fees_1(), "IPFS_HASH_CID");
+    dispatcher.update_store_state(OWNER(), journal, test_avg_fees_1(), "IPFS_HASH_CID");
 
     // Verify links
     assert_eq!(dispatcher.get_batch_first_block_parent_hash(2), 0x1111);

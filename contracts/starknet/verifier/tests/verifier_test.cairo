@@ -1,6 +1,7 @@
 use fossil_store::{IFossilStoreDispatcher, IFossilStoreDispatcherTrait};
 use snforge_std::{
-    ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address_global,
+    ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
+    stop_cheat_caller_address,
 };
 use super::fixtures::{calldata_default, invalid_proof, test_avg_fees, test_journal};
 
@@ -14,6 +15,9 @@ use verifier::{
 fn l1_message_proxy_address() -> starknet::ContractAddress {
     starknet::contract_address_const::<'L1_MSG_SENDER'>()
 }
+fn OWNER() -> starknet::ContractAddress {
+    starknet::contract_address_const::<'OWNER'>()
+}
 
 fn deploy() -> (IRisc0Groth16VerifierBN254Dispatcher, IFossilVerifierDispatcher) {
     let ecip_class = declare("UniversalECIP").unwrap().contract_class();
@@ -26,18 +30,22 @@ fn deploy() -> (IRisc0Groth16VerifierBN254Dispatcher, IFossilVerifierDispatcher)
     let (fossil_store_address, _) = declare("Store")
         .unwrap()
         .contract_class()
-        .deploy(@array![])
+        .deploy(@array![OWNER().into()])
         .unwrap();
 
     let (verifier_address, _) = declare("FossilVerifier")
         .unwrap()
         .contract_class()
-        .deploy(@array![groth16_verifier_address.into(), fossil_store_address.into()])
+        .deploy(
+            @array![groth16_verifier_address.into(), fossil_store_address.into(), OWNER().into()],
+        )
         .unwrap();
 
     // Create a Dispatcher object that will allow interacting with the deployed contract
     let store_dispatcher = IFossilStoreDispatcher { contract_address: fossil_store_address };
+    start_cheat_caller_address(store_dispatcher.contract_address, OWNER());
     store_dispatcher.initialize(verifier_address, l1_message_proxy_address(), 0);
+    stop_cheat_caller_address(store_dispatcher.contract_address);
     (
         IRisc0Groth16VerifierBN254Dispatcher { contract_address: groth16_verifier_address },
         IFossilVerifierDispatcher { contract_address: verifier_address },
@@ -60,7 +68,7 @@ fn test_verify_groth16_proof_bn254() {
 fn test_verify_mmr_proof_first_batch() {
     let (_, verifier) = deploy();
     let IPFS_HASH: ByteArray = "IPFS_HASH_CID";
-    start_cheat_caller_address_global(verifier.contract_address);
+    start_cheat_caller_address(verifier.contract_address, OWNER());
     // First batch should succeed without checking batch link
     let result = verifier.verify_mmr_proof(calldata_default(), IPFS_HASH.into(), true);
     assert!(result);
@@ -70,7 +78,7 @@ fn test_verify_mmr_proof_first_batch() {
 fn test_verify_mmr_proof_subsequent_batch() {
     let (_, verifier) = deploy();
     let IPFS_HASH: ByteArray = "IPFS_HASH_CID";
-    start_cheat_caller_address_global(verifier.contract_address);
+    start_cheat_caller_address(verifier.contract_address, OWNER());
     // Submit first batch
     verifier.verify_mmr_proof(calldata_default(), IPFS_HASH.clone(), true);
 
@@ -84,7 +92,7 @@ fn test_verify_mmr_proof_subsequent_batch() {
 fn test_verify_mmr_proof_batch_link_mismatch() {
     let (_, verifier) = deploy();
     let IPFS_HASH: ByteArray = "IPFS_HASH_CID";
-    start_cheat_caller_address_global(verifier.contract_address);
+    start_cheat_caller_address(verifier.contract_address, OWNER());
     // First submit in build mode
     verifier.verify_mmr_proof(calldata_default(), IPFS_HASH.clone(), true);
 
@@ -98,7 +106,7 @@ fn test_verify_mmr_proof_batch_link_mismatch() {
 fn test_verify_mmr_proof_invalid_proof() {
     let (_, verifier) = deploy();
     let IPFS_HASH: ByteArray = "IPFS_HASH_CID";
-    start_cheat_caller_address_global(verifier.contract_address);
+    start_cheat_caller_address(verifier.contract_address, OWNER());
 
     verifier.verify_mmr_proof(invalid_proof(), IPFS_HASH, true);
 }
@@ -122,7 +130,7 @@ fn test_get_fossil_store_address() {
 fn test_verify_mmr_proof_emits_event() {
     let (_, verifier) = deploy();
     let IPFS_HASH: ByteArray = "IPFS_HASH_CID";
-    start_cheat_caller_address_global(verifier.contract_address);
+    start_cheat_caller_address(verifier.contract_address, OWNER());
     // TODO: Set up event tracking
     let result = verifier.verify_mmr_proof(calldata_default(), IPFS_HASH, true);
 

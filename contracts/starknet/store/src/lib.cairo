@@ -9,6 +9,7 @@ pub trait IFossilStore<TContractState> {
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_store_state(
         ref self: TContractState,
+        verifier_caller: starknet::ContractAddress,
         journal: verifier::Journal,
         avg_fees: Span<verifier::AvgFees>,
         ipfs_hash: ByteArray,
@@ -125,6 +126,7 @@ pub mod Store {
             l1_message_proxy_address: starknet::ContractAddress,
             min_update_interval: u64,
         ) {
+            self.ownable.assert_only_owner();
             assert!(!self.initialized.read(), "Contract already initialized");
             self.initialized.write(true);
             self.verifier_address.write(verifier_address);
@@ -149,6 +151,7 @@ pub mod Store {
 
         fn update_store_state(
             ref self: ContractState,
+            verifier_caller: starknet::ContractAddress,
             journal: verifier::Journal,
             avg_fees: Span<verifier::AvgFees>,
             ipfs_hash: ByteArray,
@@ -219,9 +222,10 @@ pub mod Store {
                     },
                 );
 
-            self.ownable.assert_only_owner();
-            curr_state.ipfs_hash.write(ipfs_hash.clone());
-            self.emit(IPFSHashUpdated { batch_index: journal.batch_index, ipfs_hash });
+            if verifier_caller == self.ownable.Ownable_owner.read() {
+                curr_state.ipfs_hash.write(ipfs_hash.clone());
+                self.emit(IPFSHashUpdated { batch_index: journal.batch_index, ipfs_hash });
+            }
         }
 
         fn get_mmr_state(self: @ContractState, batch_index: u64) -> MMRSnapshot {
