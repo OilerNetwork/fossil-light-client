@@ -83,7 +83,7 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$FOSSILSTORE_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Fossil Store contract...${NC}"
-FOSSILSTORE_ADDRESS=$(starkli deploy $FOSSILSTORE_HASH --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+FOSSILSTORE_ADDRESS=$(starkli deploy $FOSSILSTORE_HASH $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract address: ${BOLD}$FOSSILSTORE_ADDRESS${NC}"
 echo
 
@@ -121,7 +121,7 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$FOSSIL_VERIFIER_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Fossil Verifier contract...${NC}"
-FOSSIL_VERIFIER_ADDRESS=$(starkli deploy $FOSSIL_VERIFIER_HASH $VERIFIER_ADDRESS $FOSSILSTORE_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+FOSSIL_VERIFIER_ADDRESS=$(starkli deploy $FOSSIL_VERIFIER_HASH $VERIFIER_ADDRESS $FOSSILSTORE_ADDRESS $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract deployed at: ${BOLD}$FOSSIL_VERIFIER_ADDRESS${NC}"
 echo
 

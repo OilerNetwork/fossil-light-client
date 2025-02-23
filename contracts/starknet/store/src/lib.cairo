@@ -30,6 +30,13 @@ pub mod Store {
     use core::starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
+    use openzeppelin_access::ownable::OwnableComponent;
+
+    component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+
+    #[abi(embed_v0)]
+    impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
 
     const HOUR_IN_SECONDS: u64 = 3600;
 
@@ -70,6 +77,8 @@ pub mod Store {
         min_mmr_block: u64,
         min_update_interval: u64,
         avg_fees: Map<u64, AvgFees>,
+        #[substorage(v0)]
+        ownable: OwnableComponent::Storage,
     }
 
     #[event]
@@ -77,6 +86,9 @@ pub mod Store {
     enum Event {
         LatestBlockhashFromL1Stored: LatestBlockhashFromL1Stored,
         MmrStateUpdated: MmrStateUpdated,
+        IPFSHashUpdated: IPFSHashUpdated,
+        #[flat]
+        OwnableEvent: OwnableComponent::Event,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -86,12 +98,23 @@ pub mod Store {
     }
 
     #[derive(Drop, starknet::Event)]
+    struct IPFSHashUpdated {
+        batch_index: u64,
+        ipfs_hash: ByteArray,
+    }
+
+    #[derive(Drop, starknet::Event)]
     struct MmrStateUpdated {
         batch_index: u64,
         latest_mmr_block: u64,
         latest_mmr_block_hash: u256,
         leaves_count: u64,
         root_hash: u256,
+    }
+
+    #[constructor]
+    fn constructor(ref self: ContractState, owner: starknet::ContractAddress) {
+        self.ownable.initializer(owner);
     }
 
     #[abi(embed_v0)]
@@ -166,7 +189,6 @@ pub mod Store {
             curr_state.latest_mmr_block_hash.write(journal.latest_mmr_block_hash);
             curr_state.leaves_count.write(journal.leaves_count);
             curr_state.root_hash.write(journal.root_hash);
-            curr_state.ipfs_hash.write(ipfs_hash);
             curr_state.first_block_parent_hash.write(journal.first_block_parent_hash);
 
             for avg_fee in avg_fees {
@@ -196,6 +218,10 @@ pub mod Store {
                         root_hash: journal.root_hash,
                     },
                 );
+
+            self.ownable.assert_only_owner();
+            curr_state.ipfs_hash.write(ipfs_hash.clone());
+            self.emit(IPFSHashUpdated { batch_index: journal.batch_index, ipfs_hash });
         }
 
         fn get_mmr_state(self: @ContractState, batch_index: u64) -> MMRSnapshot {

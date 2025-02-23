@@ -9,7 +9,8 @@ edition = "2023_11"
 garaga = { git = "https://github.com/keep-starknet-strange/garaga.git", rev = "d23e117" }
 starknet.workspace = true
 fossil_store = { path = "../store" }
-
+openzeppelin_upgrades.workspace = true
+openzeppelin_access.workspace = true
 [dev-dependencies]
 snforge_std.workspace = true
 assert_macros.workspace = true
