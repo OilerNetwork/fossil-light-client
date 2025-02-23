@@ -41,12 +41,12 @@
 
 .hero--primary {
   --ifm-hero-text-color: #ffffff;
-  background: linear-gradient(135deg, #5e2bff 0%, #c04cfd 100%);
+  background-color: var(--ifm-color-primary);
   padding: 4rem 0;
 }
 
 [data-theme='dark'] .hero--primary {
-  background: linear-gradient(135deg, #c04cfd 0%, #fc6dab 100%);
+  background-color: var(--ifm-color-primary);
 }
 
 .footer--dark {
