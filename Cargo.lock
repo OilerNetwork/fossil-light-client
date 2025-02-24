@@ -3397,6 +3397,7 @@ dependencies = [
  "curl",
  "thiserror 2.0.11",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

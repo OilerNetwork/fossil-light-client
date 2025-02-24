@@ -5,6 +5,7 @@ use std::io::Write;
 use std::path::Path;
 use thiserror::Error;
 use tokio::task;
+use tracing::{info, warn};
 
 #[derive(Error, Debug)]
 pub enum IpfsError {
@@ -38,18 +39,25 @@ impl IpfsManager {
 
     pub async fn upload_db(&self, file_path: &Path) -> Result<String, IpfsError> {
         let metadata = fs::metadata(file_path).map_err(IpfsError::FileError)?;
+        info!("Starting IPFS upload, size: {} bytes", metadata.len());
+
         if metadata.len() as usize > self.max_file_size {
+            warn!(
+                "File size exceeds limit: {} bytes > {} bytes",
+                metadata.len(),
+                self.max_file_size
+            );
             return Err(IpfsError::BackendError(format!(
-                "File size {} bytes exceeds maximum allowed size {} bytes for file: {:?}",
+                "File size {} bytes exceeds maximum allowed size {} bytes",
                 metadata.len(),
                 self.max_file_size,
-                file_path
             )));
         }
+
         let file_path = file_path.to_owned();
         let add_url = self.add_url.clone();
         let token = self.token.clone();
-        task::spawn_blocking(move || -> Result<String, IpfsError> {
+        let result = task::spawn_blocking(move || -> Result<String, IpfsError> {
             let mut easy = curl::easy::Easy::new();
             easy.url(&add_url)
                 .map_err(|e| IpfsError::BackendError(e.to_string()))?;
@@ -85,13 +93,20 @@ impl IpfsManager {
             String::from_utf8(response_data).map_err(|e| IpfsError::BackendError(e.to_string()))
         })
         .await
-        .map_err(|e| IpfsError::BackendError(e.to_string()))?
+        .map_err(|e| IpfsError::BackendError(e.to_string()))??;
+
+        info!("IPFS upload completed successfully, CID: {}", result);
+        Ok(result)
     }
 
     pub async fn fetch_db(&self, hash: &str, output_path: &Path) -> Result<(), IpfsError> {
+        info!("Starting IPFS download, CID: {}", hash);
+
         if !hash.starts_with("Qm") {
+            warn!("Invalid IPFS hash format: {}", hash);
             return Err(IpfsError::InvalidHash(hash.to_string()));
         }
+
         let fetch_url = format!("{}{}", self.fetch_base_url, hash);
         let output_path = output_path.to_owned();
         let token = self.token.clone();
@@ -123,6 +138,8 @@ impl IpfsManager {
         })
         .await
         .map_err(|e| IpfsError::BackendError(e.to_string()))??;
+
+        info!("IPFS download completed successfully, CID: {}", hash);
         Ok(())
     }
 
