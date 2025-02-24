@@ -41,6 +41,7 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
 
 3. Install Yarn:
    - **For macOS:**
+
      ```bash
      # Using Homebrew
      brew install yarn
@@ -50,6 +51,7 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
      ```
 
    - **For Linux:**
+
      ```bash
      # Using npm
      npm install --global yarn
@@ -62,6 +64,7 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
      ```
 
    - **For Windows:**
+
      ```bash
      # Using npm
      npm install --global yarn
@@ -77,7 +80,7 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
    - Download and install [IPFS Desktop](https://github.com/ipfs/ipfs-desktop/releases)
    - Ensure IPFS daemon is running before proceeding
 
-4. Platform-specific requirements:
+5. Platform-specific requirements:
    - **For macOS users:**
 
      ```bash
@@ -266,6 +269,7 @@ For example, if blocks from timestamp 1704067200 (Jan 1, 2024 00:00:00 UTC) to 1
 - Or any subset of hours within these bounds
 
 Key validation rules:
+
 - All timestamps must be hour-aligned (multiples of 3600 seconds)
 - For range queries, start timestamp must be ≤ end timestamp
 - Queries return weighted average fees based on number of blocks in each hour

@@ -45,3 +45,7 @@ logs/anvil.log
 node_modules
 
 docs/.docusaurus/
+
+.cargo/
+
+changes.diff
