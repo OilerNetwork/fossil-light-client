@@ -31,7 +31,10 @@ impl<'a> BatchProcessor<'a> {
             ));
         }
 
-        let ipfs_manager = IpfsManager::new();
+        let ipfs_manager = IpfsManager::with_endpoint().map_err(|e| {
+            error!(error = %e, "Failed to create IPFS manager");
+            AccumulatorError::StorageError(e.to_string())
+        })?;
 
         Ok(Self {
             batch_size,

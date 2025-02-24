@@ -1,8 +1,6 @@
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 
-use crate::{
-    core::AccumulatorBuilder, errors::PublisherError,
-};
+use crate::{core::AccumulatorBuilder, errors::PublisherError};
 
 pub async fn prove_mmr_update(
     rpc_url: &String,

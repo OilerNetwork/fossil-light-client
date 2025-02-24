@@ -1,13 +1,10 @@
 #![deny(unused_crate_dependencies)]
 
-use anyhow::{Context, Result};
-use futures_util::StreamExt;
-use ipfs_api::{IpfsApi, IpfsClient, TryFromUri};
-use std::io::Cursor;
+use std::fs;
+use std::io::Write;
 use std::path::Path;
 use thiserror::Error;
 use tokio::task;
-use tracing::{error, info};
 
 #[derive(Error, Debug)]
 pub enum IpfsError {
@@ -15,333 +12,150 @@ pub enum IpfsError {
     ConnectionError(String),
     #[error("File operation failed: {0}")]
     FileError(#[from] std::io::Error),
-    #[error("IPFS operation failed: {0}")]
-    IpfsError(#[from] ipfs_api::Error),
+    #[error("Backend operation failed: {0}")]
+    BackendError(String),
     #[error("Invalid IPFS hash: {0}")]
     InvalidHash(String),
 }
 
 #[derive(Clone)]
 pub struct IpfsManager {
-    client: IpfsClient,
-    max_file_size: usize, // Add configurable limits
-}
-
-impl Default for IpfsManager {
-    fn default() -> Self {
-        Self::new()
-    }
+    add_url: String,
+    fetch_base_url: String,
+    token: String,
+    pub max_file_size: usize,
 }
 
 impl IpfsManager {
-    pub fn new() -> Self {
-        Self {
-            client: IpfsClient::default(),
-            max_file_size: 50 * 1024 * 1024, // 50MB default limit
-        }
-    }
-
-    pub fn with_endpoint() -> Result<Self> {
-        let client = IpfsClient::from_str("http://ipfs.fossil.nethermind.dev")
-            .context("Failed to create IPFS client")?;
-        Ok(Self {
-            client,
-            max_file_size: 50 * 1024 * 1024,
+    pub fn with_endpoint() -> Result<Self, IpfsError> {
+        Ok(IpfsManager {
+            add_url: "http://100.25.44.230:5001/api/v0/add".to_string(),
+            fetch_base_url: "http://100.25.44.230/ipfs/".to_string(),
+            token: "YgkUzg1TQGWZvb0QwrkPoO2TIgkwEuE9MVWwJuNZ4pk".to_string(),
+            max_file_size: 50 * 1024 * 1024, // 50MB
         })
     }
 
-    pub fn set_max_file_size(&mut self, size: usize) {
-        self.max_file_size = size;
-    }
-
-    /// Upload a .db file to IPFS
-    pub async fn upload_db(&self, file_path: &Path) -> Result<String> {
-        info!(
-            "Uploading database file to IPFS: {:?}",
-            file_path.file_name().unwrap_or_default()
-        );
-
-        // Validate file exists and check size
-        let metadata = std::fs::metadata(file_path)
-            .with_context(|| format!("Failed to read metadata for file: {:?}", file_path))?;
-        
+    pub async fn upload_db(&self, file_path: &Path) -> Result<String, IpfsError> {
+        let metadata = fs::metadata(file_path).map_err(IpfsError::FileError)?;
         if metadata.len() as usize > self.max_file_size {
-            return Err(anyhow::anyhow!(
+            return Err(IpfsError::BackendError(format!(
                 "File size {} bytes exceeds maximum allowed size {} bytes for file: {:?}",
                 metadata.len(),
                 self.max_file_size,
                 file_path
-            ));
+            )));
         }
-
-        let data = std::fs::read(file_path)
-            .with_context(|| format!("Failed to read file contents: {:?}", file_path))?;
-        let cursor = Cursor::new(data);
-
-        // Add timeout for the upload operation
-        let timeout_duration = std::time::Duration::from_secs(30);
-        
-        let upload_result = tokio::time::timeout(timeout_duration, self.client.add(cursor)).await;
-        
-        match upload_result {
-            Ok(result) => {
-                match result {
-                    Ok(res) => {
-                        info!("Successfully uploaded file. CID: {}", res.hash);
-                        Ok(res.hash)
-                    }
-                    Err(e) => {
-                        error!(
-                            error = %e,
-                            file_path = ?file_path,
-                            file_size = metadata.len(),
-                            "IPFS upload failed"
-                        );
-                        Err(anyhow::anyhow!(
-                            "IPFS upload failed for {:?} (size: {} bytes): {}", 
-                            file_path, 
-                            metadata.len(), 
-                            e
-                        ))
-                    }
-                }
+        let file_path = file_path.to_owned();
+        let add_url = self.add_url.clone();
+        let token = self.token.clone();
+        task::spawn_blocking(move || -> Result<String, IpfsError> {
+            let mut easy = curl::easy::Easy::new();
+            easy.url(&add_url)
+                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            let header_value = format!("Authorization: Bearer {}", token);
+            let mut list = curl::easy::List::new();
+            list.append(&header_value)
+                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            easy.http_headers(list)
+                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            let mut form = curl::easy::Form::new();
+            let file_str = file_path.to_str().ok_or_else(|| {
+                IpfsError::BackendError("Invalid file path (non-UTF8)".to_string())
+            })?;
+            form.part("file")
+                .file(file_str)
+                .add()
+                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            easy.httppost(form)
+                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            let mut response_data = Vec::new();
+            {
+                let mut transfer = easy.transfer();
+                transfer
+                    .write_function(|data| {
+                        response_data.extend_from_slice(data);
+                        Ok(data.len())
+                    })
+                    .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+                transfer
+                    .perform()
+                    .map_err(|e| IpfsError::BackendError(e.to_string()))?;
             }
-            Err(_) => {
-                error!(
-                    file_path = ?file_path,
-                    file_size = metadata.len(),
-                    timeout = ?timeout_duration,
-                    "IPFS upload timed out"
-                );
-                Err(anyhow::anyhow!(
-                    "IPFS upload timed out after {:?} for file {:?} (size: {} bytes)",
-                    timeout_duration,
-                    file_path,
-                    metadata.len()
-                ))
-            }
-        }
-    }
-
-    /// Fetch a .db file from IPFS using its hash
-    ///
-    /// Modified to consume the IPFS stream inside `spawn_blocking`, so the returned
-    /// future is `Send`.
-    pub async fn fetch_db(&self, hash: &str, output_path: &Path) -> Result<()> {
-        info!("Fetching database from IPFS. Hash: {}", hash);
-
-        // Basic hash validation
-        if !hash.starts_with("Qm") {
-            return Err(IpfsError::InvalidHash(hash.to_string()).into());
-        }
-
-        // Create parent directories if they don't exist
-        if let Some(parent) = output_path.parent() {
-            std::fs::create_dir_all(parent).context("Failed to create parent directories")?;
-        }
-
-        let hash_owned = hash.to_string();
-        let output_path_owned = output_path.to_path_buf();
-        let max_file_size = self.max_file_size;
-        let client = self.client.clone();
-
-        // Move the actual streaming to a blocking thread, ensuring this future is `Send`.
-        task::spawn_blocking(move || -> Result<()> {
-            // We need a runtime here so we can `.await` inside `spawn_blocking`.
-            let rt = tokio::runtime::Runtime::new()
-                .context("Failed to create blocking runtime for IPFS read")?;
-
-            rt.block_on(async move {
-                let mut stream = client.cat(&hash_owned);
-                let mut bytes = Vec::with_capacity(1024 * 1024);
-                let mut total_size = 0;
-
-                while let Some(chunk) = stream.next().await {
-                    let chunk = chunk.context("Failed to read chunk from IPFS")?;
-                    total_size += chunk.len();
-
-                    if total_size > max_file_size {
-                        error!("Downloaded file size exceeds maximum allowed size");
-                        return Err(anyhow::anyhow!(
-                            "Downloaded file size exceeds maximum allowed size"
-                        ));
-                    }
-
-                    bytes.extend_from_slice(&chunk);
-                }
-
-                // Atomic write using a temporary file
-                let temp_path = output_path_owned.with_extension("tmp");
-                std::fs::write(&temp_path, &bytes).context("Failed to write temporary file")?;
-                std::fs::rename(&temp_path, &output_path_owned)
-                    .context("Failed to rename temporary file")?;
-
-                info!("Successfully fetched file to {:?}", output_path_owned);
-                Ok(())
-            })
+            String::from_utf8(response_data).map_err(|e| IpfsError::BackendError(e.to_string()))
         })
-        .await??;
+        .await
+        .map_err(|e| IpfsError::BackendError(e.to_string()))?
+    }
 
+    pub async fn fetch_db(&self, hash: &str, output_path: &Path) -> Result<(), IpfsError> {
+        if !hash.starts_with("Qm") {
+            return Err(IpfsError::InvalidHash(hash.to_string()));
+        }
+        let fetch_url = format!("{}{}", self.fetch_base_url, hash);
+        let output_path = output_path.to_owned();
+        let token = self.token.clone();
+        task::spawn_blocking(move || -> Result<(), IpfsError> {
+            let mut easy = curl::easy::Easy::new();
+            easy.url(&fetch_url)
+                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            let header_value = format!("Authorization: Bearer {}", token);
+            let mut list = curl::easy::List::new();
+            list.append(&header_value)
+                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            easy.http_headers(list)
+                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            let mut file = fs::File::create(&output_path).map_err(IpfsError::FileError)?;
+            {
+                let mut transfer = easy.transfer();
+                transfer
+                    .write_function(|data| {
+                        file.write_all(data)
+                            .map(|_| data.len())
+                            .map_err(|_e| curl::easy::WriteError::Pause)
+                    })
+                    .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+                transfer
+                    .perform()
+                    .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|e| IpfsError::BackendError(e.to_string()))??;
         Ok(())
     }
 
-    /// Check if IPFS node is available
-    pub async fn check_connection(&self) -> Result<()> {
-        self.client
-            .version()
-            .await
-            .context("Failed to connect to IPFS node")?;
+    pub async fn check_connection(&self) -> Result<(), IpfsError> {
+        let version_url = "http://100.25.44.230:5001/api/v0/version".to_string();
+        let token = self.token.clone();
+        task::spawn_blocking(move || -> Result<(), IpfsError> {
+            let mut easy = curl::easy::Easy::new();
+            easy.url(&version_url)
+                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            let header_value = format!("Authorization: Bearer {}", token);
+            let mut list = curl::easy::List::new();
+            list.append(&header_value)
+                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            easy.http_headers(list)
+                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            let mut response_data = Vec::new();
+            {
+                let mut transfer = easy.transfer();
+                transfer
+                    .write_function(|data| {
+                        response_data.extend_from_slice(data);
+                        Ok(data.len())
+                    })
+                    .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+                transfer
+                    .perform()
+                    .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|e| IpfsError::BackendError(e.to_string()))??;
         Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::Arc;
-    use tempfile;
-    use tokio::sync::Mutex;
-    // Define test-specific trait
-    trait TestIpfsApi {
-        async fn add_file(&self, data: Vec<u8>) -> Result<String, ipfs_api::Error>;
-        async fn cat_file(&self, hash: &str) -> Result<Vec<u8>, ipfs_api::Error>;
-        async fn get_version(&self) -> Result<(), ipfs_api::Error>;
-    }
-
-    #[derive(Clone)]
-    struct MockIpfsClient {
-        stored_data: Arc<Mutex<Vec<u8>>>,
-    }
-
-    impl MockIpfsClient {
-        fn new() -> Self {
-            Self {
-                stored_data: Arc::new(Mutex::new(Vec::new())),
-            }
-        }
-    }
-
-    impl TestIpfsApi for MockIpfsClient {
-        async fn add_file(&self, data: Vec<u8>) -> Result<String, ipfs_api::Error> {
-            *self.stored_data.lock().await = data;
-            Ok("QmTestHash".to_string())
-        }
-
-        async fn cat_file(&self, _: &str) -> Result<Vec<u8>, ipfs_api::Error> {
-            Ok(self.stored_data.lock().await.clone())
-        }
-
-        async fn get_version(&self) -> Result<(), ipfs_api::Error> {
-            Ok(())
-        }
-    }
-
-    #[allow(dead_code)]
-    struct TestIpfsManager {
-        client: MockIpfsClient,
-        max_file_size: usize,
-    }
-
-    impl TestIpfsManager {
-        fn new() -> Self {
-            Self {
-                client: MockIpfsClient::new(),
-                max_file_size: 1024 * 1024, // 1MB limit
-            }
-        }
-
-        async fn upload_db(&self, file_path: &Path) -> Result<String> {
-            let data = std::fs::read(file_path)?;
-
-            // Check file size
-            if data.len() > self.max_file_size {
-                return Err(anyhow::anyhow!("File size exceeds maximum allowed size"));
-            }
-
-            Ok(self.client.add_file(data).await?)
-        }
-
-        async fn fetch_db(&self, hash: &str, output_path: &Path) -> Result<()> {
-            // Basic hash validation like the real implementation
-            if !hash.starts_with("Qm") {
-                return Err(IpfsError::InvalidHash(hash.to_string()).into());
-            }
-
-            let data = self.client.cat_file(hash).await?;
-            std::fs::write(output_path, data)?;
-            Ok(())
-        }
-    }
-
-    #[tokio::test]
-    async fn test_upload_and_fetch() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let source_path = temp_dir.path().join("source.db");
-        let dest_path = temp_dir.path().join("dest.db");
-
-        let test_data = b"test database content";
-        std::fs::write(&source_path, test_data).unwrap();
-
-        let manager = TestIpfsManager::new();
-
-        // Test upload
-        let hash = manager.upload_db(&source_path).await.unwrap();
-        assert_eq!(hash, "QmTestHash");
-
-        // Test fetch
-        manager.fetch_db(&hash, &dest_path).await.unwrap();
-
-        // Verify content
-        let fetched_data = std::fs::read(&dest_path).unwrap();
-        assert_eq!(fetched_data, test_data);
-    }
-
-    #[tokio::test]
-    async fn test_connection_check() {
-        let manager = TestIpfsManager::new();
-        let result = manager.client.get_version().await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_file_size_limit() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let large_file = temp_dir.path().join("large.db");
-
-        // Create file larger than max size
-        let large_data = vec![0u8; 2 * 1024 * 1024]; // 2MB
-        std::fs::write(&large_file, large_data).unwrap();
-
-        let manager = TestIpfsManager::new();
-        let result = manager.upload_db(&large_file).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_invalid_file_path() {
-        let manager = TestIpfsManager::new();
-        let result = manager.upload_db(Path::new("/nonexistent/path")).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_invalid_hash() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let output_path = temp_dir.path().join("output.db");
-
-        let manager = TestIpfsManager::new();
-        let result = manager.fetch_db("invalid-hash", &output_path).await;
-        assert!(result.is_err());
-    }
-
-    #[tokio::test]
-    async fn test_empty_file() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let empty_file = temp_dir.path().join("empty.db");
-        std::fs::write(&empty_file, b"").unwrap();
-
-        let manager = TestIpfsManager::new();
-        let result = manager.upload_db(&empty_file).await;
-        assert!(result.is_ok());
     }
 }
