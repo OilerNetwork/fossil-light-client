@@ -1,7 +1,7 @@
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 
 use crate::{
-    core::AccumulatorBuilder, errors::PublisherError, utils::Stark, validator::ValidatorBuilder,
+    core::AccumulatorBuilder, errors::PublisherError,
 };
 
 pub async fn prove_mmr_update(
@@ -51,36 +51,4 @@ pub async fn prove_mmr_update(
     tracing::debug!("Successfully generated proof for block range");
 
     Ok(())
-}
-
-pub async fn extract_fees(
-    rpc_url: &String,
-    l2_store_address: &String,
-    chain_id: u64,
-    batch_size: u64,
-    start_block: u64,
-    end_block: u64,
-    skip_proof_verification: Option<bool>,
-) -> Result<Vec<Stark>, PublisherError> {
-    let skip_proof = skip_proof_verification.unwrap_or(false);
-
-    let validator =
-        ValidatorBuilder::new(rpc_url, l2_store_address, chain_id, batch_size, skip_proof)
-            .await
-            .map_err(|e| {
-                tracing::error!(error = %e, "Failed to create ValidatorBuilder");
-                e
-            })?;
-
-    let result = validator
-        .validate_blocks_and_extract_fees(start_block, end_block)
-        .await
-        .map_err(|e| {
-            tracing::error!(error = %e, "Failed to verify blocks validity and extract fees");
-            e
-        })?;
-
-    tracing::info!("Successfully verified blocks validity and extracted fees");
-
-    Ok(result)
 }

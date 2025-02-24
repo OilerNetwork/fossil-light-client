@@ -12,10 +12,6 @@ name = "build-mmr"
 path = "bin/build_mmr.rs"
 
 [[bin]]
-name = "extract-fees"
-path = "bin/extract_fees.rs"
-
-[[bin]]
 name = "mmr-benchmark"
 path = "benches/mmr_benchmark.rs"
 

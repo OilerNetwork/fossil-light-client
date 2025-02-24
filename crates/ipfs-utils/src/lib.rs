@@ -2,7 +2,7 @@
 
 use anyhow::{Context, Result};
 use futures_util::StreamExt;
-use ipfs_api::{IpfsApi, IpfsClient};
+use ipfs_api::{IpfsApi, IpfsClient, TryFromUri};
 use std::io::Cursor;
 use std::path::Path;
 use thiserror::Error;
@@ -42,7 +42,8 @@ impl IpfsManager {
     }
 
     pub fn with_endpoint() -> Result<Self> {
-        let client = IpfsClient::default();
+        let client = IpfsClient::from_str("http://ipfs.fossil.nethermind.dev")
+            .context("Failed to create IPFS client")?;
         Ok(Self {
             client,
             max_file_size: 50 * 1024 * 1024,
@@ -61,27 +62,65 @@ impl IpfsManager {
         );
 
         // Validate file exists and check size
-        let metadata = std::fs::metadata(file_path).context("Failed to read file metadata")?;
+        let metadata = std::fs::metadata(file_path)
+            .with_context(|| format!("Failed to read metadata for file: {:?}", file_path))?;
+        
         if metadata.len() as usize > self.max_file_size {
             return Err(anyhow::anyhow!(
-                "File size {} exceeds maximum allowed size {}",
+                "File size {} bytes exceeds maximum allowed size {} bytes for file: {:?}",
                 metadata.len(),
-                self.max_file_size
+                self.max_file_size,
+                file_path
             ));
         }
 
-        let data = std::fs::read(file_path).context("Failed to read file")?;
+        let data = std::fs::read(file_path)
+            .with_context(|| format!("Failed to read file contents: {:?}", file_path))?;
         let cursor = Cursor::new(data);
 
         // Add timeout for the upload operation
         let timeout_duration = std::time::Duration::from_secs(30);
-        let res = tokio::time::timeout(timeout_duration, self.client.add(cursor))
-            .await
-            .context("IPFS upload timed out after 30 seconds")?
-            .context("Failed to upload file to IPFS")?;
-
-        info!("Successfully uploaded file. CID: {}", res.hash);
-        Ok(res.hash)
+        
+        let upload_result = tokio::time::timeout(timeout_duration, self.client.add(cursor)).await;
+        
+        match upload_result {
+            Ok(result) => {
+                match result {
+                    Ok(res) => {
+                        info!("Successfully uploaded file. CID: {}", res.hash);
+                        Ok(res.hash)
+                    }
+                    Err(e) => {
+                        error!(
+                            error = %e,
+                            file_path = ?file_path,
+                            file_size = metadata.len(),
+                            "IPFS upload failed"
+                        );
+                        Err(anyhow::anyhow!(
+                            "IPFS upload failed for {:?} (size: {} bytes): {}", 
+                            file_path, 
+                            metadata.len(), 
+                            e
+                        ))
+                    }
+                }
+            }
+            Err(_) => {
+                error!(
+                    file_path = ?file_path,
+                    file_size = metadata.len(),
+                    timeout = ?timeout_duration,
+                    "IPFS upload timed out"
+                );
+                Err(anyhow::anyhow!(
+                    "IPFS upload timed out after {:?} for file {:?} (size: {} bytes)",
+                    timeout_duration,
+                    file_path,
+                    metadata.len()
+                ))
+            }
+        }
     }
 
     /// Fetch a .db file from IPFS using its hash

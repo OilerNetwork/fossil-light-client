@@ -12,7 +12,6 @@ members = [
     "crates/mmr-utils",
     "crates/guest-mmr",
     "crates/ipfs-utils",
-    "crates/state-proof-api",
 ]
 
 # Always optimize; building and running the guest takes much longer without optimization.
