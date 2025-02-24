@@ -90,10 +90,11 @@ impl DbConnection {
             SELECT block_hash, number, gas_limit, gas_used, nonce, 
                    transaction_root, receipts_root, state_root, 
                    base_fee_per_gas, parent_hash, miner, logs_bloom, 
-                   difficulty, totaldifficulty, sha3_uncles, "timestamp", 
+                   difficulty, totaldifficulty, sha3_uncles, 
+                   CASE WHEN CAST("timestamp" AS text) ~ '^[0-9]+$' THEN CAST("timestamp" AS bigint) END AS "timestamp",
                    extra_data, mix_hash, withdrawals_root, 
                    blob_gas_used, excess_blob_gas, parent_beacon_block_root
-            FROM blockheaders
+            FROM public.blockheaders
             WHERE number BETWEEN $1 AND $2
             ORDER BY number ASC
             "#,
@@ -103,7 +104,6 @@ impl DbConnection {
         .fetch_all(&self.pool)
         .await?;
 
-        // Convert TempBlockHeader to BlockHeader
         let headers: Vec<BlockHeader> =
             temp_headers.into_iter().map(temp_to_block_header).collect();
 

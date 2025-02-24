@@ -214,14 +214,14 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
 
 4. Build MMR and generate proofs:
    This step will:
-   - Start from the latest Ethereum finalized block and process 8 blocks backwards (2 batches * 4 blocks)
+   - Start from the latest Ethereum finalized block and process 8 blocks backwards (2 batches * 1024 blocks)
    - Generate a ZK proof of computation for each batch
    - Create and store .db files for each MMR batch and upload them to IPFS
    - Generate and verify Groth16 proofs on StarkNet for batch correctness
    - Extract batch state from proof journal and store it in the Fossil Store contract
 
    ```bash
-   cargo run --bin build-mmr -- --batch-size 4 --num-batches 2 --env-file .env.local
+   cargo run --bin build-mmr -- --num-batches 2 --env-file .env.local
    ```
 
 5. Start the relayer:
