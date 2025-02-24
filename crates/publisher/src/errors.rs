@@ -63,6 +63,8 @@ pub enum AccumulatorError {
     StorageError(String),
     #[error("Database connection failed: {0}")]
     DbConnection(#[from] DbError),
+    #[error("Invalid MMR root, expected: {expected}, actual: {actual}")]
+    InvalidMmrRoot { expected: U256, actual: U256 },
 }
 
 #[derive(thiserror::Error, Debug)]

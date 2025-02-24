@@ -246,7 +246,7 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    - Maintain a recent block buffer to handle potential chain reorganizations
 
    ```bash
-   cargo run --bin client -- --batch-size 4 --env-file .env.local
+   cargo run --bin client -- --env-file .env.local
    ```
 
 7. Test Fee Proof Fetching:

@@ -8,6 +8,8 @@ use guest_types::{CombinedInput, GuestOutput, MMRInput};
 use ipfs_utils::IpfsManager;
 use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
+use starknet_handler::provider::StarknetProvider;
+use starknet_handler::u256_from_hex;
 use std::path::PathBuf;
 use tracing::{debug, error, info, warn};
 pub struct BatchProcessor<'a> {
@@ -67,6 +69,17 @@ impl<'a> BatchProcessor<'a> {
         start_block: u64,
         end_block: u64,
     ) -> Result<Option<BatchResult>, AccumulatorError> {
+        info!(
+            "Starting batch processing for chain_id: {}, start_block: {}, end_block: {}",
+            chain_id, start_block, end_block
+        );
+
+        // Log the initial state
+        debug!(
+            "Initial state: chain_id: {}, start_block: {}, end_block: {}",
+            chain_id, start_block, end_block
+        );
+
         if end_block < start_block {
             return Err(AccumulatorError::InvalidInput(
                 "End block cannot be less than start block",
@@ -92,18 +105,156 @@ impl<'a> BatchProcessor<'a> {
             "Processing batch"
         );
 
+        // Check if batch state exists on-chain
+        let provider = StarknetProvider::new(&self.mmr_state_manager.rpc_url())?;
+        let mmr_state = provider
+            .get_mmr_state(self.mmr_state_manager.store_address(), batch_index)
+            .await?;
+
+        // Create temp path for the batch database
         let batch_file_name = format!("batch_{}.db", batch_index);
         let temp_file_path =
             PathBuf::from(get_or_create_db_path(&batch_file_name).map_err(|e| {
                 error!(error = %e, "Failed to get or create DB path");
                 e
             })?);
-        debug!("Using temporary batch file: {}", temp_file_path.display());
+
+        // Check if there's an existing IPFS hash and try to fetch it
+        let ipfs_hash = mmr_state.ipfs_hash();
+        let ipfs_hash_str = String::try_from(ipfs_hash)
+            .map_err(|_| AccumulatorError::StorageError("Failed to convert IPFS hash".into()))?;
+        if !ipfs_hash_str.is_empty() {
+            info!(
+                "Found existing IPFS hash for batch {}: {}",
+                batch_index, ipfs_hash_str
+            );
+
+            // Try to fetch from IPFS
+            match self
+                .ipfs_manager
+                .fetch_db(&ipfs_hash_str, &temp_file_path)
+                .await
+            {
+                Ok(_) => {
+                    info!(
+                        "Successfully downloaded DB from IPFS for batch {}",
+                        batch_index
+                    );
+
+                    // Debug file type and content
+                    match std::fs::metadata(&temp_file_path) {
+                        Ok(metadata) => {
+                            println!(
+                                "File metadata: size={}, is_file={}, permissions={:?}",
+                                metadata.len(),
+                                metadata.is_file(),
+                                metadata.permissions()
+                            );
+                        }
+                        Err(e) => println!("Failed to read file metadata: {}", e),
+                    }
+
+                    // Try to read first few bytes to check file signature
+                    match std::fs::read(&temp_file_path) {
+                        Ok(contents) => {
+                            let preview = if contents.len() >= 16 {
+                                &contents[..16]
+                            } else {
+                                &contents[..]
+                            };
+                            println!("File header bytes: {:?}", preview);
+                            println!("File content length: {} bytes", contents.len());
+
+                            // SQLite files start with "SQLite format 3\0"
+                            if contents.starts_with(b"SQLite format 3\0") {
+                                println!("File appears to be a valid SQLite database");
+                            } else {
+                                println!("File does not have SQLite signature");
+                            }
+                        }
+                        Err(e) => println!("Failed to read file contents: {}", e),
+                    }
+
+                    // Try to initialize MMR and handle database errors
+                    match initialize_mmr(temp_file_path.to_str().unwrap()).await {
+                        Ok((_, mmr, _)) => {
+                            // Validate MMR root matches on-chain state
+                            let mmr_elements_count = mmr.elements_count.get().await?;
+                            let bag = mmr.bag_the_peaks(Some(mmr_elements_count)).await?;
+                            let mmr_root_hex = mmr.calculate_root_hash(&bag, mmr_elements_count)?;
+                            let mmr_root = u256_from_hex(&mmr_root_hex)?;
+
+                            if mmr_root == mmr_state.root_hash() {
+                                info!("Validated MMR root matches on-chain state");
+
+                                // Create a new MmrState using the available accessor methods
+                                let mmr_state_for_result = starknet_handler::MmrState::new(
+                                    mmr_state.latest_mmr_block(),      // Use accessor method if available
+                                    mmr_state.latest_mmr_block_hash(), // Use accessor method if available
+                                    mmr_state.root_hash(),             // This accessor is available
+                                    mmr_state.leaves_count(), // Use accessor method if available
+                                    Some(mmr_state.ipfs_hash()), // This accessor is available
+                                );
+
+                                // Create a BatchResult with the converted state and IPFS hash
+                                let batch_result = BatchResult::new(
+                                    start_block,
+                                    adjusted_end_block,
+                                    mmr_state_for_result,
+                                    None, // No proof needed since it's already validated
+                                    ipfs_hash_str.clone(),
+                                );
+
+                                println!("Debug Info: Created BatchResult from existing state for start_block={} end_block={}", 
+                                         start_block, adjusted_end_block);
+
+                                return Ok(Some(batch_result));
+                            } else {
+                                warn!(
+                                    "MMR root mismatch for batch {}, proceeding with reprocessing",
+                                    batch_index
+                                );
+                            }
+                        }
+                        Err(e) => {
+                            warn!(
+                                error = %e,
+                                batch_index = batch_index,
+                                "Failed to initialize MMR from downloaded DB, file may be corrupted. Proceeding with reprocessing"
+                            );
+                            // Clean up the corrupted file
+                            if let Err(e) = std::fs::remove_file(&temp_file_path) {
+                                warn!(
+                                    error = %e,
+                                    "Failed to remove corrupted database file"
+                                );
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!(
+                        error = %e,
+                        batch_index = batch_index,
+                        "Failed to fetch DB from IPFS, proceeding with processing"
+                    );
+                }
+            }
+        }
+
+        // If we get here, either:
+        // 1. No IPFS hash exists (new batch)
+        // 2. IPFS fetch failed
+        // 3. MMR validation failed
+        // 4. Database file was corrupted
+        // So we proceed with normal batch processing by creating a new database
+
+        debug!("Creating new database file: {}", temp_file_path.display());
 
         let (store_manager, mut mmr, pool) = initialize_mmr(temp_file_path.to_str().unwrap())
             .await
             .map_err(|e| {
-                error!(error = %e, "Failed to initialize MMR");
+                error!(error = %e, "Failed to initialize new MMR");
                 e
             })?;
 
@@ -223,13 +374,17 @@ impl<'a> BatchProcessor<'a> {
             })?;
 
         // Save to permanent path directly instead of using a temp file
+        let batch_file_name = format!("batch_{}.db", batch_index);
         let permanent_path =
             PathBuf::from(get_or_create_db_path(&batch_file_name).map_err(|e| {
                 error!(error = %e, "Failed to get DB path");
                 e
             })?);
 
-        // Upload current state to IPFS
+        // Close the database connection to ensure all writes are flushed
+        drop(pool);
+
+        // Upload the SQLite database file to IPFS
         let ipfs_hash = self
             .ipfs_manager
             .upload_db(&permanent_path)
@@ -238,6 +393,11 @@ impl<'a> BatchProcessor<'a> {
                 error!(error = %e, "Failed to upload batch file to IPFS");
                 AccumulatorError::StorageError(format!("Failed to upload to IPFS: {}", e))
             })?;
+
+        info!(
+            "Uploaded batch {} database to IPFS with hash: {}",
+            batch_index, ipfs_hash
+        );
 
         Ok(Some(BatchResult::new(
             start_block,
@@ -457,7 +617,7 @@ mod tests {
 
     // Mock implementation that doesn't need real Starknet connection
     impl<'a> MMRStateManager<'a> {
-        fn mock() -> Self {
+        fn mock_for_tests() -> Self {
             let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(
                 Url::parse("http://localhost:5050").expect("Invalid URL"),
             )));
@@ -467,7 +627,9 @@ mod tests {
             .expect("Failed to create StarknetAccount");
 
             MMRStateManager::new(
-                account, "0x0", // store_address as &str
+                account,
+                "0x0",                   // store_address
+                "http://localhost:5050", // rpc_url
             )
         }
     }
@@ -475,7 +637,7 @@ mod tests {
     // Helper function to create test instances
     fn create_test_processor() -> BatchProcessor<'static> {
         let proof_gen = ProofGenerator::mock();
-        let mmr_state_mgr = MMRStateManager::mock();
+        let mmr_state_mgr = MMRStateManager::mock_for_tests();
 
         BatchProcessor::new(100, proof_gen, false, mmr_state_mgr).unwrap()
     }
@@ -534,14 +696,19 @@ mod tests {
     #[tokio::test]
     async fn test_batch_processor_new() {
         let proof_gen = ProofGenerator::mock();
-        let mmr_state_mgr = MMRStateManager::mock();
+        let mmr_state_mgr = MMRStateManager::mock_for_tests();
 
         // Test valid creation
         let result = BatchProcessor::new(100, proof_gen, false, mmr_state_mgr);
         assert!(result.is_ok());
 
         // Test invalid batch size
-        let result = BatchProcessor::new(0, ProofGenerator::mock(), false, MMRStateManager::mock());
+        let result = BatchProcessor::new(
+            0,
+            ProofGenerator::mock(),
+            false,
+            MMRStateManager::mock_for_tests(),
+        );
         assert!(result.is_err());
     }
 

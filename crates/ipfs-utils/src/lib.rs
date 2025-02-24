@@ -1,8 +1,10 @@
 #![deny(unused_crate_dependencies)]
 
+use serde_json;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use std::str;
 use thiserror::Error;
 use tokio::task;
 use tracing::{info, warn};
@@ -17,6 +19,12 @@ pub enum IpfsError {
     BackendError(String),
     #[error("Invalid IPFS hash: {0}")]
     InvalidHash(String),
+    #[error("Response error: {0}")]
+    ResponseError(String),
+    #[error("JSON parsing error: {0}")]
+    JsonError(#[from] serde_json::Error),
+    #[error("Curl operation failed: {0}")]
+    CurlError(#[from] curl::Error),
 }
 
 #[derive(Clone)]
@@ -32,14 +40,24 @@ impl IpfsManager {
         Ok(IpfsManager {
             add_url: "http://100.25.44.230:5001/api/v0/add".to_string(),
             fetch_base_url: "http://100.25.44.230/ipfs/".to_string(),
-            token: "YgkUzg1TQGWZvb0QwrkPoO2TIgkwEuE9MVWwJuNZ4pk".to_string(),
+            token: "YgkUzg1TQGWZvb0QwrkPoO2TIgkwEuE9MVWwJuNZ4pk=".to_string(),
             max_file_size: 50 * 1024 * 1024, // 50MB
         })
     }
 
     pub async fn upload_db(&self, file_path: &Path) -> Result<String, IpfsError> {
+        info!("Starting IPFS upload for file: {}", file_path.display());
+
         let metadata = fs::metadata(file_path).map_err(IpfsError::FileError)?;
-        info!("Starting IPFS upload, size: {} bytes", metadata.len());
+        info!("File size: {} bytes", metadata.len());
+
+        let contents = fs::read(&file_path)?;
+        if !contents.starts_with(b"SQLite format 3\0") {
+            return Err(IpfsError::FileError(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "File is not a valid SQLite database",
+            )));
+        }
 
         if metadata.len() as usize > self.max_file_size {
             warn!(
@@ -54,90 +72,99 @@ impl IpfsManager {
             )));
         }
 
-        let file_path = file_path.to_owned();
-        let add_url = self.add_url.clone();
-        let token = self.token.clone();
-        let result = task::spawn_blocking(move || -> Result<String, IpfsError> {
-            let mut easy = curl::easy::Easy::new();
-            easy.url(&add_url)
-                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-            let header_value = format!("Authorization: Bearer {}", token);
-            let mut list = curl::easy::List::new();
-            list.append(&header_value)
-                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-            easy.http_headers(list)
-                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-            let mut form = curl::easy::Form::new();
-            let file_str = file_path.to_str().ok_or_else(|| {
-                IpfsError::BackendError("Invalid file path (non-UTF8)".to_string())
-            })?;
-            form.part("file")
-                .file(file_str)
-                .add()
-                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-            easy.httppost(form)
-                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-            let mut response_data = Vec::new();
-            {
-                let mut transfer = easy.transfer();
-                transfer
-                    .write_function(|data| {
-                        response_data.extend_from_slice(data);
-                        Ok(data.len())
-                    })
-                    .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-                transfer
-                    .perform()
-                    .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-            }
-            String::from_utf8(response_data).map_err(|e| IpfsError::BackendError(e.to_string()))
-        })
-        .await
-        .map_err(|e| IpfsError::BackendError(e.to_string()))??;
+        let mut easy = curl::easy::Easy::new();
+        easy.url(&self.add_url)?;
 
-        info!("IPFS upload completed successfully, CID: {}", result);
-        Ok(result)
+        // Set up authorization header exactly like the curl command
+        let mut list = curl::easy::List::new();
+        list.append(&format!("Authorization: Bearer {}", self.token))?;
+        easy.http_headers(list)?;
+
+        // Set POST method
+        easy.post(true)?;
+
+        // Set up the form data
+        let mut form = curl::easy::Form::new();
+        form.part("file")
+            .file(file_path.to_str().ok_or_else(|| {
+                IpfsError::BackendError("Invalid file path (non-UTF8)".to_string())
+            })?)
+            .add()
+            .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+        easy.httppost(form)?;
+
+        // Capture the response
+        let mut response_data = Vec::new();
+        {
+            let mut transfer = easy.transfer();
+            transfer.write_function(|data| {
+                response_data.extend_from_slice(data);
+                Ok(data.len())
+            })?;
+            transfer.perform()?;
+        }
+
+        // Check response code
+        let response_code = easy.response_code()?;
+        if response_code != 200 {
+            return Err(IpfsError::ResponseError(format!(
+                "HTTP error: {} for URL: {}",
+                response_code, self.add_url
+            )));
+        }
+
+        // Parse response
+        let response_str = str::from_utf8(&response_data)
+            .map_err(|e| IpfsError::ResponseError(format!("Invalid UTF-8 sequence: {}", e)))?;
+        let response_json: serde_json::Value = serde_json::from_str(response_str)?;
+
+        let hash = response_json["Hash"]
+            .as_str()
+            .ok_or_else(|| IpfsError::BackendError("No hash in response".to_string()))?
+            .to_string();
+
+        info!("IPFS upload completed successfully, CID: {}", hash);
+        Ok(hash)
     }
 
     pub async fn fetch_db(&self, hash: &str, output_path: &Path) -> Result<(), IpfsError> {
         info!("Starting IPFS download, CID: {}", hash);
 
-        if !hash.starts_with("Qm") {
-            warn!("Invalid IPFS hash format: {}", hash);
-            return Err(IpfsError::InvalidHash(hash.to_string()));
+        let fetch_url = format!("{}{}", self.fetch_base_url, hash);
+        info!("Fetching from IPFS URL: {}", fetch_url);
+
+        let mut easy = curl::easy::Easy::new();
+        easy.url(&fetch_url)?;
+        easy.follow_location(true)?;
+
+        // Set up authorization header exactly like the curl command
+        let mut list = curl::easy::List::new();
+        list.append(&format!("Authorization: Bearer {}", self.token))?;
+        easy.http_headers(list)?;
+
+        // Create output file
+        let mut file = std::fs::File::create(output_path)?;
+
+        // Set up the transfer to write directly to file
+        {
+            let mut transfer = easy.transfer();
+            transfer.write_function(|data| {
+                file.write_all(data).unwrap();
+                Ok(data.len())
+            })?;
+            transfer.perform()?;
         }
 
-        let fetch_url = format!("{}{}", self.fetch_base_url, hash);
-        let output_path = output_path.to_owned();
-        let token = self.token.clone();
-        task::spawn_blocking(move || -> Result<(), IpfsError> {
-            let mut easy = curl::easy::Easy::new();
-            easy.url(&fetch_url)
-                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-            let header_value = format!("Authorization: Bearer {}", token);
-            let mut list = curl::easy::List::new();
-            list.append(&header_value)
-                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-            easy.http_headers(list)
-                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-            let mut file = fs::File::create(&output_path).map_err(IpfsError::FileError)?;
-            {
-                let mut transfer = easy.transfer();
-                transfer
-                    .write_function(|data| {
-                        file.write_all(data)
-                            .map(|_| data.len())
-                            .map_err(|_e| curl::easy::WriteError::Pause)
-                    })
-                    .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-                transfer
-                    .perform()
-                    .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-            }
-            Ok(())
-        })
-        .await
-        .map_err(|e| IpfsError::BackendError(e.to_string()))??;
+        // Check response code after transfer
+        let response_code = easy.response_code()?;
+        if response_code != 200 {
+            // Clean up failed download
+            std::fs::remove_file(&output_path)?;
+            return Err(IpfsError::ResponseError(format!(
+                "HTTP error: {} for URL: {}",
+                response_code, fetch_url
+            )));
+        }
 
         info!("IPFS download completed successfully, CID: {}", hash);
         Ok(())

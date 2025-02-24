@@ -29,7 +29,8 @@ impl<'a> AccumulatorBuilder<'a> {
         skip_proof_verification: bool,
     ) -> Result<Self, AccumulatorError> {
         let proof_generator = ProofGenerator::new(MMR_BUILD_ELF, MMR_BUILD_ID)?;
-        let mmr_state_manager = MMRStateManager::new(starknet_account, store_address);
+        let mmr_state_manager =
+            MMRStateManager::new(starknet_account, store_address, starknet_rpc_url);
 
         if verifier_address.trim().is_empty() {
             return Err(AccumulatorError::InvalidInput(
@@ -200,6 +201,12 @@ impl<'a> AccumulatorBuilder<'a> {
                     e
                 })?
             {
+                println!(
+                    "Debug Info: Processed batch result - start: {}, end: {}, ipfs_hash: {}",
+                    batch_range.start,
+                    batch_range.end,
+                    result.ipfs_hash()
+                );
                 self.handle_batch_result(&result, is_build).await?;
                 let ipfs_hash = result.ipfs_hash();
                 let calldata = result
@@ -222,8 +229,19 @@ impl<'a> AccumulatorBuilder<'a> {
 
         if batch_results.is_empty() {
             error!(start_block, end_block, "No batch results generated");
+            println!(
+                "Debug Info: No batch results generated for start_block={} end_block={}",
+                start_block, end_block
+            );
             Err(AccumulatorError::InvalidStateTransition)
         } else {
+            for (calldata, new_mmr_state) in &batch_results {
+                println!(
+                    "Debug Info: Batch result - calldata length: {}, new MMR state: {:?}",
+                    calldata.len(),
+                    new_mmr_state
+                );
+            }
             debug!(
                 total_batches = batch_results.len(),
                 "MMR update completed successfully"

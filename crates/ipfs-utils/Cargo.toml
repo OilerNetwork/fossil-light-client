@@ -10,4 +10,5 @@ tracing = { workspace = true }
 thiserror = {workspace = true}
 curl = "0.4.47" 
 tokio = { version = "1.28", features = ["full"] }
+serde_json = "1.0.139"
 
