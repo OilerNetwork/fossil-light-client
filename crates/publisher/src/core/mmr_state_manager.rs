@@ -239,6 +239,26 @@ impl<'a> MMRStateManager<'a> {
         debug!("New MMR state created successfully");
         Ok(new_state)
     }
+
+    #[cfg(test)]
+    pub fn mock() -> Self {
+        use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient, Url};
+        use std::sync::Arc;
+
+        let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(
+            Url::parse("http://localhost:5050").expect("Invalid URL"),
+        )));
+        let account = StarknetAccount::new(
+            provider, "0x0", "0x0", // private key as &str
+        )
+        .expect("Failed to create StarknetAccount");
+
+        MMRStateManager::new(
+            account,
+            "0x0",                   // store_address
+            "http://localhost:5050", // rpc_url
+        )
+    }
 }
 
 #[cfg(test)]
@@ -365,24 +385,5 @@ mod tests {
         let state = result.unwrap();
         assert_eq!(state.latest_mmr_block(), 100);
         assert_eq!(state.leaves_count(), 10);
-    }
-
-    impl<'a> MMRStateManager<'a> {
-        #[allow(dead_code)]
-        fn mock() -> Self {
-            let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(
-                Url::parse("http://localhost:5050").expect("Invalid URL"),
-            )));
-            let account = StarknetAccount::new(
-                provider, "0x0", "0x0", // private key as &str
-            )
-            .expect("Failed to create StarknetAccount");
-
-            MMRStateManager::new(
-                account,
-                "0x0",                   // store_address
-                "http://localhost:5050", // rpc_url
-            )
-        }
     }
 }

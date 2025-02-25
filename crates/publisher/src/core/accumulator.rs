@@ -407,7 +407,15 @@ mod tests {
     use starknet::providers::JsonRpcClient;
     use starknet::providers::Url;
     use starknet_handler::account::StarknetAccount;
+    use std::env;
     use std::sync::Arc;
+
+    // Setup test environment variables
+    fn setup_test_env() {
+        env::set_var("IPFS_ADD_URL", "http://localhost:5001/api/v0/add");
+        env::set_var("IPFS_FETCH_BASE_URL", "http://localhost/ipfs/");
+        env::set_var("IPFS_TOKEN", "test_token_placeholder");
+    }
 
     mock! {
         #[derive(Clone)]
@@ -418,6 +426,7 @@ mod tests {
 
     // Add conversion impl
     impl From<MockStarknetAccount> for StarknetAccount {
+        #[allow(clippy::unused_self)]
         fn from(_mock: MockStarknetAccount) -> Self {
             // Create a new StarknetAccount for testing
             let transport = HttpTransport::new(Url::parse("http://localhost:8545").unwrap());
@@ -429,6 +438,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_accumulator_builder_new() {
+        setup_test_env();
+
         let account = MockStarknetAccount::new();
         // Create longer-lived String values
         let rpc_url = "http://localhost:8545".to_string();
@@ -454,6 +465,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_accumulator_builder_new_invalid_inputs() {
+        setup_test_env();
+
         let account = MockStarknetAccount::new();
         let rpc_url = "http://localhost:8545".to_string();
         let store_addr = "0x456".to_string();
@@ -473,6 +486,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_build_with_num_batches_invalid_input() {
+        setup_test_env();
+
         let account = MockStarknetAccount::new();
         let rpc_url = "http://localhost:8545".to_string();
         let verifier_addr = "0x123".to_string();
@@ -496,6 +511,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_mmr_with_new_headers_invalid_input() {
+        setup_test_env();
+
         let account = MockStarknetAccount::new();
         let rpc_url = "http://localhost:8545".to_string();
         let verifier_addr = "0x123".to_string();
