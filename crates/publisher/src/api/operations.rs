@@ -5,7 +5,6 @@ use crate::{
     errors::PublisherError,
 };
 use methods::{MMR_BUILD_ELF, MMR_BUILD_ID};
-use tracing::info;
 
 pub async fn prove_mmr_update(
     rpc_url: &String,
@@ -70,13 +69,6 @@ pub async fn update_mmr(
     start_block: u64,
     end_block: u64,
 ) -> Result<Option<String>, PublisherError> {
-    println!("OPERATION.rs");
-    info!(
-        latest_mmr_block = start_block - 1,
-        latest_relayed_block = end_block,
-        "Starting MMR update and proof generation"
-    );
-
     let starknet_provider = StarknetProvider::new(rpc_url)?;
     let starknet_account = StarknetAccount::new(
         starknet_provider.provider(),

@@ -143,7 +143,6 @@ impl<'a> AccumulatorBuilder<'a> {
         end_block: u64,
         is_build: bool,
     ) -> Result<(), AccumulatorError> {
-        println!("ACCUMULATOR.rs");
         if end_block < start_block {
             return Err(AccumulatorError::InvalidInput(
                 "End block cannot be less than start block",
@@ -214,7 +213,6 @@ impl<'a> AccumulatorBuilder<'a> {
                 e
             })?;
 
-        info!("MMR proof verified successfully");
         Ok(())
     }
 

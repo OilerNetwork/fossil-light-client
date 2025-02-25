@@ -7,7 +7,7 @@ use starknet::{
 };
 use starknet_handler::provider::StarknetProvider;
 use tokio::time::Duration;
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, info, instrument};
 
 #[cfg(test)]
 use mockall::automock;
@@ -231,7 +231,7 @@ impl LightClient {
         }
 
         // Call the publisher function directly with all required parameters
-        let result = publisher::api::operations::update_mmr(
+        let _result = publisher::api::operations::update_mmr(
             &get_env_var("STARKNET_RPC_URL")?,
             self.chain_id,
             &self.verifier_addr,
@@ -250,11 +250,6 @@ impl LightClient {
 
         // Update the latest processed MMR block
         self.latest_processed_mmr_block = latest_relayed_block;
-
-        info!(
-            latest_mmr_block,
-            latest_relayed_block, "Proof verification completed successfully"
-        );
 
         Ok(())
     }

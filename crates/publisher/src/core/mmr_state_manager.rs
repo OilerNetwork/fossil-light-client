@@ -370,6 +370,7 @@ mod tests {
     }
 
     impl<'a> MMRStateManager<'a> {
+        #[allow(dead_code)]
         fn mock() -> Self {
             let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(
                 Url::parse("http://localhost:5050").expect("Invalid URL"),

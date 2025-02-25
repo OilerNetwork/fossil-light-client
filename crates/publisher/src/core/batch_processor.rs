@@ -12,6 +12,8 @@ use starknet_handler::provider::StarknetProvider;
 use starknet_handler::u256_from_hex;
 use std::path::PathBuf;
 use tracing::{debug, error, info, warn};
+use uuid;
+
 pub struct BatchProcessor<'a> {
     batch_size: u64,
     proof_generator: ProofGenerator<CombinedInput>,
@@ -62,7 +64,6 @@ impl<'a> BatchProcessor<'a> {
         start_block: u64,
         end_block: u64,
     ) -> Result<Option<BatchResult>, AccumulatorError> {
-        println!("BATCH_PROCESSOR.rs");
         if end_block < start_block {
             return Err(AccumulatorError::InvalidInput(
                 "End block cannot be less than start block",
@@ -85,20 +86,20 @@ impl<'a> BatchProcessor<'a> {
         let mmr_state = provider
             .get_mmr_state(self.mmr_state_manager.store_address(), batch_index)
             .await?;
-        println!("RETRIEVED MMR STATE");
 
         // Extract IPFS hash from MMR state
         let ipfs_hash = mmr_state.ipfs_hash();
         let ipfs_hash_str = String::try_from(ipfs_hash)
             .map_err(|_| AccumulatorError::StorageError("Failed to convert IPFS hash".into()))?;
-        println!("CONVERTED IPFS HASH");
-        // Create path for the batch database
-        let batch_file_name = format!("batch_{}.db", batch_index);
+        // Create path for the batch database with a unique identifier
+        let batch_file_name = format!("batch_{}_{}.db", batch_index, uuid::Uuid::new_v4());
         let db_file_path = PathBuf::from(get_or_create_db_path(&batch_file_name).map_err(|e| {
             error!(error = %e, "Failed to get or create DB path");
             e
         })?);
-        println!("CREATED DB PATH");
+
+        // Use defer_cleanup to ensure file is removed at the end of function
+        let _cleanup_guard = defer_cleanup(db_file_path.clone());
 
         // Initialize variables for MMR state
         let (store_manager, mut mmr, pool) = if !ipfs_hash_str.is_empty() {
@@ -111,24 +112,17 @@ impl<'a> BatchProcessor<'a> {
                 Ok(_) => {
                     match initialize_mmr(db_file_path.to_str().unwrap()).await {
                         Ok((sm, m, p)) => {
-                            println!("INITIALIZED MMR");
                             // Validate MMR root matches on-chain state
                             let mmr_elements_count = m.elements_count.get().await?;
                             let bag = m.bag_the_peaks(Some(mmr_elements_count)).await?;
                             let mmr_root_hex = m.calculate_root_hash(&bag, mmr_elements_count)?;
                             let mmr_root = u256_from_hex(&mmr_root_hex)?;
-                            println!("GOT MMR ROOT {}", mmr_root);
 
                             if mmr_root == mmr_state.root_hash() {
                                 // Check if batch is already complete
                                 let leaves_count = m.leaves_count.get().await?;
-                                println!("GOT LEAVES COUNT {}", leaves_count);
 
                                 if leaves_count as u64 >= self.batch_size {
-                                    println!(
-                                        "LEAVES COUNT {} >= BATCH SIZE {}",
-                                        leaves_count, self.batch_size
-                                    );
                                     debug!("Batch {} is already complete", batch_index);
 
                                     // Create BatchResult and return early
@@ -139,7 +133,6 @@ impl<'a> BatchProcessor<'a> {
                                         mmr_state.leaves_count(),
                                         Some(mmr_state.ipfs_hash()),
                                     );
-                                    println!("GOT MMR STATE FOR RESULT {:?}", mmr_state_for_result);
 
                                     let batch_result = BatchResult::new(
                                         start_block,
@@ -186,7 +179,6 @@ impl<'a> BatchProcessor<'a> {
             error!(error = %e, "Failed to create DB connection");
             e
         })?;
-        println!("CREATED DB CONNECTION");
 
         let headers = db_connection
             .get_block_headers_by_block_range(start_block, adjusted_end_block)
@@ -195,7 +187,6 @@ impl<'a> BatchProcessor<'a> {
                 error!(error = %e, "Failed to fetch block headers");
                 e
             })?;
-        println!("FETCHED BLOCK HEADERS");
         if headers.is_empty() {
             warn!(
                 "No headers found for block range {} to {}",
@@ -221,17 +212,14 @@ impl<'a> BatchProcessor<'a> {
             error!(error = %e, "Failed to get current peaks");
             e
         })?;
-        println!("GOT CURRENT PEAKS {}", current_peaks.len());
         let current_elements_count = mmr.elements_count.get().await.map_err(|e| {
             error!(error = %e, "Failed to get current elements count");
             e
         })?;
-        println!("GOT CURRENT ELEMENTS COUNT {}", current_elements_count);
         let current_leaves_count = mmr.leaves_count.get().await.map_err(|e| {
             error!(error = %e, "Failed to get current leaves count");
             e
         })?;
-        println!("GOT CURRENT LEAVES COUNT {}", current_leaves_count);
         // Prepare inputs for proof generation
         let mmr_input = MMRInput::new(
             current_peaks,
@@ -239,10 +227,8 @@ impl<'a> BatchProcessor<'a> {
             current_leaves_count,
             new_headers.clone(),
         );
-        println!("GOT MMR INPUT");
         let combined_input =
             CombinedInput::new(chain_id, self.batch_size, grouped_headers, mmr_input);
-        println!("GOT COMBINED INPUT");
 
         // Debug the input
         debug!(
@@ -264,7 +250,6 @@ impl<'a> BatchProcessor<'a> {
                 .await
             {
                 Ok(generated_proof) => {
-                    println!("GENERATED PROOF");
                     debug!("Successfully generated proof");
 
                     // Decode the journal
@@ -342,18 +327,16 @@ impl<'a> BatchProcessor<'a> {
                 AccumulatorError::StorageError(format!("Failed to upload to IPFS: {}", e))
             })?;
 
-        info!(
-            "Uploaded batch {} database to IPFS with hash: {}",
-            batch_index, ipfs_hash
-        );
-
-        Ok(Some(BatchResult::new(
+        let batch_result = Some(BatchResult::new(
             start_block,
             adjusted_end_block,
             new_mmr_state,
             proof,
             ipfs_hash.to_string(),
-        )))
+        ));
+
+        // The file will be automatically cleaned up when _cleanup_guard goes out of scope
+        Ok(batch_result)
     }
 
     pub fn calculate_batch_bounds(&self, batch_index: u64) -> Result<(u64, u64), AccumulatorError> {
@@ -440,7 +423,6 @@ impl BatchRange {
 
 /// Groups block headers into vectors based on their timestamp hour and finds representative timestamps
 fn group_headers_by_hour(headers: Vec<BlockHeader>) -> Vec<(i64, Vec<BlockHeader>)> {
-    let total_headers = headers.len();
     let mut grouped_headers: Vec<(i64, Vec<BlockHeader>)> = Vec::new();
     let mut current_group: Vec<BlockHeader> = Vec::new();
     let mut current_hour: Option<i64> = None;
@@ -483,31 +465,29 @@ fn group_headers_by_hour(headers: Vec<BlockHeader>) -> Vec<(i64, Vec<BlockHeader
         }
     }
 
-    info!(
-        "Grouping summary: {} total headers grouped into {} groups",
-        total_headers,
-        grouped_headers.len()
-    );
-    for (i, (timestamp, group)) in grouped_headers.iter().enumerate() {
-        let first = group.first().unwrap();
-        let last = group.last().unwrap();
-        info!(
-            "Group {}: size={}, block range={}-{}, timestamp range={}-{}, representative_timestamp={}",
-            i,
-            group.len(),
-            first.number,
-            last.number,
-            first.timestamp.as_ref()
-                .and_then(|ts| i64::from_str_radix(ts.trim_start_matches("0x"), 16).ok())
-                .unwrap_or_default(),
-            last.timestamp.as_ref()
-                .and_then(|ts| i64::from_str_radix(ts.trim_start_matches("0x"), 16).ok())
-                .unwrap_or_default(),
-            timestamp
-        );
-    }
-
     grouped_headers
+}
+
+// Helper struct for cleanup
+struct CleanupGuard {
+    path: PathBuf,
+}
+
+impl Drop for CleanupGuard {
+    fn drop(&mut self) {
+        if let Err(e) = std::fs::remove_file(&self.path) {
+            // Only log if file exists and couldn't be removed
+            if e.kind() != std::io::ErrorKind::NotFound {
+                error!(error = %e, path = %self.path.display(), "Failed to remove temporary database file");
+            }
+        } else {
+            debug!(path = %self.path.display(), "Successfully removed temporary database file");
+        }
+    }
+}
+
+fn defer_cleanup(path: PathBuf) -> CleanupGuard {
+    CleanupGuard { path }
 }
 
 // #[cfg(test)]
