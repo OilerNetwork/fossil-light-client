@@ -490,224 +490,219 @@ fn defer_cleanup(path: PathBuf) -> CleanupGuard {
     CleanupGuard { path }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use mockall::automock;
-//     use serde::Serialize;
-//     use starknet::{
-//         core::types::U256,
-//         providers::{jsonrpc::HttpTransport, JsonRpcClient, Url},
-//     };
-//     use starknet_handler::account::StarknetAccount;
-//     use starknet_handler::MmrState;
-//     use std::sync::Arc;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::automock;
+    use serde::Serialize;
+    use starknet::{
+        core::types::U256,
+        providers::{jsonrpc::HttpTransport, JsonRpcClient, Url},
+    };
+    use starknet_handler::account::StarknetAccount;
+    use starknet_handler::MmrState;
+    use std::sync::Arc;
 
-//     // Create traits that match the structs we want to mock
-//     #[automock]
-//     #[allow(dead_code)]
-//     pub trait ProofGeneratorTrait {
-//         fn generate_groth16_proof(
-//             &self,
-//             input: CombinedInput,
-//         ) -> Result<mmr::Proof, AccumulatorError>;
-//         fn decode_journal(&self, proof: &mmr::Proof) -> Result<GuestOutput, AccumulatorError>;
-//     }
+    // Create traits that match the structs we want to mock
+    #[automock]
+    #[allow(dead_code)]
+    pub trait ProofGeneratorTrait {
+        fn generate_groth16_proof(
+            &self,
+            input: CombinedInput,
+        ) -> Result<mmr::Proof, AccumulatorError>;
+        fn decode_journal(&self, proof: &mmr::Proof) -> Result<GuestOutput, AccumulatorError>;
+    }
 
-//     // Mock implementation that doesn't need real ELF data
-//     #[allow(dead_code)]
-//     struct MockProofGen;
-//     impl<T: Serialize + Clone + Send + 'static> ProofGenerator<T> {
-//         fn mock() -> Self {
-//             // Use a static array instead of vec for 'static lifetime
-//             let method_elf: &'static [u8] = &[1, 2, 3, 4]; // Non-empty ELF data
-//             let method_id = [1u32; 8]; // Non-zero method ID
+    // Mock implementation that doesn't need real ELF data
+    #[allow(dead_code)]
+    struct MockProofGen;
+    impl<T: Serialize + Clone + Send + 'static> ProofGenerator<T> {
+        fn mock() -> Self {
+            // Use a static array instead of vec for 'static lifetime
+            let method_elf: &'static [u8] = &[1, 2, 3, 4]; // Non-empty ELF data
+            let method_id = [1u32; 8]; // Non-zero method ID
 
-//             ProofGenerator::new(method_elf, method_id)
-//                 .expect("Failed to create mock ProofGenerator")
-//         }
-//     }
+            ProofGenerator::new(method_elf, method_id)
+                .expect("Failed to create mock ProofGenerator")
+        }
+    }
 
-//     // Create a trait without lifetime parameter for automock
-//     #[automock]
-//     #[allow(dead_code)]
-//     pub trait MMRStateManagerTrait {
-//         fn update_state<'a>(
-//             &self,
-//             store_manager: mmr_utils::StoreManager,
-//             mmr: &mut mmr::MMR,
-//             pool: &sqlx::Pool<sqlx::Sqlite>,
-//             end_block: u64,
-//             guest_output: Option<&'a GuestOutput>,
-//             new_headers: &Vec<String>,
-//         ) -> Result<MmrState, AccumulatorError>;
-//     }
+    // Create a trait without lifetime parameter for automock
+    #[automock]
+    #[allow(dead_code)]
+    pub trait MMRStateManagerTrait {
+        fn update_state<'a>(
+            &self,
+            store_manager: mmr_utils::StoreManager,
+            mmr: &mut mmr::MMR,
+            pool: &sqlx::Pool<sqlx::Sqlite>,
+            end_block: u64,
+            guest_output: Option<&'a GuestOutput>,
+            new_headers: &Vec<String>,
+        ) -> Result<MmrState, AccumulatorError>;
+    }
 
-//     // Mock implementation that doesn't need real Starknet connection
-//     impl<'a> MMRStateManager<'a> {
-//         fn mock_for_tests() -> Self {
-//             let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(
-//                 Url::parse("http://localhost:5050").expect("Invalid URL"),
-//             )));
-//             let account = StarknetAccount::new(
-//                 provider, "0x0", "0x0", // private key as &str
-//             )
-//             .expect("Failed to create StarknetAccount");
+    // Mock implementation that doesn't need real Starknet connection
+    impl<'a> MMRStateManager<'a> {
+        fn mock_for_tests() -> Self {
+            let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(
+                Url::parse("http://localhost:5050").expect("Invalid URL"),
+            )));
+            let account = StarknetAccount::new(
+                provider, "0x0", "0x0", // private key as &str
+            )
+            .expect("Failed to create StarknetAccount");
 
-//             MMRStateManager::new(
-//                 account,
-//                 "0x0",                   // store_address
-//                 "http://localhost:5050", // rpc_url
-//             )
-//         }
-//     }
+            MMRStateManager::new(
+                account,
+                "0x0",                   // store_address
+                "http://localhost:5050", // rpc_url
+            )
+        }
+    }
 
-//     // Helper function to create test instances
-//     fn create_test_processor() -> BatchProcessor<'static> {
-//         let proof_gen = ProofGenerator::mock();
-//         let mmr_state_mgr = MMRStateManager::mock_for_tests();
+    // Helper function to create test instances
+    fn create_test_processor() -> BatchProcessor<'static> {
+        let proof_gen = ProofGenerator::mock();
+        let mmr_state_mgr = MMRStateManager::mock_for_tests();
 
-//         BatchProcessor::new(100, proof_gen, false, mmr_state_mgr).unwrap()
-//     }
+        BatchProcessor::new(100, proof_gen, mmr_state_mgr).unwrap()
+    }
 
-//     #[tokio::test]
-//     async fn test_calculate_batch_bounds() {
-//         let processor = create_test_processor();
+    #[tokio::test]
+    async fn test_calculate_batch_bounds() {
+        let processor = create_test_processor();
 
-//         // Test normal case
-//         let (start, end) = processor.calculate_batch_bounds(1).unwrap();
-//         assert_eq!(start, 100);
-//         assert_eq!(end, 199);
+        // Test normal case
+        let (start, end) = processor.calculate_batch_bounds(1).unwrap();
+        assert_eq!(start, 100);
+        assert_eq!(end, 199);
 
-//         // Test batch 0
-//         let (start, end) = processor.calculate_batch_bounds(0).unwrap();
-//         assert_eq!(start, 0);
-//         assert_eq!(end, 99);
-//     }
+        // Test batch 0
+        let (start, end) = processor.calculate_batch_bounds(0).unwrap();
+        assert_eq!(start, 0);
+        assert_eq!(end, 99);
+    }
 
-//     #[tokio::test]
-//     async fn test_calculate_batch_range() {
-//         let processor = create_test_processor();
+    #[tokio::test]
+    async fn test_calculate_batch_range() {
+        let processor = create_test_processor();
 
-//         // Test normal case
-//         let range = processor.calculate_batch_range(150, 100).unwrap();
-//         assert_eq!(range.start, 100);
-//         assert_eq!(range.end, 150);
+        // Test normal case
+        let range = processor.calculate_batch_range(150, 100).unwrap();
+        assert_eq!(range.start, 100);
+        assert_eq!(range.end, 150);
 
-//         // Test when current_end is at batch boundary
-//         let range = processor.calculate_batch_range(200, 150).unwrap();
-//         assert_eq!(range.start, 200);
-//         assert_eq!(range.end, 200);
+        // Test when current_end is at batch boundary
+        let range = processor.calculate_batch_range(200, 150).unwrap();
+        assert_eq!(range.start, 200);
+        assert_eq!(range.end, 200);
 
-//         // Test error case: current_end < start_block
-//         let result = processor.calculate_batch_range(100, 150);
-//         assert!(result.is_err());
-//     }
+        // Test error case: current_end < start_block
+        let result = processor.calculate_batch_range(100, 150);
+        assert!(result.is_err());
+    }
 
-//     #[tokio::test]
-//     async fn test_calculate_start_block() {
-//         let processor = create_test_processor();
+    #[tokio::test]
+    async fn test_calculate_start_block() {
+        let processor = create_test_processor();
 
-//         // Test normal case
-//         let start = processor.calculate_start_block(150).unwrap();
-//         assert_eq!(start, 100);
+        // Test normal case
+        let start = processor.calculate_start_block(150).unwrap();
+        assert_eq!(start, 100);
 
-//         // Test at batch boundary
-//         let start = processor.calculate_start_block(200).unwrap();
-//         assert_eq!(start, 200);
+        // Test at batch boundary
+        let start = processor.calculate_start_block(200).unwrap();
+        assert_eq!(start, 200);
 
-//         // Test error case: current_end = 0
-//         let result = processor.calculate_start_block(0);
-//         assert!(result.is_err());
-//     }
+        // Test error case: current_end = 0
+        let result = processor.calculate_start_block(0);
+        assert!(result.is_err());
+    }
 
-//     #[tokio::test]
-//     async fn test_batch_processor_new() {
-//         let proof_gen = ProofGenerator::mock();
-//         let mmr_state_mgr = MMRStateManager::mock_for_tests();
+    #[tokio::test]
+    async fn test_batch_processor_new() {
+        let proof_gen = ProofGenerator::mock();
+        let mmr_state_mgr = MMRStateManager::mock_for_tests();
 
-//         // Test valid creation
-//         let result = BatchProcessor::new(100, proof_gen, false, mmr_state_mgr);
-//         assert!(result.is_ok());
+        // Test valid creation
+        let result = BatchProcessor::new(100, proof_gen, mmr_state_mgr);
+        assert!(result.is_ok());
 
-//         // Test invalid batch size
-//         let result = BatchProcessor::new(
-//             0,
-//             ProofGenerator::mock(),
-//             false,
-//             MMRStateManager::mock_for_tests(),
-//         );
-//         assert!(result.is_err());
-//     }
+        // Test invalid batch size
+        let result =
+            BatchProcessor::new(0, ProofGenerator::mock(), MMRStateManager::mock_for_tests());
+        assert!(result.is_err());
+    }
 
-//     #[tokio::test]
-//     async fn test_batch_range_new() {
-//         // Test valid range
-//         let result = BatchRange::new(100, 200);
-//         assert!(result.is_ok());
-//         let range = result.unwrap();
-//         assert_eq!(range.start, 100);
-//         assert_eq!(range.end, 200);
+    #[tokio::test]
+    async fn test_batch_range_new() {
+        // Test valid range
+        let result = BatchRange::new(100, 200);
+        assert!(result.is_ok());
+        let range = result.unwrap();
+        assert_eq!(range.start, 100);
+        assert_eq!(range.end, 200);
 
-//         // Test invalid range
-//         let result = BatchRange::new(200, 100);
-//         assert!(result.is_err());
-//     }
+        // Test invalid range
+        let result = BatchRange::new(200, 100);
+        assert!(result.is_err());
+    }
 
-//     #[tokio::test]
-//     async fn test_process_batch_invalid_inputs() {
-//         let processor = create_test_processor();
+    #[tokio::test]
+    async fn test_process_batch_invalid_inputs() {
+        let processor = create_test_processor();
 
-//         // Test end_block < start_block
-//         let result = processor.process_batch(1, 150, 100).await;
-//         assert!(result.is_err());
+        // Test end_block < start_block
+        let result = processor.process_batch(1, 150, 100).await;
+        assert!(result.is_err());
 
-//         // Test start_block before batch start
-//         let result = processor.process_batch(1, 50, 199).await;
-//         assert!(result.is_err());
-//     }
+        // Test start_block before batch start
+        let result = processor.process_batch(1, 50, 199).await;
+        assert!(result.is_err());
+    }
 
-//     #[tokio::test]
-//     async fn test_getters() {
-//         let processor = create_test_processor();
+    #[tokio::test]
+    async fn test_getters() {
+        let processor = create_test_processor();
 
-//         assert_eq!(processor.batch_size(), 100);
-//         assert!(!processor.skip_proof_verification());
-//     }
+        assert_eq!(processor.batch_size(), 100);
+    }
 
-//     // Add test that uses the mock traits to satisfy dead code warnings
-//     #[test]
-//     fn test_mock_traits() {
-//         let mut mock_proof_gen = MockProofGeneratorTrait::new();
-//         let mut mock_mmr_mgr = MockMMRStateManagerTrait::new();
+    // Add test that uses the mock traits to satisfy dead code warnings
+    #[test]
+    fn test_mock_traits() {
+        let mut mock_proof_gen = MockProofGeneratorTrait::new();
+        let mut mock_mmr_mgr = MockMMRStateManagerTrait::new();
 
-//         // Set up expectations
-//         mock_proof_gen
-//             .expect_generate_groth16_proof()
-//             .returning(|_| {
-//                 Ok(mmr::Proof {
-//                     element_index: 0,
-//                     element_hash: "".to_string(),
-//                     siblings_hashes: vec!["".to_string()],
-//                     peaks_hashes: vec!["".to_string()],
-//                     elements_count: 0,
-//                 })
-//             });
+        // Set up expectations
+        mock_proof_gen
+            .expect_generate_groth16_proof()
+            .returning(|_| {
+                Ok(mmr::Proof {
+                    element_index: 0,
+                    element_hash: "".to_string(),
+                    siblings_hashes: vec!["".to_string()],
+                    peaks_hashes: vec!["".to_string()],
+                    elements_count: 0,
+                })
+            });
 
-//         mock_mmr_mgr
-//             .expect_update_state()
-//             .returning(|_, _, _, _, _, _| {
-//                 Ok(MmrState::new(
-//                     0,
-//                     U256::from(0_u64),
-//                     U256::from(0_u64),
-//                     0,
-//                     None,
-//                 ))
-//             });
+        mock_mmr_mgr
+            .expect_update_state()
+            .returning(|_, _, _, _, _, _| {
+                Ok(MmrState::new(
+                    0,
+                    U256::from(0_u64),
+                    U256::from(0_u64),
+                    0,
+                    None,
+                ))
+            });
 
-//         // Verify mocks exist
-//         mock_proof_gen.checkpoint();
-//         mock_mmr_mgr.checkpoint();
-//     }
-// }
+        // Verify mocks exist
+        mock_proof_gen.checkpoint();
+        mock_mmr_mgr.checkpoint();
+    }
+}

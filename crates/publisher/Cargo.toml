@@ -46,7 +46,7 @@ uuid = "1.14"
 hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = [
     "sha256",
 ] }
-# mockall = "0.13"
+mockall = "0.13"
 
 [lib]
 name = "publisher"

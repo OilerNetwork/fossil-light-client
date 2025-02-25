@@ -398,154 +398,124 @@ impl<'a> AccumulatorBuilder<'a> {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use mockall::mock;
-//     use mockall::predicate::*;
-//     use starknet::core::types::U256;
-//     use starknet::providers::jsonrpc::HttpTransport;
-//     use starknet::providers::JsonRpcClient;
-//     use starknet::providers::Url;
-//     use starknet_handler::account::StarknetAccount;
-//     use starknet_handler::MmrState;
-//     use std::sync::Arc;
+#[cfg(test)]
+mod tests {
+    use crate::core::{MMRStateManager, ProofGenerator};
 
-//     mock! {
-//         #[derive(Clone)]
-//         pub StarknetAccount {
-//             fn verify_mmr_proof(&self, verifier_address: &str, calldata: Vec<Felt>, ipfs_hash: String) -> Result<(), AccumulatorError>;
-//         }
-//     }
+    use super::*;
+    use mockall::mock;
+    use mockall::predicate::*;
+    use starknet::providers::jsonrpc::HttpTransport;
+    use starknet::providers::JsonRpcClient;
+    use starknet::providers::Url;
+    use starknet_handler::account::StarknetAccount;
+    use std::sync::Arc;
 
-//     // Add conversion impl
-//     impl From<MockStarknetAccount> for StarknetAccount {
-//         fn from(_mock: MockStarknetAccount) -> Self {
-//             // Create a new StarknetAccount for testing
-//             let transport = HttpTransport::new(Url::parse("http://localhost:8545").unwrap());
-//             let provider = Arc::new(JsonRpcClient::new(transport));
+    mock! {
+        #[derive(Clone)]
+        pub StarknetAccount {
+            fn verify_mmr_proof(&self, verifier_address: &str, calldata: Vec<Felt>, ipfs_hash: String, is_build: bool) -> Result<(), AccumulatorError>;
+        }
+    }
 
-//             StarknetAccount::new(provider, "0x123", "0x456").unwrap()
-//         }
-//     }
+    // Add conversion impl
+    impl From<MockStarknetAccount> for StarknetAccount {
+        fn from(_mock: MockStarknetAccount) -> Self {
+            // Create a new StarknetAccount for testing
+            let transport = HttpTransport::new(Url::parse("http://localhost:8545").unwrap());
+            let provider = Arc::new(JsonRpcClient::new(transport));
 
-//     #[tokio::test]
-//     async fn test_accumulator_builder_new() {
-//         let account = MockStarknetAccount::new();
-//         // Create longer-lived String values
-//         let rpc_url = "http://localhost:8545".to_string();
-//         let verifier_addr = "0x123".to_string();
-//         let store_addr = "0x456".to_string();
+            StarknetAccount::new(provider, "0x123", "0x456").unwrap()
+        }
+    }
 
-//         let batch_processor = BatchProcessor::new(
-//             100,
-//             ProofGenerator::mock_for_tests(),
-//             MMRStateManager::new(&rpc_url, &store_addr, account.clone()),
-//         )?;
+    #[tokio::test]
+    async fn test_accumulator_builder_new() {
+        let account = MockStarknetAccount::new();
+        // Create longer-lived String values
+        let rpc_url = "http://localhost:8545".to_string();
+        let verifier_addr = "0x123".to_string();
+        let store_addr = "0x456".to_string();
 
-//         let result = AccumulatorBuilder::new(
-//             &rpc_url,
-//             1,
-//             &verifier_addr,
-//             batch_processor,
-//             0,
-//             0,
-//         )
-//         .await;
+        let batch_processor = BatchProcessor::new(
+            100,
+            ProofGenerator::mock_for_tests(),
+            MMRStateManager::new(account.into(), &store_addr, &rpc_url),
+        )
+        .unwrap();
 
-//         assert!(result.is_ok());
-//         let builder = result.unwrap();
-//         assert_eq!(builder.chain_id, 1);
-//         assert_eq!(builder.current_batch, 0);
-//         assert_eq!(builder.total_batches, 0);
-//     }
+        let result =
+            AccumulatorBuilder::new(&rpc_url, 1, &verifier_addr, batch_processor, 0, 0).await;
 
-//     #[tokio::test]
-//     async fn test_accumulator_builder_new_invalid_inputs() {
-//         let account = MockStarknetAccount::new();
-//         let rpc_url = "http://localhost:8545".to_string();
-//         let store_addr = "0x456".to_string();
+        assert!(result.is_ok());
+        let builder = result.unwrap();
+        assert_eq!(builder.chain_id, 1);
+        assert_eq!(builder.current_batch, 0);
+        assert_eq!(builder.total_batches, 0);
+    }
 
-//         // Test empty verifier address
-//         let binding = "".to_string();
-//         let result = AccumulatorBuilder::new(
-//             &rpc_url,
-//             1,
-//             &binding,
-//             &store_addr,
-//             MockStarknetAccount::new().into(), // Create new instance instead of cloning
-//             100,
-//         )
-//         .await;
-//         assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
+    #[tokio::test]
+    async fn test_accumulator_builder_new_invalid_inputs() {
+        let account = MockStarknetAccount::new();
+        let rpc_url = "http://localhost:8545".to_string();
+        let store_addr = "0x456".to_string();
 
-//         // Test zero batch size
-//         let verifier_addr = "0x123".to_string();
-//         let result = AccumulatorBuilder::new(
-//             &rpc_url,
-//             1,
-//             &verifier_addr,
-//             &store_addr,
-//             account.into(),
-//             0,
-//         )
-//         .await;
-//         assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
-//     }
+        let batch_processor = BatchProcessor::new(
+            100,
+            ProofGenerator::mock_for_tests(),
+            MMRStateManager::new(account.into(), &store_addr, &rpc_url),
+        )
+        .unwrap();
 
-//     #[tokio::test]
-//     async fn test_build_with_num_batches_invalid_input() {
-//         let account = MockStarknetAccount::new();
-//         let rpc_url = "http://localhost:8545".to_string();
-//         let verifier_addr = "0x123".to_string();
-//         let store_addr = "0x456".to_string();
+        // Test empty verifier address
+        let binding = "".to_string();
+        let result = AccumulatorBuilder::new(&rpc_url, 1, &binding, batch_processor, 0, 0).await;
+        assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
+    }
 
-//         let batch_processor = BatchProcessor::new(
-//             100,
-//             ProofGenerator::mock_for_tests(),
-//             MMRStateManager::new(&rpc_url, &store_addr, account.clone()),
-//         )?;
+    #[tokio::test]
+    async fn test_build_with_num_batches_invalid_input() {
+        let account = MockStarknetAccount::new();
+        let rpc_url = "http://localhost:8545".to_string();
+        let verifier_addr = "0x123".to_string();
+        let store_addr = "0x456".to_string();
 
-//         let mut builder = AccumulatorBuilder::new(
-//             &rpc_url,
-//             1,
-//             &verifier_addr,
-//             batch_processor,
-//             0,
-//             0,
-//         )
-//         .await
-//         .unwrap();
+        let batch_processor = BatchProcessor::new(
+            100,
+            ProofGenerator::mock_for_tests(),
+            MMRStateManager::new(account.into(), &store_addr, &rpc_url),
+        )
+        .unwrap();
 
-//         let result = builder.build_with_num_batches(0).await;
-//         assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
-//     }
+        let mut builder =
+            AccumulatorBuilder::new(&rpc_url, 1, &verifier_addr, batch_processor, 0, 0)
+                .await
+                .unwrap();
 
-//     #[tokio::test]
-//     async fn test_update_mmr_with_new_headers_invalid_input() {
-//         let account = MockStarknetAccount::new();
-//         let rpc_url = "http://localhost:8545".to_string();
-//         let verifier_addr = "0x123".to_string();
-//         let store_addr = "0x456".to_string();
+        let result = builder.build_with_num_batches(0).await;
+        assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
+    }
 
-//         let batch_processor = BatchProcessor::new(
-//             100,
-//             ProofGenerator::mock_for_tests(),
-//             MMRStateManager::new(&rpc_url, &store_addr, account.clone()),
-//         )?;
+    #[tokio::test]
+    async fn test_update_mmr_with_new_headers_invalid_input() {
+        let account = MockStarknetAccount::new();
+        let rpc_url = "http://localhost:8545".to_string();
+        let verifier_addr = "0x123".to_string();
+        let store_addr = "0x456".to_string();
 
-//         let mut builder = AccumulatorBuilder::new(
-//             &rpc_url,
-//             1,
-//             &verifier_addr,
-//             batch_processor,
-//             0,
-//             0,
-//         )
-//         .await
-//         .unwrap();
+        let batch_processor = BatchProcessor::new(
+            100,
+            ProofGenerator::mock_for_tests(),
+            MMRStateManager::new(account.into(), &store_addr, &rpc_url),
+        )
+        .unwrap();
 
-//         let result = builder.update_mmr_with_new_headers(100, 50, false).await;
-//         assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
-//     }
-// }
+        let mut builder =
+            AccumulatorBuilder::new(&rpc_url, 1, &verifier_addr, batch_processor, 0, 0)
+                .await
+                .unwrap();
+
+        let result = builder.update_mmr_with_new_headers(100, 50, false).await;
+        assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
+    }
+}
