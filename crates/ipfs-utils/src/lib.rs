@@ -347,6 +347,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_check_connection() {
+        setup_test_env();
+        
         let manager = IpfsManager::with_endpoint().unwrap();
 
         // This test is marked as ignore because it requires a real IPFS node
@@ -363,6 +365,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_fetch_nonexistent_hash() {
+        setup_test_env();
+        
         let manager = IpfsManager::with_endpoint().unwrap();
         let temp_file = NamedTempFile::new().unwrap();
         let path = temp_file.path();
