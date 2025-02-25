@@ -187,8 +187,15 @@ impl IpfsManager {
     }
 
     pub async fn check_connection(&self) -> Result<(), IpfsError> {
-        let version_url = "http://100.25.44.230:5001/api/v0/version".to_string();
+        // Extract the base URL from add_url (remove the "/api/v0/add" part)
+        let base_url =
+            self.add_url.split("/api/v0/").next().ok_or_else(|| {
+                IpfsError::BackendError("Invalid IPFS_ADD_URL format".to_string())
+            })?;
+
+        let version_url = format!("{}/api/v0/version", base_url);
         let token = self.token.clone();
+
         task::spawn_blocking(move || -> Result<(), IpfsError> {
             let mut easy = curl::easy::Easy::new();
             easy.url(&version_url)
@@ -230,9 +237,9 @@ mod tests {
 
     // Setup environment variables for tests
     fn setup_test_env() {
-        env::set_var("IPFS_ADD_URL", "http://100.25.44.230:5001/api/v0/add");
-        env::set_var("IPFS_FETCH_BASE_URL", "http://100.25.44.230/ipfs/");
-        env::set_var("IPFS_TOKEN", "YgkUzg1TQGWZvb0QwrkPoO2TIgkwEuE9MVWwJuNZ4pk=");
+        env::set_var("IPFS_ADD_URL", "http://localhost:5001/api/v0/add");
+        env::set_var("IPFS_FETCH_BASE_URL", "http://localhost/ipfs/");
+        env::set_var("IPFS_TOKEN", "test_token_placeholder");
     }
 
     // Helper function to create a temporary SQLite database file

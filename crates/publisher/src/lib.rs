@@ -9,7 +9,6 @@ pub mod core;
 pub mod db;
 pub mod errors;
 pub mod utils;
-// pub mod validator;
 
 pub use api::operations::prove_mmr_update;
 pub use errors::PublisherError;

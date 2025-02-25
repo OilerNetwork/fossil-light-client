@@ -1,9 +1,7 @@
 use crate::errors::AccumulatorError;
 use crate::utils::BatchResult;
 use ethereum::get_finalized_block_hash;
-// use methods::{MMR_BUILD_ELF, MMR_BUILD_ID};
 use starknet_crypto::Felt;
-// use starknet_handler::account::StarknetAccount;
 use starknet_handler::provider::StarknetProvider;
 use tracing::{debug, error, info, warn};
 

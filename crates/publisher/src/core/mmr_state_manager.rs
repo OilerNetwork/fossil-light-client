@@ -6,8 +6,6 @@ use mmr_utils::StoreManager;
 use starknet_handler::{account::StarknetAccount, u256_from_hex, MmrState};
 use store::SqlitePool;
 use tracing::{debug, error, info};
-// use jsonrpc_client::{JsonRpcClient, HttpTransport, Url};
-// use std::sync::Arc;
 
 pub struct MMRStateManager<'a> {
     account: StarknetAccount,
