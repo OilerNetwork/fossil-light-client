@@ -1,6 +1,8 @@
 #![deny(unused_crate_dependencies)]
 
+use dotenv::dotenv;
 use serde_json;
+use std::env;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
@@ -8,6 +10,9 @@ use std::str;
 use thiserror::Error;
 use tokio::task;
 use tracing::{info, warn};
+
+// Define constant for max file size (50MB)
+pub const DEFAULT_MAX_FILE_SIZE: usize = 50 * 1024 * 1024;
 
 #[derive(Error, Debug)]
 pub enum IpfsError {
@@ -25,6 +30,8 @@ pub enum IpfsError {
     JsonError(#[from] serde_json::Error),
     #[error("Curl operation failed: {0}")]
     CurlError(#[from] curl::Error),
+    #[error("Environment variable not found: {0}")]
+    EnvError(String),
 }
 
 #[derive(Clone)]
@@ -37,11 +44,27 @@ pub struct IpfsManager {
 
 impl IpfsManager {
     pub fn with_endpoint() -> Result<Self, IpfsError> {
+        // Load environment variables
+        dotenv().ok();
+
+        // Get IPFS configuration from environment variables
+        let add_url = env::var("IPFS_ADD_URL").map_err(|_| {
+            IpfsError::EnvError("IPFS_ADD_URL not found in environment".to_string())
+        })?;
+
+        let fetch_base_url = env::var("IPFS_FETCH_BASE_URL").map_err(|_| {
+            IpfsError::EnvError("IPFS_FETCH_BASE_URL not found in environment".to_string())
+        })?;
+
+        let token = env::var("IPFS_TOKEN")
+            .map_err(|_| IpfsError::EnvError("IPFS_TOKEN not found in environment".to_string()))?;
+
+        // Use default max file size
         Ok(IpfsManager {
-            add_url: "http://100.25.44.230:5001/api/v0/add".to_string(),
-            fetch_base_url: "http://100.25.44.230/ipfs/".to_string(),
-            token: "YgkUzg1TQGWZvb0QwrkPoO2TIgkwEuE9MVWwJuNZ4pk=".to_string(),
-            max_file_size: 50 * 1024 * 1024, // 50MB
+            add_url,
+            fetch_base_url,
+            token,
+            max_file_size: DEFAULT_MAX_FILE_SIZE,
         })
     }
 
@@ -200,47 +223,56 @@ impl IpfsManager {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::env;
     use tempfile::NamedTempFile;
     use tokio::fs;
     use tokio::io::AsyncWriteExt;
+
+    // Setup environment variables for tests
+    fn setup_test_env() {
+        env::set_var("IPFS_ADD_URL", "http://100.25.44.230:5001/api/v0/add");
+        env::set_var("IPFS_FETCH_BASE_URL", "http://100.25.44.230/ipfs/");
+        env::set_var("IPFS_TOKEN", "YgkUzg1TQGWZvb0QwrkPoO2TIgkwEuE9MVWwJuNZ4pk=");
+    }
 
     // Helper function to create a temporary SQLite database file
     async fn create_temp_db_file() -> Result<NamedTempFile, std::io::Error> {
         let temp_file = NamedTempFile::new()?;
         let mut file = tokio::fs::File::create(temp_file.path()).await?;
-        
+
         // Write SQLite header to make it a valid SQLite file
         file.write_all(b"SQLite format 3\0").await?;
         // Add some dummy data
         file.write_all(&[0; 1024]).await?;
-        
+
         Ok(temp_file)
     }
 
     #[tokio::test]
     async fn test_ipfs_manager_creation() {
+        setup_test_env();
         let result = IpfsManager::with_endpoint();
         assert!(result.is_ok());
-        
+
         let manager = result.unwrap();
-        assert_eq!(manager.max_file_size, 50 * 1024 * 1024); // 50MB
+        assert_eq!(manager.max_file_size, DEFAULT_MAX_FILE_SIZE);
     }
 
     #[tokio::test]
     async fn test_upload_invalid_file_type() {
         let manager = IpfsManager::with_endpoint().unwrap();
-        
+
         // Create a temporary file that is not a SQLite database
         let temp_file = NamedTempFile::new().unwrap();
         let path = temp_file.path();
-        
+
         let result = manager.upload_db(path).await;
         assert!(result.is_err());
-        
+
         match result {
             Err(IpfsError::FileError(e)) => {
                 assert_eq!(e.kind(), std::io::ErrorKind::InvalidData);
-            },
+            }
             _ => panic!("Expected FileError with InvalidData kind"),
         }
     }
@@ -250,18 +282,18 @@ mod tests {
         let mut manager = IpfsManager::with_endpoint().unwrap();
         // Set a very small max file size for testing
         manager.max_file_size = 10; // 10 bytes
-        
+
         // Create a temporary SQLite database file
         let temp_file = create_temp_db_file().await.unwrap();
         let path = temp_file.path();
-        
+
         let result = manager.upload_db(path).await;
         assert!(result.is_err());
-        
+
         match result {
             Err(IpfsError::BackendError(msg)) => {
                 assert!(msg.contains("exceeds maximum allowed size"));
-            },
+            }
             _ => panic!("Expected BackendError about file size"),
         }
     }
@@ -270,39 +302,50 @@ mod tests {
     #[ignore] // Ignore by default as it requires a real IPFS node
     async fn test_upload_and_fetch_integration() {
         let manager = IpfsManager::with_endpoint().unwrap();
-        
+
         // Create a temporary SQLite database file
         let temp_file = create_temp_db_file().await.unwrap();
         let upload_path = temp_file.path();
-        
+
         // Upload the file
-        let hash = manager.upload_db(upload_path).await.expect("Failed to upload file");
+        let hash = manager
+            .upload_db(upload_path)
+            .await
+            .expect("Failed to upload file");
         assert!(!hash.is_empty(), "Hash should not be empty");
-        
+
         // Create a temporary file for download
         let download_file = NamedTempFile::new().unwrap();
         let download_path = download_file.path();
-        
+
         // Fetch the file
-        manager.fetch_db(&hash, download_path).await.expect("Failed to fetch file");
-        
+        manager
+            .fetch_db(&hash, download_path)
+            .await
+            .expect("Failed to fetch file");
+
         // Verify file exists and has content
-        let metadata = fs::metadata(download_path).await.expect("Failed to get metadata");
+        let metadata = fs::metadata(download_path)
+            .await
+            .expect("Failed to get metadata");
         assert!(metadata.len() > 0, "Downloaded file should not be empty");
-        
+
         // Verify it's a valid SQLite file
         let content = fs::read(download_path).await.expect("Failed to read file");
-        assert!(content.starts_with(b"SQLite format 3\0"), "Not a valid SQLite file");
+        assert!(
+            content.starts_with(b"SQLite format 3\0"),
+            "Not a valid SQLite file"
+        );
     }
 
     #[tokio::test]
     async fn test_check_connection() {
         let manager = IpfsManager::with_endpoint().unwrap();
-        
+
         // This test is marked as ignore because it requires a real IPFS node
         // But we can still write the test and run it manually when needed
         let result = manager.check_connection().await;
-        
+
         // We don't assert the result since it depends on external service
         // Just ensure the function doesn't panic
         match result {
@@ -316,9 +359,11 @@ mod tests {
         let manager = IpfsManager::with_endpoint().unwrap();
         let temp_file = NamedTempFile::new().unwrap();
         let path = temp_file.path();
-        
+
         // Try to fetch a file with a non-existent hash
-        let result = manager.fetch_db("QmInvalidHashThatDoesNotExist", path).await;
+        let result = manager
+            .fetch_db("QmInvalidHashThatDoesNotExist", path)
+            .await;
         assert!(result.is_err());
     }
 
@@ -326,14 +371,17 @@ mod tests {
     async fn test_error_handling() {
         // Test IpfsError Display implementation
         let error = IpfsError::ConnectionError("test error".to_string());
-        assert_eq!(error.to_string(), "Failed to connect to IPFS node: test error");
-        
+        assert_eq!(
+            error.to_string(),
+            "Failed to connect to IPFS node: test error"
+        );
+
         let error = IpfsError::FileError(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            "file not found"
+            "file not found",
         ));
         assert_eq!(error.to_string(), "File operation failed: file not found");
-        
+
         let error = IpfsError::InvalidHash("invalid hash".to_string());
         assert_eq!(error.to_string(), "Invalid IPFS hash: invalid hash");
     }
