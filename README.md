@@ -41,6 +41,7 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
 
 3. Install Yarn:
    - **For macOS:**
+
      ```bash
      # Using Homebrew
      brew install yarn
@@ -50,6 +51,7 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
      ```
 
    - **For Linux:**
+
      ```bash
      # Using npm
      npm install --global yarn
@@ -62,6 +64,7 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
      ```
 
    - **For Windows:**
+
      ```bash
      # Using npm
      npm install --global yarn
@@ -77,7 +80,7 @@ This documentation outlines two deployment approaches for the Fossil Light Clien
    - Download and install [IPFS Desktop](https://github.com/ipfs/ipfs-desktop/releases)
    - Ensure IPFS daemon is running before proceeding
 
-4. Platform-specific requirements:
+5. Platform-specific requirements:
    - **For macOS users:**
 
      ```bash
@@ -211,14 +214,14 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
 
 4. Build MMR and generate proofs:
    This step will:
-   - Start from the latest Ethereum finalized block and process 8 blocks backwards (2 batches * 4 blocks)
+   - Start from the latest Ethereum finalized block and process 8 blocks backwards (2 batches * 1024 blocks)
    - Generate a ZK proof of computation for each batch
    - Create and store .db files for each MMR batch and upload them to IPFS
    - Generate and verify Groth16 proofs on StarkNet for batch correctness
    - Extract batch state from proof journal and store it in the Fossil Store contract
 
    ```bash
-   cargo run --bin build-mmr -- --batch-size 4 --num-batches 2 --env-file .env.local
+   cargo run --bin build-mmr -- --num-batches 2 --env-file .env.local
    ```
 
 5. Start the relayer:
@@ -243,7 +246,7 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    - Maintain a recent block buffer to handle potential chain reorganizations
 
    ```bash
-   cargo run --bin client -- --batch-size 4 --env-file .env.local
+   cargo run --bin client -- --env-file .env.local
    ```
 
 7. Test Fee Proof Fetching:
@@ -266,6 +269,7 @@ For example, if blocks from timestamp 1704067200 (Jan 1, 2024 00:00:00 UTC) to 1
 - Or any subset of hours within these bounds
 
 Key validation rules:
+
 - All timestamps must be hour-aligned (multiples of 3600 seconds)
 - For range queries, start timestamp must be ≤ end timestamp
 - Queries return weighted average fees based on number of blocks in each hour

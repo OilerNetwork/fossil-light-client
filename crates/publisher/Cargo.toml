@@ -12,10 +12,6 @@ name = "build-mmr"
 path = "bin/build_mmr.rs"
 
 [[bin]]
-name = "extract-fees"
-path = "bin/extract_fees.rs"
-
-[[bin]]
 name = "mmr-benchmark"
 path = "benches/mmr_benchmark.rs"
 
@@ -45,7 +41,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing = { workspace = true }
 tracing-subscriber = "0.3"
-
+uuid = "1.14"
 [dev-dependencies]
 hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = [
     "sha256",

@@ -6,19 +6,19 @@ use mmr_utils::StoreManager;
 use starknet_handler::{account::StarknetAccount, u256_from_hex, MmrState};
 use store::SqlitePool;
 use tracing::{debug, error, info};
-// use jsonrpc_client::{JsonRpcClient, HttpTransport, Url};
-// use std::sync::Arc;
 
 pub struct MMRStateManager<'a> {
     account: StarknetAccount,
     store_address: &'a str,
+    rpc_url: &'a str,
 }
 
 impl<'a> MMRStateManager<'a> {
-    pub fn new(account: StarknetAccount, store_address: &'a str) -> Self {
+    pub fn new(account: StarknetAccount, store_address: &'a str, rpc_url: &'a str) -> Self {
         Self {
             account,
             store_address,
+            rpc_url,
         }
     }
 
@@ -28,6 +28,10 @@ impl<'a> MMRStateManager<'a> {
 
     pub fn store_address(&self) -> &'a str {
         self.store_address
+    }
+
+    pub fn rpc_url(&self) -> &'a str {
+        self.rpc_url
     }
 
     pub async fn update_state(
@@ -235,6 +239,26 @@ impl<'a> MMRStateManager<'a> {
         debug!("New MMR state created successfully");
         Ok(new_state)
     }
+
+    #[cfg(test)]
+    pub fn mock() -> Self {
+        use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient, Url};
+        use std::sync::Arc;
+
+        let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(
+            Url::parse("http://localhost:5050").expect("Invalid URL"),
+        )));
+        let account = StarknetAccount::new(
+            provider, "0x0", "0x0", // private key as &str
+        )
+        .expect("Failed to create StarknetAccount");
+
+        MMRStateManager::new(
+            account,
+            "0x0",                   // store_address
+            "http://localhost:5050", // rpc_url
+        )
+    }
 }
 
 #[cfg(test)]
@@ -258,7 +282,8 @@ mod tests {
         .expect("Failed to create StarknetAccount");
 
         let store_address = "0x1234567890abcdef"; // Valid hex store address
-        let mmr_state_manager = MMRStateManager::new(account, store_address);
+        let rpc_url = "http://localhost:5050"; // Valid rpc_url
+        let mmr_state_manager = MMRStateManager::new(account, store_address, rpc_url);
 
         let memory_store = Arc::new(InMemoryStore::new(None));
         let pool = SqlitePool::connect("sqlite::memory:")

@@ -1,13 +1,11 @@
 use crate::errors::AccumulatorError;
 use crate::utils::BatchResult;
 use ethereum::get_finalized_block_hash;
-use methods::{MMR_BUILD_ELF, MMR_BUILD_ID};
 use starknet_crypto::Felt;
-use starknet_handler::account::StarknetAccount;
 use starknet_handler::provider::StarknetProvider;
 use tracing::{debug, error, info, warn};
 
-use super::{BatchProcessor, MMRStateManager, ProofGenerator};
+use super::BatchProcessor;
 
 pub struct AccumulatorBuilder<'a> {
     starknet_rpc_url: &'a String,
@@ -23,22 +21,13 @@ impl<'a> AccumulatorBuilder<'a> {
         starknet_rpc_url: &'a String,
         chain_id: u64,
         verifier_address: &'a String,
-        store_address: &'a String,
-        starknet_account: StarknetAccount,
-        batch_size: u64,
-        skip_proof_verification: bool,
+        batch_processor: BatchProcessor<'a>,
+        current_batch: u64,
+        total_batches: u64,
     ) -> Result<Self, AccumulatorError> {
-        let proof_generator = ProofGenerator::new(MMR_BUILD_ELF, MMR_BUILD_ID)?;
-        let mmr_state_manager = MMRStateManager::new(starknet_account, store_address);
-
         if verifier_address.trim().is_empty() {
             return Err(AccumulatorError::InvalidInput(
                 "Verifier address cannot be empty",
-            ));
-        }
-        if batch_size == 0 {
-            return Err(AccumulatorError::InvalidInput(
-                "Batch size must be greater than 0",
             ));
         }
 
@@ -46,14 +35,9 @@ impl<'a> AccumulatorBuilder<'a> {
             starknet_rpc_url,
             chain_id,
             verifier_address,
-            batch_processor: BatchProcessor::new(
-                batch_size,
-                proof_generator,
-                skip_proof_verification,
-                mmr_state_manager,
-            )?,
-            current_batch: 0,
-            total_batches: 0,
+            batch_processor,
+            current_batch,
+            total_batches,
         })
     }
 
@@ -163,73 +147,33 @@ impl<'a> AccumulatorBuilder<'a> {
             ));
         }
 
-        let mut current_start = start_block;
-        let mut batch_results = Vec::new();
-
         info!(
             total_blocks = end_block - start_block + 1,
+            latest_mmr_block = start_block - 1,
+            latest_relayed_block = end_block,
             "Starting MMR update with new headers"
         );
 
-        while current_start <= end_block {
-            let batch_end = std::cmp::min(
-                current_start + self.batch_processor.batch_size() - 1,
-                end_block,
-            );
-            let batch_range = self
-                .batch_processor
-                .calculate_batch_range(batch_end, current_start)?;
+        // Process the batch and ensure we get a result
+        let batch_result = self
+            .batch_processor
+            .process_batch(self.chain_id, start_block, end_block)
+            .await?
+            .ok_or_else(|| {
+                error!("No batch result returned from process_batch");
+                AccumulatorError::ProcessingError("No batch result returned".into())
+            })?;
 
-            debug!(
-                batch_start = batch_range.start,
-                batch_end = batch_range.end,
-                "Processing batch range"
-            );
+        // Always handle the batch result with the is_build flag
+        self.handle_batch_result(&batch_result, is_build).await?;
 
-            if let Some(result) = self
-                .batch_processor
-                .process_batch(self.chain_id, batch_range.start, batch_range.end)
-                .await
-                .map_err(|e| {
-                    error!(
-                        error = %e,
-                        batch_start = batch_range.start,
-                        batch_end = batch_range.end,
-                        "Failed to process batch"
-                    );
-                    e
-                })?
-            {
-                self.handle_batch_result(&result, is_build).await?;
-                let ipfs_hash = result.ipfs_hash();
-                let calldata = result
-                    .proof()
-                    .map(|proof| proof.calldata())
-                    .unwrap_or_else(Vec::new);
+        self.current_batch += 1;
+        info!(
+            "MMR update completed successfully for blocks {}-{}",
+            start_block, end_block
+        );
 
-                batch_results.push((calldata, result.new_mmr_state()));
-
-                debug!(
-                    batch_start = batch_range.start,
-                    batch_end = batch_range.end,
-                    ipfs_hash,
-                    "Batch processed and saved to IPFS successfully"
-                );
-            }
-
-            current_start = batch_range.end + 1;
-        }
-
-        if batch_results.is_empty() {
-            error!(start_block, end_block, "No batch results generated");
-            Err(AccumulatorError::InvalidStateTransition)
-        } else {
-            debug!(
-                total_batches = batch_results.len(),
-                "MMR update completed successfully"
-            );
-            Ok(())
-        }
+        Ok(())
     }
 
     async fn handle_batch_result(
@@ -237,16 +181,15 @@ impl<'a> AccumulatorBuilder<'a> {
         batch_result: &BatchResult,
         is_build: bool,
     ) -> Result<(), AccumulatorError> {
-        // Skip verification if explicitly disabled or if no proof is available
-        if !self.batch_processor.skip_proof_verification() {
-            if let Some(proof) = batch_result.proof() {
-                self.verify_proof(proof.calldata(), batch_result.ipfs_hash(), is_build)
-                    .await?;
-            } else {
-                debug!("Skipping proof verification - no proof available");
-            }
+        // Always attempt verification if proof is available
+        if let Some(proof) = batch_result.proof() {
+            self.verify_proof(proof.calldata(), batch_result.ipfs_hash(), is_build)
+                .await?;
         } else {
-            debug!("Skipping proof verification - verification disabled");
+            error!("No proof available for verification - this should not happen");
+            return Err(AccumulatorError::VerificationError(
+                "No proof available for verification".into(),
+            ));
         }
         Ok(())
     }
@@ -259,7 +202,7 @@ impl<'a> AccumulatorBuilder<'a> {
     ) -> Result<(), AccumulatorError> {
         let starknet_account = self.batch_processor.mmr_state_manager().account();
 
-        info!("Verifying MMR proof");
+        info!("Verifying MMR proof (is_build: {})", is_build);
         starknet_account
             .verify_mmr_proof(&self.verifier_address, calldata, ipfs_hash, is_build)
             .await
@@ -268,7 +211,6 @@ impl<'a> AccumulatorBuilder<'a> {
                 e
             })?;
 
-        info!("MMR proof verified successfully");
         Ok(())
     }
 
@@ -456,26 +398,35 @@ impl<'a> AccumulatorBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
+    use crate::core::{MMRStateManager, ProofGenerator};
+
     use super::*;
     use mockall::mock;
     use mockall::predicate::*;
-    use starknet::core::types::U256;
     use starknet::providers::jsonrpc::HttpTransport;
     use starknet::providers::JsonRpcClient;
     use starknet::providers::Url;
     use starknet_handler::account::StarknetAccount;
-    use starknet_handler::MmrState;
+    use std::env;
     use std::sync::Arc;
+
+    // Setup test environment variables
+    fn setup_test_env() {
+        env::set_var("IPFS_ADD_URL", "http://localhost:5001/api/v0/add");
+        env::set_var("IPFS_FETCH_BASE_URL", "http://localhost/ipfs/");
+        env::set_var("IPFS_TOKEN", "test_token_placeholder");
+    }
 
     mock! {
         #[derive(Clone)]
         pub StarknetAccount {
-            fn verify_mmr_proof(&self, verifier_address: &str, calldata: Vec<Felt>, ipfs_hash: String) -> Result<(), AccumulatorError>;
+            fn verify_mmr_proof(&self, verifier_address: &str, calldata: Vec<Felt>, ipfs_hash: String, is_build: bool) -> Result<(), AccumulatorError>;
         }
     }
 
     // Add conversion impl
     impl From<MockStarknetAccount> for StarknetAccount {
+        #[allow(clippy::unused_self)]
         fn from(_mock: MockStarknetAccount) -> Self {
             // Create a new StarknetAccount for testing
             let transport = HttpTransport::new(Url::parse("http://localhost:8545").unwrap());
@@ -487,22 +438,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_accumulator_builder_new() {
+        setup_test_env();
+
         let account = MockStarknetAccount::new();
         // Create longer-lived String values
         let rpc_url = "http://localhost:8545".to_string();
         let verifier_addr = "0x123".to_string();
         let store_addr = "0x456".to_string();
 
-        let result = AccumulatorBuilder::new(
-            &rpc_url,
-            1,
-            &verifier_addr,
-            &store_addr,
-            account.into(),
+        let batch_processor = BatchProcessor::new(
             100,
-            false,
+            ProofGenerator::mock_for_tests(),
+            MMRStateManager::new(account.into(), &store_addr, &rpc_url),
         )
-        .await;
+        .unwrap();
+
+        let result =
+            AccumulatorBuilder::new(&rpc_url, 1, &verifier_addr, batch_processor, 0, 0).await;
 
         assert!(result.is_ok());
         let builder = result.unwrap();
@@ -513,57 +465,45 @@ mod tests {
 
     #[tokio::test]
     async fn test_accumulator_builder_new_invalid_inputs() {
+        setup_test_env();
+
         let account = MockStarknetAccount::new();
         let rpc_url = "http://localhost:8545".to_string();
         let store_addr = "0x456".to_string();
 
+        let batch_processor = BatchProcessor::new(
+            100,
+            ProofGenerator::mock_for_tests(),
+            MMRStateManager::new(account.into(), &store_addr, &rpc_url),
+        )
+        .unwrap();
+
         // Test empty verifier address
         let binding = "".to_string();
-        let result = AccumulatorBuilder::new(
-            &rpc_url,
-            1,
-            &binding,
-            &store_addr,
-            MockStarknetAccount::new().into(), // Create new instance instead of cloning
-            100,
-            false,
-        )
-        .await;
-        assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
-
-        // Test zero batch size
-        let verifier_addr = "0x123".to_string();
-        let result = AccumulatorBuilder::new(
-            &rpc_url,
-            1,
-            &verifier_addr,
-            &store_addr,
-            account.into(),
-            0,
-            false,
-        )
-        .await;
+        let result = AccumulatorBuilder::new(&rpc_url, 1, &binding, batch_processor, 0, 0).await;
         assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
     }
 
     #[tokio::test]
     async fn test_build_with_num_batches_invalid_input() {
+        setup_test_env();
+
         let account = MockStarknetAccount::new();
         let rpc_url = "http://localhost:8545".to_string();
         let verifier_addr = "0x123".to_string();
         let store_addr = "0x456".to_string();
 
-        let mut builder = AccumulatorBuilder::new(
-            &rpc_url,
-            1,
-            &verifier_addr,
-            &store_addr,
-            account.into(),
+        let batch_processor = BatchProcessor::new(
             100,
-            false,
+            ProofGenerator::mock_for_tests(),
+            MMRStateManager::new(account.into(), &store_addr, &rpc_url),
         )
-        .await
         .unwrap();
+
+        let mut builder =
+            AccumulatorBuilder::new(&rpc_url, 1, &verifier_addr, batch_processor, 0, 0)
+                .await
+                .unwrap();
 
         let result = builder.build_with_num_batches(0).await;
         assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
@@ -571,64 +511,26 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_mmr_with_new_headers_invalid_input() {
+        setup_test_env();
+
         let account = MockStarknetAccount::new();
         let rpc_url = "http://localhost:8545".to_string();
         let verifier_addr = "0x123".to_string();
         let store_addr = "0x456".to_string();
 
-        let mut builder = AccumulatorBuilder::new(
-            &rpc_url,
-            1,
-            &verifier_addr,
-            &store_addr,
-            account.into(),
+        let batch_processor = BatchProcessor::new(
             100,
-            false,
+            ProofGenerator::mock_for_tests(),
+            MMRStateManager::new(account.into(), &store_addr, &rpc_url),
         )
-        .await
         .unwrap();
+
+        let mut builder =
+            AccumulatorBuilder::new(&rpc_url, 1, &verifier_addr, batch_processor, 0, 0)
+                .await
+                .unwrap();
 
         let result = builder.update_mmr_with_new_headers(100, 50, false).await;
         assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
-    }
-
-    #[tokio::test]
-    async fn test_handle_batch_result_skip_verification() {
-        let account = MockStarknetAccount::new();
-        let rpc_url = "http://localhost:8545".to_string();
-        let verifier_addr = "0x123".to_string();
-        let store_addr = "0x456".to_string();
-
-        let builder = AccumulatorBuilder::new(
-            &rpc_url,
-            1,
-            &verifier_addr,
-            &store_addr,
-            account.into(),
-            100,
-            true,
-        )
-        .await
-        .unwrap();
-
-        // Create BatchResult with all required parameters
-        let mmr_state = MmrState::new(
-            100,               // size
-            U256::from(0_u64), // root_hash
-            U256::from(0_u64), // prev_root
-            0,                 // last_pos
-            None,              // last_leaf
-        );
-
-        let batch_result = BatchResult::new(
-            100,                     // start_block
-            200,                     // end_block
-            mmr_state,               // mmr_state
-            None,                    // proof
-            "test_hash".to_string(), // ipfs_hash
-        );
-
-        let result = builder.handle_batch_result(&batch_result, false).await;
-        assert!(result.is_ok());
     }
 }

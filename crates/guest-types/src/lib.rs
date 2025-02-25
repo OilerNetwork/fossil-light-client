@@ -123,7 +123,6 @@ pub struct CombinedInput {
     batch_size: u64,
     headers: Vec<(i64, Vec<BlockHeader>)>, // (representative_timestamp, headers)
     mmr_input: MMRInput,
-    skip_proof_verification: bool,
 }
 
 impl CombinedInput {
@@ -132,14 +131,12 @@ impl CombinedInput {
         batch_size: u64,
         headers: Vec<(i64, Vec<BlockHeader>)>,
         mmr_input: MMRInput,
-        skip_proof_verification: bool,
     ) -> Self {
         Self {
             chain_id,
             batch_size,
             headers,
             mmr_input,
-            skip_proof_verification,
         }
     }
 
@@ -157,10 +154,6 @@ impl CombinedInput {
 
     pub fn mmr_input(&self) -> &MMRInput {
         &self.mmr_input
-    }
-
-    pub fn skip_proof_verification(&self) -> bool {
-        self.skip_proof_verification
     }
 }
 
@@ -331,12 +324,11 @@ mod tests {
     fn test_combined_input() {
         let mmr_input = MMRInput::new(vec!["peak1".to_string()], 10, 5, vec!["elem1".to_string()]);
 
-        let input = CombinedInput::new(1, 100, Vec::new(), mmr_input.clone(), false);
+        let input = CombinedInput::new(1, 100, Vec::new(), mmr_input.clone());
 
         assert_eq!(input.chain_id(), 1);
         assert_eq!(input.batch_size(), 100);
         assert!(input.headers().is_empty());
-        assert!(!input.skip_proof_verification());
 
         // Test MMRInput getters
         assert_eq!(input.mmr_input().elements_count(), 10);

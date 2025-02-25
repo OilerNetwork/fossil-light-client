@@ -4,6 +4,7 @@ title: Updating the Light Client
 ---
 
 As new blocks are produced by Ethereum, their hashes must be added to the Fossil Light Client (FLC). The client maintains two key block numbers:
+
 - The latest processed events block
 - The latest processed MMR block
 

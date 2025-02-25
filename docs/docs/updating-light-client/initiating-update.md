@@ -25,6 +25,7 @@ The Client Updater (CU) monitors the Fossil Store (FS) contract for `LatestBlock
 ## MMR State Management
 
 The FS contract maintains the MMR state in batches, where each batch contains:
+
 - Latest MMR block number and its hash
 - Number of leaves in the batch
 - Root hash of the MMR

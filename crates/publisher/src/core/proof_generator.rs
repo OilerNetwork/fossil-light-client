@@ -247,6 +247,15 @@ where
 
         Ok(proof)
     }
+
+    #[cfg(test)]
+    pub fn mock_for_tests() -> Self {
+        Self {
+            method_elf: &[],
+            method_id: [0; 8],
+            _phantom: std::marker::PhantomData,
+        }
+    }
 }
 
 #[cfg(test)]
