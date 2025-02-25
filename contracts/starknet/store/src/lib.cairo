@@ -24,6 +24,7 @@ pub trait IFossilStore<TContractState> {
     fn get_avg_fees_in_range(
         self: @TContractState, start_timestamp: u64, end_timestamp: u64,
     ) -> Array<u64>;
+    fn upgrade(ref self: TContractState, new_class_hash: starknet::ClassHash);
 }
 
 #[starknet::contract]
@@ -32,12 +33,17 @@ pub mod Store {
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
     use openzeppelin_access::ownable::OwnableComponent;
+    use openzeppelin_upgrades::UpgradeableComponent;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+    component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
 
     #[abi(embed_v0)]
     impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
     impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
+
+    // Upgradeable
+    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
 
     const HOUR_IN_SECONDS: u64 = 3600;
 
@@ -80,6 +86,8 @@ pub mod Store {
         avg_fees: Map<u64, AvgFees>,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
+        #[substorage(v0)]
+        upgradeable: UpgradeableComponent::Storage,
     }
 
     #[event]
@@ -90,6 +98,8 @@ pub mod Store {
         IPFSHashUpdated: IPFSHashUpdated,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
+        #[flat]
+        UpgradeableEvent: UpgradeableComponent::Event,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -290,6 +300,11 @@ pub mod Store {
                 i += HOUR_IN_SECONDS;
             };
             fees
+        }
+
+        fn upgrade(ref self: ContractState, new_class_hash: starknet::ClassHash) {
+            self.ownable.assert_only_owner();
+            self.upgradeable.upgrade(new_class_hash);
         }
     }
 }
