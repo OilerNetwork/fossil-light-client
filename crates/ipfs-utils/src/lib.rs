@@ -196,3 +196,145 @@ impl IpfsManager {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::NamedTempFile;
+    use tokio::fs;
+    use tokio::io::AsyncWriteExt;
+
+    // Helper function to create a temporary SQLite database file
+    async fn create_temp_db_file() -> Result<NamedTempFile, std::io::Error> {
+        let temp_file = NamedTempFile::new()?;
+        let mut file = tokio::fs::File::create(temp_file.path()).await?;
+        
+        // Write SQLite header to make it a valid SQLite file
+        file.write_all(b"SQLite format 3\0").await?;
+        // Add some dummy data
+        file.write_all(&[0; 1024]).await?;
+        
+        Ok(temp_file)
+    }
+
+    #[tokio::test]
+    async fn test_ipfs_manager_creation() {
+        let result = IpfsManager::with_endpoint();
+        assert!(result.is_ok());
+        
+        let manager = result.unwrap();
+        assert_eq!(manager.max_file_size, 50 * 1024 * 1024); // 50MB
+    }
+
+    #[tokio::test]
+    async fn test_upload_invalid_file_type() {
+        let manager = IpfsManager::with_endpoint().unwrap();
+        
+        // Create a temporary file that is not a SQLite database
+        let temp_file = NamedTempFile::new().unwrap();
+        let path = temp_file.path();
+        
+        let result = manager.upload_db(path).await;
+        assert!(result.is_err());
+        
+        match result {
+            Err(IpfsError::FileError(e)) => {
+                assert_eq!(e.kind(), std::io::ErrorKind::InvalidData);
+            },
+            _ => panic!("Expected FileError with InvalidData kind"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_upload_file_too_large() {
+        let mut manager = IpfsManager::with_endpoint().unwrap();
+        // Set a very small max file size for testing
+        manager.max_file_size = 10; // 10 bytes
+        
+        // Create a temporary SQLite database file
+        let temp_file = create_temp_db_file().await.unwrap();
+        let path = temp_file.path();
+        
+        let result = manager.upload_db(path).await;
+        assert!(result.is_err());
+        
+        match result {
+            Err(IpfsError::BackendError(msg)) => {
+                assert!(msg.contains("exceeds maximum allowed size"));
+            },
+            _ => panic!("Expected BackendError about file size"),
+        }
+    }
+
+    #[tokio::test]
+    #[ignore] // Ignore by default as it requires a real IPFS node
+    async fn test_upload_and_fetch_integration() {
+        let manager = IpfsManager::with_endpoint().unwrap();
+        
+        // Create a temporary SQLite database file
+        let temp_file = create_temp_db_file().await.unwrap();
+        let upload_path = temp_file.path();
+        
+        // Upload the file
+        let hash = manager.upload_db(upload_path).await.expect("Failed to upload file");
+        assert!(!hash.is_empty(), "Hash should not be empty");
+        
+        // Create a temporary file for download
+        let download_file = NamedTempFile::new().unwrap();
+        let download_path = download_file.path();
+        
+        // Fetch the file
+        manager.fetch_db(&hash, download_path).await.expect("Failed to fetch file");
+        
+        // Verify file exists and has content
+        let metadata = fs::metadata(download_path).await.expect("Failed to get metadata");
+        assert!(metadata.len() > 0, "Downloaded file should not be empty");
+        
+        // Verify it's a valid SQLite file
+        let content = fs::read(download_path).await.expect("Failed to read file");
+        assert!(content.starts_with(b"SQLite format 3\0"), "Not a valid SQLite file");
+    }
+
+    #[tokio::test]
+    async fn test_check_connection() {
+        let manager = IpfsManager::with_endpoint().unwrap();
+        
+        // This test is marked as ignore because it requires a real IPFS node
+        // But we can still write the test and run it manually when needed
+        let result = manager.check_connection().await;
+        
+        // We don't assert the result since it depends on external service
+        // Just ensure the function doesn't panic
+        match result {
+            Ok(_) => println!("Connection successful"),
+            Err(e) => println!("Connection failed: {}", e),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_fetch_nonexistent_hash() {
+        let manager = IpfsManager::with_endpoint().unwrap();
+        let temp_file = NamedTempFile::new().unwrap();
+        let path = temp_file.path();
+        
+        // Try to fetch a file with a non-existent hash
+        let result = manager.fetch_db("QmInvalidHashThatDoesNotExist", path).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_error_handling() {
+        // Test IpfsError Display implementation
+        let error = IpfsError::ConnectionError("test error".to_string());
+        assert_eq!(error.to_string(), "Failed to connect to IPFS node: test error");
+        
+        let error = IpfsError::FileError(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "file not found"
+        ));
+        assert_eq!(error.to_string(), "File operation failed: file not found");
+        
+        let error = IpfsError::InvalidHash("invalid hash".to_string());
+        assert_eq!(error.to_string(), "Invalid IPFS hash: invalid hash");
+    }
+}
