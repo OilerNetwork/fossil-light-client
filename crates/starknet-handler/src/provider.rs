@@ -117,7 +117,7 @@ impl StarknetProvider {
             .await?;
 
         let mmr_state = MmrSnapshot::decode(&data)?;
-        info!("Retrieved MMR state");
+        info!("Retrieved On-chain MMR state");
 
         Ok(mmr_state)
     }

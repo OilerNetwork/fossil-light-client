@@ -19,6 +19,8 @@ pub enum PublisherError {
     Validator(#[from] ValidatorError),
     #[error("Invalid Stark proof receipt: receipt format or signature verification failed")]
     ReceiptError,
+    #[error("Proof generator error: {0}")]
+    ProofGeneratorError(#[from] ProofGeneratorError),
 }
 
 #[derive(Error, Debug)]
@@ -65,6 +67,10 @@ pub enum AccumulatorError {
     DbConnection(#[from] DbError),
     #[error("Invalid MMR root, expected: {expected}, actual: {actual}")]
     InvalidMmrRoot { expected: U256, actual: U256 },
+    #[error("Processing error: {0}")]
+    ProcessingError(String),
+    #[error("Verification error: {0}")]
+    VerificationError(String),
 }
 
 #[derive(thiserror::Error, Debug)]

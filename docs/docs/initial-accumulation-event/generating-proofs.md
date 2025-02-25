@@ -17,7 +17,6 @@ The guest program receives a `CombinedInput` structure containing:
   - Current elements count
   - Current leaves count
   - New elements to be added
-- `skip_proof_verification`: Flag to control proof verification behavior
 
 ## Guest Program Execution
 

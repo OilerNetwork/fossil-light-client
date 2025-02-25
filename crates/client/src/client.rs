@@ -7,7 +7,7 @@ use starknet::{
 };
 use starknet_handler::provider::StarknetProvider;
 use tokio::time::Duration;
-use tracing::{error, info, instrument};
+use tracing::{debug, error, info, instrument, warn};
 
 #[cfg(test)]
 use mockall::automock;
@@ -137,20 +137,8 @@ impl LightClient {
         // Get the latest block number
         let latest_block = self.starknet_provider.provider().block_number().await?;
 
-        info!(
-            latest_block,
-            last_processed_events = self.latest_processed_events_block,
-            last_processed_mmr = self.latest_processed_mmr_block,
-            "Checking for new events"
-        );
-
         // Don't process if we're already caught up with events
         if self.latest_processed_events_block >= latest_block {
-            info!(
-                latest_block,
-                last_processed_events = self.latest_processed_events_block,
-                "Already up to date with latest events"
-            );
             return Ok(());
         }
 
@@ -175,13 +163,6 @@ impl LightClient {
             return Ok(());
         }
 
-        info!(
-            from_block,
-            to_block,
-            blocks_to_process = to_block - from_block + 1,
-            "Processing block range for events"
-        );
-
         let event_filter = EventFilter {
             from_block: Some(BlockId::Number(from_block)),
             to_block: Some(BlockId::Number(to_block)),
@@ -194,13 +175,6 @@ impl LightClient {
             .provider()
             .get_events(event_filter, None, 1)
             .await?;
-
-        info!(
-            from_block,
-            to_block,
-            event_count = events.events.len(),
-            "Retrieved events from Starknet"
-        );
 
         // Update the latest processed events block
         self.latest_processed_events_block = to_block;
@@ -245,33 +219,20 @@ impl LightClient {
     ) -> Result<(), LightClientError> {
         info!(
             latest_mmr_block,
-            latest_relayed_block,
-            current_processed_mmr = self.latest_processed_mmr_block,
-            "Starting MMR update"
+            latest_relayed_block, "Starting MMR update"
         );
-
-        // If MMR is already up to date with the relayed block, nothing to do
-        if latest_mmr_block >= latest_relayed_block {
-            info!(
-                latest_mmr_block,
-                latest_relayed_block, "MMR already up to date with latest relayed block"
-            );
-            return Ok(());
-        }
 
         let start_block = latest_mmr_block + 1;
         let end_block = latest_relayed_block;
 
-        info!(
-            from_block = start_block,
-            to_block = end_block,
-            batch_size = self.batch_size,
-            "Starting proof verification"
-        );
+        if start_block > end_block {
+            debug!("No new blocks to process for MMR update");
+            return Ok(());
+        }
 
-        // Update MMR
-        publisher::prove_mmr_update(
-            &self.starknet_provider.rpc_url().to_string(),
+        // Call the publisher function directly with all required parameters
+        let result = publisher::api::operations::update_mmr(
+            &get_env_var("STARKNET_RPC_URL")?,
             self.chain_id,
             &self.verifier_addr,
             &self.l2_store_addr,
@@ -280,18 +241,31 @@ impl LightClient {
             self.batch_size,
             start_block,
             end_block,
-            false, // Don't skip proof verification
         )
-        .await?;
+        .await
+        .map_err(|e| {
+            error!(error = %e, "Failed to update MMR");
+            LightClientError::PublisherError(e)
+        })?;
 
-        // Update our tracking of the latest processed MMR block
+        // Update the latest processed MMR block
         self.latest_processed_mmr_block = latest_relayed_block;
 
-        info!("Proof verification completed successfully");
+        info!(
+            latest_mmr_block,
+            latest_relayed_block, "Proof verification completed successfully"
+        );
+
         Ok(())
     }
 
     pub async fn run(&mut self) -> Result<(), LightClientError> {
+        info!(
+            "Listening for events from block {} with polling interval {} seconds",
+            self.latest_processed_events_block + 1,
+            self.polling_interval.as_secs()
+        );
+
         loop {
             self.process_new_events().await?;
             tokio::time::sleep(self.polling_interval).await;

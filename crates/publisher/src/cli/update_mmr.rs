@@ -58,7 +58,6 @@ pub async fn run(config: Config, args: Args) -> Result<(), Box<dyn std::error::E
         args.batch_size,
         args.start,
         args.end,
-        args.skip_proof,
     )
     .await?;
 

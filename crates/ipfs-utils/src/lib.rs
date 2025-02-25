@@ -46,10 +46,7 @@ impl IpfsManager {
     }
 
     pub async fn upload_db(&self, file_path: &Path) -> Result<String, IpfsError> {
-        info!("Starting IPFS upload for file: {}", file_path.display());
-
         let metadata = fs::metadata(file_path).map_err(IpfsError::FileError)?;
-        info!("File size: {} bytes", metadata.len());
 
         let contents = fs::read(&file_path)?;
         if !contents.starts_with(b"SQLite format 3\0") {
@@ -128,10 +125,7 @@ impl IpfsManager {
     }
 
     pub async fn fetch_db(&self, hash: &str, output_path: &Path) -> Result<(), IpfsError> {
-        info!("Starting IPFS download, CID: {}", hash);
-
         let fetch_url = format!("{}{}", self.fetch_base_url, hash);
-        info!("Fetching from IPFS URL: {}", fetch_url);
 
         let mut easy = curl::easy::Easy::new();
         easy.url(&fetch_url)?;
@@ -166,7 +160,6 @@ impl IpfsManager {
             )));
         }
 
-        info!("IPFS download completed successfully, CID: {}", hash);
         Ok(())
     }
 

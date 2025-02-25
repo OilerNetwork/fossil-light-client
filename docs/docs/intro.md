@@ -3,7 +3,7 @@ id: introduction
 title: Introduction
 ---
 
-# Introduction
+## Introduction
 
 This document serves as an initial draft of the architecture for the Fossil Light Client (FLC).
 
