@@ -52,13 +52,13 @@ uuid = "1.15.0"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 # Ethereum/blockchain related
-alloy = { version = "0.6.4", features = [
+alloy = { version = "0.11.1", features = [
     "providers",
     "network",
     "sol-types",
     "signer-local",
 ] }
-alloy-contract = "0.6.4"
+alloy-contract = "0.11.1"
 alloy-sol-types = { version = "0.8.21", features = ["json"] }
 
 # Testing dependencies

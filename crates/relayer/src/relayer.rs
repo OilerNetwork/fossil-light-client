@@ -58,7 +58,6 @@ impl Relayer {
         let provider_url = get_env_var("ETH_RPC_URL")?;
 
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(self.wallet.clone())
             .on_builtin(&provider_url)
             .await?;

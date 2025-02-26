@@ -31,8 +31,7 @@ pub async fn get_finalized_block_hash() -> Result<(u64, String)> {
         attempts += 1;
         let result: Result<(u64, String)> = async {
             let provider = ProviderBuilder::new()
-                .with_recommended_fillers()
-                .try_on_anvil_with_wallet_and_config(|anvil| anvil.fork(rpc_url.clone()))
+                .on_anvil_with_wallet_and_config(|anvil| anvil.fork(rpc_url.clone()))
                 .map_err(|e| eyre!("Failed to setup Anvil provider: {}", e))?;
 
             let contract = BlockHashFetcher::deploy(&provider).await?;
