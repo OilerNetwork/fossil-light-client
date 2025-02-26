@@ -110,7 +110,7 @@ pub fn find_siblings(element_index: usize, elements_count: usize) -> Result<Vec<
 
 pub fn element_index_to_leaf_index(element_index: usize) -> Result<usize> {
     if element_index == 0 {
-        return Err(eyre!("InvalidElementIndex"));
+        return Err(eyre!("InvalidElementIndex: {}", element_index));
     }
     elements_count_to_leaf_count(element_index - 1)
 }
@@ -130,7 +130,7 @@ pub fn elements_count_to_leaf_count(elements_count: usize) -> Result<usize> {
     }
 
     if current_elements_count > 0 {
-        Err(eyre!("InvalidElementCount"))
+        Err(eyre!("InvalidElementCount: {}", current_elements_count))
     } else {
         Ok(leaf_count)
     }

@@ -63,8 +63,10 @@ impl LightClient {
         blocks_per_run: u64,
     ) -> Result<Self> {
         if polling_interval == 0 {
-            error!("Polling interval must be greater than zero");
-            return Err(eyre!("Polling interval must be greater than zero"));
+            return Err(eyre!(
+                "Polling interval must be greater than zero: {}",
+                polling_interval
+            ));
         }
 
         // Load environment variables
@@ -94,7 +96,6 @@ impl LightClient {
             create_database_file(&current_dir, 0).wrap_err("Failed to create database file")?;
 
         if !std::path::Path::new(&db_file).exists() {
-            error!("Database file does not exist at path: {}", db_file);
             return Err(eyre!("Database file does not exist at path: {}", db_file));
         }
 
@@ -236,10 +237,7 @@ impl LightClient {
             end_block,
         )
         .await
-        .map_err(|e| {
-            error!(error = %e, "Failed to update MMR");
-            eyre!("Failed to update MMR: {}", e)
-        })?;
+        .map_err(|e| eyre!("Failed to update MMR: {}", e))?;
 
         // Update the latest processed MMR block
         self.latest_processed_mmr_block = latest_relayed_block;

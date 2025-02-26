@@ -90,7 +90,9 @@ pub fn get_or_create_db_path(db_name: &str) -> Result<String> {
     }
 
     // Convert to string
-    let db_path_str = db_file_path.to_str().ok_or_else(|| eyre!("Invalid path"))?;
+    let db_path_str = db_file_path
+        .to_str()
+        .ok_or_else(|| eyre!("Invalid path: {:?}", db_file_path))?;
 
     Ok(db_path_str.to_string())
 }

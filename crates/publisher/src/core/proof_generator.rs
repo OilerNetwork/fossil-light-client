@@ -30,11 +30,11 @@ where
 {
     pub fn new(method_elf: &'static [u8], method_id: [u32; 8]) -> Result<Self> {
         if method_elf.is_empty() {
-            return Err(eyre!("Method ELF cannot be empty"));
+            return Err(eyre!("Method ELF cannot be empty: {:?}", method_elf));
         }
 
         if method_id.iter().all(|&x| x == 0) {
-            return Err(eyre!("Method ID cannot be all zeros"));
+            return Err(eyre!("Method ID cannot be all zeros: {:?}", method_id));
         }
 
         Ok(Self {
@@ -94,7 +94,10 @@ where
 
     pub fn decode_journal<U: for<'a> Deserialize<'a>>(&self, proof: &Groth16) -> Result<U> {
         if proof.receipt().journal.bytes.is_empty() {
-            return Err(eyre!("Proof journal cannot be empty"));
+            return Err(eyre!(
+                "Proof journal cannot be empty: {:?}",
+                proof.receipt().journal.bytes
+            ));
         }
 
         let receipt = proof.receipt();

@@ -68,14 +68,18 @@ impl GuestMMR {
 
         for _ in 0..no_merges {
             if peaks.len() < 2 {
-                return Err(eyre!("InsufficientPeaksForMerge"));
+                return Err(eyre!("InsufficientPeaksForMerge: {}", peaks.len()));
             }
 
             last_element_idx += 1;
 
             // Pop the last two peaks to merge
-            let right_hash = peaks.pop().ok_or(eyre!("InsufficientPeaksForMerge"))?;
-            let left_hash = peaks.pop().ok_or(eyre!("InsufficientPeaksForMerge"))?;
+            let right_hash = peaks
+                .pop()
+                .ok_or(eyre!("InsufficientPeaksForMerge: {}", peaks.len()))?;
+            let left_hash = peaks
+                .pop()
+                .ok_or(eyre!("InsufficientPeaksForMerge: {}", peaks.len()))?;
 
             let parent_hash = hasher(vec![left_hash, right_hash])?;
             self.hashes.insert(last_element_idx, parent_hash.clone());
@@ -99,13 +103,13 @@ impl GuestMMR {
 
     pub fn get_proof(&self, element_index: usize) -> Result<GuestProof> {
         if element_index == 0 {
-            return Err(eyre!("InvalidElementIndex"));
+            return Err(eyre!("InvalidElementIndex: {}", element_index));
         }
 
         let tree_size = self.elements_count;
 
         if element_index > tree_size {
-            return Err(eyre!("InvalidElementIndex"));
+            return Err(eyre!("InvalidElementIndex: {}", element_index));
         }
 
         let peaks = find_peaks(tree_size);
@@ -146,7 +150,7 @@ impl GuestMMR {
         let peaks_count = leaf_count_to_peaks_count(leaf_count);
 
         if peaks_count as usize != proof.peaks_hashes.len() {
-            return Err(eyre!("InvalidPeaksCount"));
+            return Err(eyre!("InvalidPeaksCount: {}", peaks_count));
         }
 
         if let Some(formatting_opts) = options.formatting_opts {
@@ -174,11 +178,11 @@ impl GuestMMR {
         let element_index = proof.element_index;
 
         if element_index == 0 {
-            return Err(eyre!("InvalidElementIndex"));
+            return Err(eyre!("InvalidElementIndex: {}", element_index));
         }
 
         if element_index > tree_size {
-            return Err(eyre!("InvalidElementIndex"));
+            return Err(eyre!("InvalidElementIndex: {}", element_index));
         }
 
         let (peak_index, peak_height) = get_peak_info(tree_size, element_index);
@@ -232,10 +236,10 @@ impl GuestMMR {
                 let mut peaks_hashes: VecDeque<String> = peaks_hashes.into();
                 let last = peaks_hashes
                     .pop_back()
-                    .ok_or(eyre!("InsufficientPeaksForMerge"))?;
+                    .ok_or(eyre!("InsufficientPeaksForMerge: {}", peaks_hashes.len()))?;
                 let second_last = peaks_hashes
                     .pop_back()
-                    .ok_or(eyre!("InsufficientPeaksForMerge"))?;
+                    .ok_or(eyre!("InsufficientPeaksForMerge: {}", peaks_hashes.len()))?;
                 let root0 = hasher(vec![second_last, last])?;
 
                 peaks_hashes
@@ -251,7 +255,7 @@ impl GuestMMR {
 
         match hasher(vec![elements_count.to_string(), bag.to_string()]) {
             Ok(root_hash) => Ok(root_hash),
-            Err(_) => Err(eyre!("HashError")),
+            Err(_) => Err(eyre!("HashError: {}", bag)),
         }
     }
 
@@ -340,10 +344,10 @@ mod tests {
         let mmr = create_test_mmr();
 
         let result = mmr.get_proof(0);
-        assert!(matches!(result, Err(e) if e.to_string() == "InvalidElementIndex"));
+        assert!(matches!(result, Err(e) if e.to_string().contains("InvalidElementIndex: 0")));
 
         let result = mmr.get_proof(999);
-        assert!(matches!(result, Err(e) if e.to_string() == "InvalidElementIndex"));
+        assert!(matches!(result, Err(e) if e.to_string().contains("InvalidElementIndex: 999")));
     }
 
     #[test]

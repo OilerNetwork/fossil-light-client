@@ -50,10 +50,12 @@ impl Stark {
     }
 
     pub fn image_id(&self) -> Result<[u8; 32]> {
-        self.image_id
-            .clone()
-            .try_into()
-            .map_err(|_| eyre!("Failed to convert image ID to [u8; 32]"))
+        self.image_id.clone().try_into().map_err(|_| {
+            eyre!(
+                "Failed to convert image ID to [u8; 32]: {:?}",
+                self.image_id
+            )
+        })
     }
 }
 

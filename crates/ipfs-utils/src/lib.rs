@@ -171,7 +171,7 @@ impl IpfsManager {
             .add_url
             .split("/api/v0/")
             .next()
-            .ok_or_else(|| eyre!("Invalid IPFS_ADD_URL format"))?;
+            .ok_or_else(|| eyre!("Invalid IPFS_ADD_URL format: {}", self.add_url))?;
 
         let version_url = format!("{}/api/v0/version", base_url);
         let token = self.token.clone();

@@ -43,7 +43,7 @@ impl<'a> MMRStateManager<'a> {
         headers: &Vec<String>,
     ) -> Result<MmrState> {
         if headers.is_empty() {
-            return Err(eyre!("Headers list cannot be empty"));
+            return Err(eyre!("Headers list cannot be empty: {:?}", headers));
         }
 
         info!("Updating MMR state with {} headers...", headers.len());
@@ -144,7 +144,7 @@ impl<'a> MMRStateManager<'a> {
 
         for hash in headers {
             if hash.trim().is_empty() {
-                return Err(eyre!("Header hash cannot be empty"));
+                return Err(eyre!("Header hash cannot be empty: {:?}", hash));
             }
 
             let append_result = mmr.append(hash.clone()).await.map_err(|e| {
@@ -171,8 +171,11 @@ impl<'a> MMRStateManager<'a> {
             e
         })?;
         if leaves_count != guest_output.leaves_count() as usize {
-            error!("Leaves count mismatch");
-            return Err(eyre!("Invalid state transition"));
+            return Err(eyre!(
+                "Invalid state transition: leaves_count mismatch: {} != {}",
+                leaves_count,
+                guest_output.leaves_count()
+            ));
         }
 
         let new_element_count = mmr.elements_count.get().await.map_err(|e| {
@@ -191,14 +194,14 @@ impl<'a> MMRStateManager<'a> {
             })?;
 
         if new_root_hash != guest_output.root_hash() {
-            error!("Root hash mismatch");
-            return Err(eyre!("Invalid state transition"));
+            return Err(eyre!(
+                "Invalid state transition: root_hash mismatch: {} != {}",
+                new_root_hash,
+                guest_output.root_hash()
+            ));
         }
 
-        validate_u256_hex(&new_root_hash).map_err(|e| {
-            error!(error = %e, "Invalid root hash format");
-            e
-        })?;
+        validate_u256_hex(&new_root_hash).map_err(|e| e)?;
 
         debug!("MMR state verified successfully");
         Ok(())

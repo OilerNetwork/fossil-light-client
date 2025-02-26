@@ -99,12 +99,12 @@ pub fn u256_from_hex(hex: &str) -> Result<U256> {
 
     // Validate hex string length
     if hex_clean.len() != 64 {
-        return Err(eyre!("Invalid hex string length"));
+        return Err(eyre!("Invalid hex string length: {}", hex_clean.len()));
     }
 
     // Validate hex characters
     if !hex_clean.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(eyre!("Invalid hex characters"));
+        return Err(eyre!("Invalid hex characters: {}", hex_clean));
     }
 
     let crypto_bigint = CryptoBigIntU256::from_be_hex(hex_clean);

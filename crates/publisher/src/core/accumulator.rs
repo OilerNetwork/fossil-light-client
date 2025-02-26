@@ -26,7 +26,10 @@ impl<'a> AccumulatorBuilder<'a> {
         total_batches: u64,
     ) -> Result<Self> {
         if verifier_address.trim().is_empty() {
-            return Err(eyre!("Verifier address cannot be empty"));
+            return Err(eyre!(
+                "Verifier address cannot be empty: {}",
+                verifier_address
+            ));
         }
 
         Ok(Self {
@@ -42,7 +45,10 @@ impl<'a> AccumulatorBuilder<'a> {
     /// Build the MMR using a specified number of batches
     pub async fn build_with_num_batches(&mut self, num_batches: u64) -> Result<()> {
         if num_batches == 0 {
-            return Err(eyre!("Number of batches must be greater than 0"));
+            return Err(eyre!(
+                "Number of batches must be greater than 0: {}",
+                num_batches
+            ));
         }
 
         let (finalized_block_number, _) = get_finalized_block_hash().await.map_err(|e| {
@@ -135,7 +141,11 @@ impl<'a> AccumulatorBuilder<'a> {
         is_build: bool,
     ) -> Result<()> {
         if end_block < start_block {
-            return Err(eyre!("End block cannot be less than start block"));
+            return Err(eyre!(
+                "End block cannot be less than start block: {} < {}",
+                end_block,
+                start_block
+            ));
         }
 
         info!(
@@ -150,7 +160,13 @@ impl<'a> AccumulatorBuilder<'a> {
             .batch_processor
             .process_batch(self.chain_id, start_block, end_block)
             .await?
-            .ok_or_else(|| eyre!("No batch result returned"))?;
+            .ok_or_else(|| {
+                eyre!(
+                    "No batch result returned for blocks {}-{}",
+                    start_block,
+                    end_block
+                )
+            })?;
 
         // Always handle the batch result with the is_build flag
         self.handle_batch_result(&batch_result, is_build).await?;
@@ -170,7 +186,10 @@ impl<'a> AccumulatorBuilder<'a> {
             self.verify_proof(proof.calldata(), batch_result.ipfs_hash(), is_build)
                 .await?;
         } else {
-            return Err(eyre!("No proof available for verification"));
+            return Err(eyre!(
+                "No proof available for verification for batch: {:?}",
+                batch_result
+            ));
         }
         Ok(())
     }
@@ -217,7 +236,11 @@ impl<'a> AccumulatorBuilder<'a> {
     async fn process_blocks_from(&mut self, start_block: u64, is_build: bool) -> Result<()> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
         if start_block > finalized_block_number {
-            return Err(eyre!("Start block cannot be greater than finalized block"));
+            return Err(eyre!(
+                "Start block cannot be greater than finalized block: {} > {}",
+                start_block,
+                finalized_block_number
+            ));
         }
 
         debug!(
@@ -252,7 +275,10 @@ impl<'a> AccumulatorBuilder<'a> {
         is_build: bool,
     ) -> Result<()> {
         if num_batches == 0 {
-            return Err(eyre!("Number of batches must be greater than 0"));
+            return Err(eyre!(
+                "Number of batches must be greater than 0: {}",
+                num_batches
+            ));
         }
 
         let (finalized_block_number, _) = get_finalized_block_hash()
@@ -260,7 +286,11 @@ impl<'a> AccumulatorBuilder<'a> {
             .map_err(|e| eyre!("Failed to get finalized block: {}", e))?;
 
         if start_block > finalized_block_number {
-            return Err(eyre!("Start block cannot be greater than finalized block"));
+            return Err(eyre!(
+                "Start block cannot be greater than finalized block: {} > {}",
+                start_block,
+                finalized_block_number
+            ));
         }
 
         self.total_batches = num_batches;

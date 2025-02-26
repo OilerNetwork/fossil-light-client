@@ -28,7 +28,7 @@ impl<'a> BatchProcessor<'a> {
         mmr_state_manager: MMRStateManager<'a>,
     ) -> Result<Self> {
         if batch_size == 0 {
-            return Err(eyre!("Batch size must be greater than 0"));
+            return Err(eyre!("Batch size must be greater than 0: {}", batch_size));
         }
 
         let ipfs_manager = IpfsManager::with_endpoint().map_err(|e| {
@@ -63,14 +63,22 @@ impl<'a> BatchProcessor<'a> {
         end_block: u64,
     ) -> Result<Option<BatchResult>> {
         if end_block < start_block {
-            return Err(eyre!("End block cannot be less than start block"));
+            return Err(eyre!(
+                "End block cannot be less than start block: {} < {}",
+                end_block,
+                start_block
+            ));
         }
 
         let batch_index = start_block / self.batch_size;
         let (batch_start, batch_end) = self.calculate_batch_bounds(batch_index)?;
 
         if start_block < batch_start {
-            return Err(eyre!("Start block is before batch start"));
+            return Err(eyre!(
+                "Start block is before batch start: {} < {}",
+                start_block,
+                batch_start
+            ));
         }
 
         let adjusted_end_block = std::cmp::min(end_block, batch_end);
@@ -83,8 +91,8 @@ impl<'a> BatchProcessor<'a> {
 
         // Extract IPFS hash from MMR state
         let ipfs_hash = mmr_state.ipfs_hash();
-        let ipfs_hash_str =
-            String::try_from(ipfs_hash).map_err(|_| eyre!("Failed to convert IPFS hash"))?;
+        let ipfs_hash_str = String::try_from(ipfs_hash.clone())
+            .map_err(|_| eyre!("Failed to convert IPFS hash: {:?}", ipfs_hash))?;
         // Create path for the batch database with a unique identifier
         let batch_file_name = format!("batch_{}_{}.db", batch_index, uuid::Uuid::new_v4());
         let db_file_path = PathBuf::from(get_or_create_db_path(&batch_file_name).map_err(|e| {
@@ -334,11 +342,15 @@ impl<'a> BatchProcessor<'a> {
     pub fn calculate_batch_bounds(&self, batch_index: u64) -> Result<(u64, u64)> {
         let batch_start = batch_index
             .checked_mul(self.batch_size)
-            .ok_or(eyre!("Batch index too large"))?;
+            .ok_or(eyre!("Batch index too large: {}", batch_index))?;
 
         let batch_end = batch_start
             .checked_add(self.batch_size)
-            .ok_or(eyre!("Batch end calculation overflow"))?
+            .ok_or(eyre!(
+                "Batch end calculation overflow: {} + {}",
+                batch_start,
+                self.batch_size
+            ))?
             .saturating_sub(1);
 
         Ok((batch_start, batch_end))
@@ -346,7 +358,7 @@ impl<'a> BatchProcessor<'a> {
 
     pub fn calculate_start_block(&self, current_end: u64) -> Result<u64> {
         if current_end == 0 {
-            return Err(eyre!("Current end block cannot be 0"));
+            return Err(eyre!("Current end block cannot be 0: {}", current_end));
         }
 
         Ok(current_end.saturating_sub(current_end % self.batch_size))
@@ -354,11 +366,15 @@ impl<'a> BatchProcessor<'a> {
 
     pub fn calculate_batch_range(&self, current_end: u64, start_block: u64) -> Result<BatchRange> {
         if current_end < start_block {
-            return Err(eyre!("Current end block cannot be less than start block"));
+            return Err(eyre!(
+                "Current end block cannot be less than start block: {} < {}",
+                current_end,
+                start_block
+            ));
         }
 
         if current_end == 0 {
-            return Err(eyre!("Current end block cannot be 0"));
+            return Err(eyre!("Current end block cannot be 0: {}", current_end));
         }
 
         let batch_start = current_end.saturating_sub(current_end % self.batch_size);
@@ -367,11 +383,13 @@ impl<'a> BatchProcessor<'a> {
         let batch_size_minus_one = self
             .batch_size
             .checked_sub(1)
-            .ok_or(eyre!("Invalid batch size"))?;
+            .ok_or(eyre!("Invalid batch size: {}", self.batch_size))?;
 
-        let max_end = batch_start
-            .checked_add(batch_size_minus_one)
-            .ok_or(eyre!("Batch end calculation overflow"))?;
+        let max_end = batch_start.checked_add(batch_size_minus_one).ok_or(eyre!(
+            "Batch end calculation overflow: {} + {}",
+            batch_start,
+            batch_size_minus_one
+        ))?;
 
         let effective_end = std::cmp::min(current_end, max_end);
 
@@ -390,7 +408,11 @@ pub struct BatchRange {
 impl BatchRange {
     pub fn new(start_block: u64, end_block: u64) -> Result<Self> {
         if end_block < start_block {
-            return Err(eyre!("End block cannot be less than start block"));
+            return Err(eyre!(
+                "End block cannot be less than start block: {} < {}",
+                end_block,
+                start_block
+            ));
         }
         Ok(Self {
             start: start_block,
