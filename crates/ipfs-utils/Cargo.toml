@@ -7,7 +7,6 @@ license = "MIT"
 
 [dependencies]
 tracing = { workspace = true }
-thiserror = { workspace = true }
 curl = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 serde_json = { workspace = true }

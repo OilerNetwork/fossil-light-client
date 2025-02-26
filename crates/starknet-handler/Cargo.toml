@@ -5,14 +5,14 @@ edition = "2021"
 
 [dependencies]
 common = { path = "../common" }
-thiserror = { workspace = true }
-starknet = { workspace = true }
-tracing = { workspace = true }
-starknet-crypto = { workspace = true }
-tokio = { workspace = true }
 crypto-bigint = { workspace = true }
-url = { workspace = true }
+eyre = { workspace = true }
+starknet = { workspace = true }
+starknet-crypto = { workspace = true }
+tracing = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
 mockall = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
+url = { workspace = true }

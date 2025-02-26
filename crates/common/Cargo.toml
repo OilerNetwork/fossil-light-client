@@ -5,7 +5,6 @@ edition = "2021"
 
 [dependencies]
 dotenv = { workspace = true }
+eyre = { workspace = true }
 starknet-crypto = { workspace = true }
 tracing-subscriber = { workspace = true }
-alloy-contract = { workspace = true }
-ruint = { workspace = true }

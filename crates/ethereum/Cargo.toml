@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 common = { path = "../common" }
-
+eyre = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 

@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sqlx = { workspace = true }
-thiserror = { workspace = true }
-uuid = { workspace = true }
-store = { workspace = true }
+eyre = { workspace = true }
 hasher = { workspace = true }
 mmr = { workspace = true }
+sqlx = { workspace = true }
+store = { workspace = true }
+uuid = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

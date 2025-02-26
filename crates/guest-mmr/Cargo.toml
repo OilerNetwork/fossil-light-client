@@ -4,14 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+eyre = { workspace = true }
 guest-types = { path = "../guest-types" }
 hex = { workspace = true }
 sha2 = { workspace = true }
 num-bigint = { workspace = true }
 num-traits = { workspace = true }
-thiserror = { workspace = true }
-
-[dev-dependencies]
-mmr-utils = { path = "../mmr-utils" }
-common = { path = "../common" }
-tokio = { workspace = true, features = ["full"] }

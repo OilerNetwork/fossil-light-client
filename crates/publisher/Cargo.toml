@@ -21,6 +21,7 @@ common = { path = "../common" }
 dotenv = { workspace = true }
 eth-rlp-types = { workspace = true }
 ethereum = { path = "../ethereum" }
+eyre = { workspace = true }
 garaga_rs = { workspace = true }
 guest-types = { path = "../guest-types" }
 ipfs-utils = { path = "../ipfs-utils" }
@@ -29,14 +30,12 @@ mmr = { workspace = true }
 mmr-utils = { path = "../mmr-utils" }
 pyo3 = { workspace = true }
 risc0-ethereum-contracts = { workspace = true }
-risc0-zkvm = { workspace = true }
+risc0-zkvm = { version = "1.2.4" }
 serde = { workspace = true }
 sqlx = { workspace = true }
 starknet-crypto = { workspace = true }
 starknet-handler = { path = "../starknet-handler" }
-starknet-types-core = { workspace = true }
 store = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
@@ -45,6 +44,7 @@ uuid = { workspace = true }
 [dev-dependencies]
 hasher = { workspace = true }
 mockall = { workspace = true }
+starknet = { workspace = true }
 
 [lib]
 name = "publisher"
