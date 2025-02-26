@@ -6,12 +6,10 @@ edition = "2021"
 [dependencies]
 sqlx = { workspace = true }
 thiserror = { workspace = true }
-
-uuid = "1.1.2"
-
-store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
-hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = ["sha256"] }
-mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
+uuid = { workspace = true }
+store = { workspace = true }
+hasher = { workspace = true }
+mmr = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }
