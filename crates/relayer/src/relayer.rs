@@ -1,28 +1,11 @@
 use alloy::{
-    network::EthereumWallet,
-    primitives::U256,
-    providers::ProviderBuilder,
-    signers::local::PrivateKeySigner,
-    sol_types::sol,
-    transports::{RpcError, TransportErrorKind},
+    network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
+    signers::local::PrivateKeySigner, sol_types::sol,
 };
-use common::{get_env_var, get_var, UtilsError};
-// use eyre::Result;
+use common::{get_env_var, get_var};
+use eyre::{eyre, Result};
 use std::time::Duration;
-use thiserror::Error;
 use tracing::info;
-
-#[derive(Debug, Error)]
-pub enum RelayerError {
-    #[error("Utils error: {0}")]
-    Utils(#[from] UtilsError),
-    #[error("RPC error: {0}")]
-    RpcError(#[from] RpcError<TransportErrorKind>),
-    #[error("Alloy contract error: {0}")]
-    AlloyContract(#[from] alloy_contract::Error),
-    #[error("Pending transaction error: {0}")]
-    PendingTransaction(#[from] alloy::providers::PendingTransactionError),
-}
 
 sol!(
     #[sol(rpc)]
@@ -37,7 +20,7 @@ pub struct Relayer {
 }
 
 impl Relayer {
-    pub async fn new() -> Result<Self, RelayerError> {
+    pub async fn new() -> Result<Self> {
         // Load the private key and initialize the signer
         let signer: PrivateKeySigner = get_var("ACCOUNT_PRIVATE_KEY")?;
 
@@ -52,19 +35,15 @@ impl Relayer {
         // 2. Must be exactly 66 characters total (0x + 64 hex chars for Starknet)
         // 3. Must be a valid hex string
         if !addr_str.starts_with("0x") || addr_str.len() != 66 {
-            return Err(RelayerError::Utils(UtilsError::ParseError(format!(
+            return Err(eyre!(
                 "L2_MSG_PROXY: Invalid Starknet address format. Expected 0x + 64 hex chars, got {}",
                 addr_str
-            ))));
+            ));
         }
 
         // Now parse the validated hex string
-        let l2_recipient_addr = U256::from_str_radix(&addr_str[2..], 16).map_err(|e| {
-            RelayerError::Utils(UtilsError::ParseError(format!(
-                "L2_MSG_PROXY: Invalid hex characters in address: {}",
-                e
-            )))
-        })?;
+        let l2_recipient_addr = U256::from_str_radix(&addr_str[2..], 16)
+            .map_err(|e| eyre!("L2_MSG_PROXY: Invalid hex characters in address: {}", e))?;
 
         info!("Using L2 recipient address: {:?}", l2_recipient_addr);
 
@@ -74,7 +53,7 @@ impl Relayer {
         })
     }
 
-    pub async fn send_finalized_block_hash_to_l2(&self) -> Result<(), RelayerError> {
+    pub async fn send_finalized_block_hash_to_l2(&self) -> Result<()> {
         // Create the provider
         let provider_url = get_env_var("ETH_RPC_URL")?;
 
@@ -226,11 +205,10 @@ mod tests {
         let result = Relayer::new().await;
         assert!(result.is_err());
 
-        // Verify it's the expected error type
-        match result {
-            Err(RelayerError::Utils(_)) => (),
-            other => panic!("Expected Utils error, got {:?}", other),
-        }
+        // Just check that it's an error without expecting a specific type
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("environment variable not found"));
     }
 
     // Add a test to verify environment variable parsing
@@ -270,10 +248,8 @@ mod tests {
 
         let result = Relayer::new().await;
         assert!(result.is_err());
-        match result {
-            Err(RelayerError::Utils(_)) => (),
-            other => panic!("Expected Utils error, got {:?}", other),
-        }
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("invalid string length"));
     }
 
     #[tokio::test]
@@ -290,10 +266,8 @@ mod tests {
 
         let result = Relayer::new().await;
         assert!(result.is_err());
-        match result {
-            Err(RelayerError::Utils(_)) => (),
-            other => panic!("Expected Utils error, got {:?}", other),
-        }
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Invalid Starknet address format"));
     }
 
     #[tokio::test]

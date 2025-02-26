@@ -14,7 +14,6 @@ tracing = { workspace = true }
 tokio = { workspace = true, features = ["signal"] }
 starknet = { workspace = true }
 clap = { workspace = true }
-thiserror = { workspace = true }
 dotenv = { workspace = true }
 
 [dev-dependencies]

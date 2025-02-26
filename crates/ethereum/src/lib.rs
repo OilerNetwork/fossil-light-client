@@ -1,7 +1,8 @@
 #![deny(unused_crate_dependencies)]
 
 use alloy::{providers::ProviderBuilder, sol};
-use common::{get_env_var, UtilsError};
+use common::get_env_var;
+use eyre::{eyre, Result};
 use tokio::time::{sleep, Duration};
 
 // Codegen from embedded Solidity code and precompiled bytecode.
@@ -20,7 +21,7 @@ sol! {
 }
 
 #[allow(dead_code)]
-pub async fn get_finalized_block_hash() -> Result<(u64, String), UtilsError> {
+pub async fn get_finalized_block_hash() -> Result<(u64, String)> {
     let rpc_url = get_env_var("ETH_RPC_URL")?;
     const MAX_RETRIES: u32 = 3;
     const RETRY_DELAY: Duration = Duration::from_secs(1);
@@ -28,16 +29,11 @@ pub async fn get_finalized_block_hash() -> Result<(u64, String), UtilsError> {
     let mut attempts = 0;
     loop {
         attempts += 1;
-        let result: Result<(u64, String), UtilsError> = async {
+        let result: Result<(u64, String)> = async {
             let provider = ProviderBuilder::new()
                 .with_recommended_fillers()
                 .try_on_anvil_with_wallet_and_config(|anvil| anvil.fork(rpc_url.clone()))
-                .map_err(|e| {
-                    UtilsError::RetryExhausted(
-                        attempts,
-                        format!("Failed to setup Anvil provider: {}", e),
-                    )
-                })?;
+                .map_err(|e| eyre!("Failed to setup Anvil provider: {}", e))?;
 
             let contract = BlockHashFetcher::deploy(&provider).await?;
             let result = contract.getBlockHash().call().await?;
@@ -53,10 +49,7 @@ pub async fn get_finalized_block_hash() -> Result<(u64, String), UtilsError> {
             Ok(value) => return Ok(value),
             Err(e) => {
                 if attempts >= MAX_RETRIES {
-                    return Err(UtilsError::RetryExhausted(
-                        MAX_RETRIES,
-                        format!("get_finalized_block_hash failed: {}", e),
-                    ));
+                    return Err(eyre!("get_finalized_block_hash failed: {}", e));
                 }
                 tracing::error!(
                     attempts = attempts,
