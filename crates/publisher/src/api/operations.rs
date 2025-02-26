@@ -1,9 +1,7 @@
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 
-use crate::{
-    core::{AccumulatorBuilder, BatchProcessor, MMRStateManager, ProofGenerator},
-    errors::PublisherError,
-};
+use crate::core::{AccumulatorBuilder, BatchProcessor, MMRStateManager, ProofGenerator};
+use eyre::Result;
 use methods::{MMR_BUILD_ELF, MMR_BUILD_ID};
 
 pub async fn prove_mmr_update(
@@ -16,7 +14,7 @@ pub async fn prove_mmr_update(
     batch_size: u64,
     start_block: u64,
     end_block: u64,
-) -> Result<(), PublisherError> {
+) -> Result<()> {
     let starknet_provider = StarknetProvider::new(rpc_url)?;
     let starknet_account = StarknetAccount::new(
         starknet_provider.provider(),
@@ -68,7 +66,7 @@ pub async fn update_mmr(
     batch_size: u64,
     start_block: u64,
     end_block: u64,
-) -> Result<Option<String>, PublisherError> {
+) -> Result<Option<String>> {
     let starknet_provider = StarknetProvider::new(rpc_url)?;
     let starknet_account = StarknetAccount::new(
         starknet_provider.provider(),

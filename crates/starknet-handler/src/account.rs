@@ -1,3 +1,5 @@
+use common::felt;
+use eyre::Result;
 use starknet::macros::selector;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
@@ -9,10 +11,6 @@ use starknet_crypto::Felt;
 use std::{sync::Arc, time::Duration};
 use tracing::{debug, info, instrument, warn};
 
-use common::felt;
-
-use crate::StarknetHandlerError;
-
 pub struct StarknetAccount {
     account: SingleOwnerAccount<Arc<JsonRpcClient<HttpTransport>>, LocalWallet>,
 }
@@ -23,7 +21,7 @@ impl StarknetAccount {
         provider: Arc<JsonRpcClient<HttpTransport>>,
         account_private_key: &str,
         account_address: &str,
-    ) -> Result<Self, StarknetHandlerError> {
+    ) -> Result<Self> {
         debug!("Creating new Starknet account");
 
         let private_key = felt(account_private_key)?;
@@ -57,7 +55,7 @@ impl StarknetAccount {
         proof: Vec<Felt>,
         ipfs_hash: String,
         is_build: bool,
-    ) -> Result<Felt, StarknetHandlerError> {
+    ) -> Result<Felt> {
         const MAX_RETRIES: u32 = 3;
         const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
 

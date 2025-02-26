@@ -1,9 +1,9 @@
 {
   "chain": "ethereum",
   "rpc_url": "http://anvil:8545",
-  "contract_address": "0x348a1d9C3EDBaD6B0fC959518A22c7d168825F94",
+  "contract_address": "0x0129d38A12aFd6Fe1d35B17A0691682128874496",
   "sender_address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "private_key": "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
   "interval": 2,
-  "from_block": 7780699
+  "from_block": 7786515
 }

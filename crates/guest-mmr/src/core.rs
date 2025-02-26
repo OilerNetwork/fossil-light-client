@@ -1,34 +1,12 @@
+use eyre::{eyre, Result};
 use guest_types::{AppendResult, GuestProof};
 use std::collections::{HashMap, VecDeque};
-use thiserror::Error;
 
-use crate::formatting::{FormattingError, ProofOptions};
+use crate::formatting::ProofOptions;
 use crate::helper::{
     element_index_to_leaf_index, find_peaks, find_siblings, get_peak_info, hasher,
     leaf_count_to_append_no_merges, leaf_count_to_peaks_count, mmr_size_to_leaf_count,
 };
-
-#[derive(Error, Debug)]
-pub enum MMRError {
-    #[error("No hash found for index {0}")]
-    NoHashFoundForIndex(usize),
-    #[error("Insufficient peaks for merge")]
-    InsufficientPeaksForMerge,
-    #[error("From hex error: {0}")]
-    FromHexError(#[from] hex::FromHexError),
-    #[error("Parse big int error: {0}")]
-    ParseBigIntError(#[from] num_bigint::ParseBigIntError),
-    #[error("Hash error")]
-    HashError,
-    #[error("Invalid element index")]
-    InvalidElementIndex,
-    #[error("Invalid element count")]
-    InvalidElementCount,
-    #[error("Formatting error: {0}")]
-    FormattingError(#[from] FormattingError),
-    #[error("Invalid peaks count")]
-    InvalidPeaksCount,
-}
 
 #[derive(Debug)]
 pub struct GuestMMR {
@@ -73,7 +51,7 @@ impl GuestMMR {
         self.leaves_count
     }
 
-    pub fn append(&mut self, value: String) -> Result<AppendResult, MMRError> {
+    pub fn append(&mut self, value: String) -> Result<AppendResult> {
         let elements_count = self.elements_count;
 
         let mut peaks = self.retrieve_peaks_hashes(find_peaks(elements_count))?;
@@ -90,14 +68,18 @@ impl GuestMMR {
 
         for _ in 0..no_merges {
             if peaks.len() < 2 {
-                return Err(MMRError::InsufficientPeaksForMerge);
+                return Err(eyre!("InsufficientPeaksForMerge: {}", peaks.len()));
             }
 
             last_element_idx += 1;
 
             // Pop the last two peaks to merge
-            let right_hash = peaks.pop().ok_or(MMRError::InsufficientPeaksForMerge)?;
-            let left_hash = peaks.pop().ok_or(MMRError::InsufficientPeaksForMerge)?;
+            let right_hash = peaks
+                .pop()
+                .ok_or(eyre!("InsufficientPeaksForMerge: {}", peaks.len()))?;
+            let left_hash = peaks
+                .pop()
+                .ok_or(eyre!("InsufficientPeaksForMerge: {}", peaks.len()))?;
 
             let parent_hash = hasher(vec![left_hash, right_hash])?;
             self.hashes.insert(last_element_idx, parent_hash.clone());
@@ -119,15 +101,15 @@ impl GuestMMR {
         ))
     }
 
-    pub fn get_proof(&self, element_index: usize) -> Result<GuestProof, MMRError> {
+    pub fn get_proof(&self, element_index: usize) -> Result<GuestProof> {
         if element_index == 0 {
-            return Err(MMRError::InvalidElementIndex);
+            return Err(eyre!("InvalidElementIndex: {}", element_index));
         }
 
         let tree_size = self.elements_count;
 
         if element_index > tree_size {
-            return Err(MMRError::InvalidElementIndex);
+            return Err(eyre!("InvalidElementIndex: {}", element_index));
         }
 
         let peaks = find_peaks(tree_size);
@@ -141,7 +123,7 @@ impl GuestMMR {
         let element_hash = self
             .hashes
             .get(&element_index)
-            .ok_or(MMRError::NoHashFoundForIndex(element_index))?;
+            .ok_or(eyre!("NoHashFoundForIndex({})", element_index))?;
 
         Ok(GuestProof {
             element_index,
@@ -157,7 +139,7 @@ impl GuestMMR {
         mut proof: GuestProof,
         element_value: String,
         options: Option<ProofOptions>,
-    ) -> Result<bool, MMRError> {
+    ) -> Result<bool> {
         let options = options.unwrap_or_default();
         let tree_size = match options.elements_count {
             Some(count) => count,
@@ -168,7 +150,7 @@ impl GuestMMR {
         let peaks_count = leaf_count_to_peaks_count(leaf_count);
 
         if peaks_count as usize != proof.peaks_hashes.len() {
-            return Err(MMRError::InvalidPeaksCount);
+            return Err(eyre!("InvalidPeaksCount: {}", peaks_count));
         }
 
         if let Some(formatting_opts) = options.formatting_opts {
@@ -196,11 +178,11 @@ impl GuestMMR {
         let element_index = proof.element_index;
 
         if element_index == 0 {
-            return Err(MMRError::InvalidElementIndex);
+            return Err(eyre!("InvalidElementIndex: {}", element_index));
         }
 
         if element_index > tree_size {
-            return Err(MMRError::InvalidElementIndex);
+            return Err(eyre!("InvalidElementIndex: {}", element_index));
         }
 
         let (peak_index, peak_height) = get_peak_info(tree_size, element_index);
@@ -227,7 +209,7 @@ impl GuestMMR {
         Ok(peak_hashes[peak_index] == hash)
     }
 
-    fn retrieve_peaks_hashes(&self, peak_idxs: Vec<usize>) -> Result<Vec<String>, MMRError> {
+    fn retrieve_peaks_hashes(&self, peak_idxs: Vec<usize>) -> Result<Vec<String>> {
         let mut peaks = Vec::new();
 
         for &idx in &peak_idxs {
@@ -235,14 +217,14 @@ impl GuestMMR {
             if let Some(hash) = self.hashes.get(&idx) {
                 peaks.push(hash.clone());
             } else {
-                return Err(MMRError::NoHashFoundForIndex(idx));
+                return Err(eyre!("NoHashFoundForIndex({})", idx));
             }
         }
 
         Ok(peaks)
     }
 
-    pub fn bag_the_peaks(&self) -> Result<String, MMRError> {
+    pub fn bag_the_peaks(&self) -> Result<String> {
         let peaks_idxs = find_peaks(self.elements_count);
 
         let peaks_hashes = self.retrieve_peaks_hashes(peaks_idxs)?;
@@ -254,10 +236,10 @@ impl GuestMMR {
                 let mut peaks_hashes: VecDeque<String> = peaks_hashes.into();
                 let last = peaks_hashes
                     .pop_back()
-                    .ok_or(MMRError::InsufficientPeaksForMerge)?;
+                    .ok_or(eyre!("InsufficientPeaksForMerge: {}", peaks_hashes.len()))?;
                 let second_last = peaks_hashes
                     .pop_back()
-                    .ok_or(MMRError::InsufficientPeaksForMerge)?;
+                    .ok_or(eyre!("InsufficientPeaksForMerge: {}", peaks_hashes.len()))?;
                 let root0 = hasher(vec![second_last, last])?;
 
                 peaks_hashes
@@ -268,12 +250,12 @@ impl GuestMMR {
         }
     }
 
-    pub fn calculate_root_hash(&self, elements_count: usize) -> Result<String, MMRError> {
+    pub fn calculate_root_hash(&self, elements_count: usize) -> Result<String> {
         let bag = self.bag_the_peaks()?;
 
         match hasher(vec![elements_count.to_string(), bag.to_string()]) {
             Ok(root_hash) => Ok(root_hash),
-            Err(_) => Err(MMRError::HashError),
+            Err(_) => Err(eyre!("HashError: {}", bag)),
         }
     }
 
@@ -287,14 +269,14 @@ impl GuestMMR {
         hashes
     }
 
-    pub fn get_many_hashes(&self, idxs: &[usize]) -> Result<Vec<String>, MMRError> {
+    pub fn get_many_hashes(&self, idxs: &[usize]) -> Result<Vec<String>> {
         let mut hashes = Vec::new();
         for &idx in idxs {
             hashes.push(
                 self.hashes
                     .get(&idx)
                     .cloned()
-                    .ok_or(MMRError::NoHashFoundForIndex(idx))?,
+                    .ok_or(eyre!("NoHashFoundForIndex({})", idx))?,
             );
         }
         Ok(hashes)
@@ -362,10 +344,10 @@ mod tests {
         let mmr = create_test_mmr();
 
         let result = mmr.get_proof(0);
-        assert!(matches!(result, Err(MMRError::InvalidElementIndex)));
+        assert!(matches!(result, Err(e) if e.to_string().contains("InvalidElementIndex: 0")));
 
         let result = mmr.get_proof(999);
-        assert!(matches!(result, Err(MMRError::InvalidElementIndex)));
+        assert!(matches!(result, Err(e) if e.to_string().contains("InvalidElementIndex: 999")));
     }
 
     #[test]
@@ -387,7 +369,7 @@ mod tests {
 
         // Test with invalid index
         let result = mmr.get_many_hashes(&[999]);
-        assert!(matches!(result, Err(MMRError::NoHashFoundForIndex(_))));
+        assert!(matches!(result, Err(e) if e.to_string() == "NoHashFoundForIndex(999)"));
     }
 
     #[test]

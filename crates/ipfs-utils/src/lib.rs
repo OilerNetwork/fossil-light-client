@@ -1,38 +1,18 @@
 #![deny(unused_crate_dependencies)]
 
 use dotenv::dotenv;
+use eyre::{eyre, Result};
 use serde_json;
 use std::env;
 use std::fs;
 use std::io::Write;
 use std::path::Path;
 use std::str;
-use thiserror::Error;
 use tokio::task;
 use tracing::{info, warn};
 
 // Define constant for max file size (50MB)
 pub const DEFAULT_MAX_FILE_SIZE: usize = 50 * 1024 * 1024;
-
-#[derive(Error, Debug)]
-pub enum IpfsError {
-    #[error("Failed to connect to IPFS node: {0}")]
-    ConnectionError(String),
-    #[error("File operation failed: {0}")]
-    FileError(#[from] std::io::Error),
-    #[error("Backend operation failed: {0}")]
-    BackendError(String),
-    #[error("Invalid IPFS hash: {0}")]
-    InvalidHash(String),
-    #[error("Response error: {0}")]
-    ResponseError(String),
-    #[error("JSON parsing error: {0}")]
-    JsonError(#[from] serde_json::Error),
-    #[error("Curl operation failed: {0}")]
-    CurlError(#[from] curl::Error),
-    #[error("Environment variable not found: {0}")]
-    EnvError(String),
-}
 
 #[derive(Clone)]
 pub struct IpfsManager {
@@ -43,21 +23,19 @@ pub struct IpfsManager {
 }
 
 impl IpfsManager {
-    pub fn with_endpoint() -> Result<Self, IpfsError> {
+    pub fn with_endpoint() -> Result<Self> {
         // Load environment variables
         dotenv().ok();
 
         // Get IPFS configuration from environment variables
-        let add_url = env::var("IPFS_ADD_URL").map_err(|_| {
-            IpfsError::EnvError("IPFS_ADD_URL not found in environment".to_string())
-        })?;
+        let add_url =
+            env::var("IPFS_ADD_URL").map_err(|_| eyre!("IPFS_ADD_URL not found in environment"))?;
 
-        let fetch_base_url = env::var("IPFS_FETCH_BASE_URL").map_err(|_| {
-            IpfsError::EnvError("IPFS_FETCH_BASE_URL not found in environment".to_string())
-        })?;
+        let fetch_base_url = env::var("IPFS_FETCH_BASE_URL")
+            .map_err(|_| eyre!("IPFS_FETCH_BASE_URL not found in environment"))?;
 
-        let token = env::var("IPFS_TOKEN")
-            .map_err(|_| IpfsError::EnvError("IPFS_TOKEN not found in environment".to_string()))?;
+        let token =
+            env::var("IPFS_TOKEN").map_err(|_| eyre!("IPFS_TOKEN not found in environment"))?;
 
         // Use default max file size
         Ok(IpfsManager {
@@ -68,15 +46,12 @@ impl IpfsManager {
         })
     }
 
-    pub async fn upload_db(&self, file_path: &Path) -> Result<String, IpfsError> {
-        let metadata = fs::metadata(file_path).map_err(IpfsError::FileError)?;
+    pub async fn upload_db(&self, file_path: &Path) -> Result<String> {
+        let metadata = fs::metadata(file_path).map_err(|_| eyre!("File operation failed"))?;
 
         let contents = fs::read(&file_path)?;
         if !contents.starts_with(b"SQLite format 3\0") {
-            return Err(IpfsError::FileError(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "File is not a valid SQLite database",
-            )));
+            return Err(eyre!("File is not a valid SQLite database"));
         }
 
         if metadata.len() as usize > self.max_file_size {
@@ -85,11 +60,11 @@ impl IpfsManager {
                 metadata.len(),
                 self.max_file_size
             );
-            return Err(IpfsError::BackendError(format!(
+            return Err(eyre!(
                 "File size {} bytes exceeds maximum allowed size {} bytes",
                 metadata.len(),
                 self.max_file_size,
-            )));
+            ));
         }
 
         let mut easy = curl::easy::Easy::new();
@@ -106,11 +81,13 @@ impl IpfsManager {
         // Set up the form data
         let mut form = curl::easy::Form::new();
         form.part("file")
-            .file(file_path.to_str().ok_or_else(|| {
-                IpfsError::BackendError("Invalid file path (non-UTF8)".to_string())
-            })?)
+            .file(
+                file_path
+                    .to_str()
+                    .ok_or_else(|| eyre!("Invalid file path (non-UTF8)"))?,
+            )
             .add()
-            .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            .map_err(|e| eyre!(e.to_string()))?;
         easy.httppost(form)?;
 
         // Capture the response
@@ -127,27 +104,28 @@ impl IpfsManager {
         // Check response code
         let response_code = easy.response_code()?;
         if response_code != 200 {
-            return Err(IpfsError::ResponseError(format!(
+            return Err(eyre!(
                 "HTTP error: {} for URL: {}",
-                response_code, self.add_url
-            )));
+                response_code,
+                self.add_url
+            ));
         }
 
         // Parse response
         let response_str = str::from_utf8(&response_data)
-            .map_err(|e| IpfsError::ResponseError(format!("Invalid UTF-8 sequence: {}", e)))?;
+            .map_err(|e| eyre!(format!("Invalid UTF-8 sequence: {}", e)))?;
         let response_json: serde_json::Value = serde_json::from_str(response_str)?;
 
         let hash = response_json["Hash"]
             .as_str()
-            .ok_or_else(|| IpfsError::BackendError("No hash in response".to_string()))?
+            .ok_or_else(|| eyre!("No hash in response"))?
             .to_string();
 
         info!("IPFS upload completed successfully, CID: {}", hash);
         Ok(hash)
     }
 
-    pub async fn fetch_db(&self, hash: &str, output_path: &Path) -> Result<(), IpfsError> {
+    pub async fn fetch_db(&self, hash: &str, output_path: &Path) -> Result<()> {
         let fetch_url = format!("{}{}", self.fetch_base_url, hash);
 
         let mut easy = curl::easy::Easy::new();
@@ -177,35 +155,35 @@ impl IpfsManager {
         if response_code != 200 {
             // Clean up failed download
             std::fs::remove_file(&output_path)?;
-            return Err(IpfsError::ResponseError(format!(
+            return Err(eyre!(
                 "HTTP error: {} for URL: {}",
-                response_code, fetch_url
-            )));
+                response_code,
+                fetch_url
+            ));
         }
 
         Ok(())
     }
 
-    pub async fn check_connection(&self) -> Result<(), IpfsError> {
+    pub async fn check_connection(&self) -> Result<()> {
         // Extract the base URL from add_url (remove the "/api/v0/add" part)
-        let base_url =
-            self.add_url.split("/api/v0/").next().ok_or_else(|| {
-                IpfsError::BackendError("Invalid IPFS_ADD_URL format".to_string())
-            })?;
+        let base_url = self
+            .add_url
+            .split("/api/v0/")
+            .next()
+            .ok_or_else(|| eyre!("Invalid IPFS_ADD_URL format: {}", self.add_url))?;
 
         let version_url = format!("{}/api/v0/version", base_url);
         let token = self.token.clone();
 
-        task::spawn_blocking(move || -> Result<(), IpfsError> {
+        task::spawn_blocking(move || -> Result<()> {
             let mut easy = curl::easy::Easy::new();
-            easy.url(&version_url)
-                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+            easy.url(&version_url).map_err(|e| eyre!(e.to_string()))?;
             let header_value = format!("Authorization: Bearer {}", token);
             let mut list = curl::easy::List::new();
             list.append(&header_value)
-                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-            easy.http_headers(list)
-                .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+                .map_err(|e| eyre!(e.to_string()))?;
+            easy.http_headers(list).map_err(|e| eyre!(e.to_string()))?;
             let mut response_data = Vec::new();
             {
                 let mut transfer = easy.transfer();
@@ -214,15 +192,13 @@ impl IpfsManager {
                         response_data.extend_from_slice(data);
                         Ok(data.len())
                     })
-                    .map_err(|e| IpfsError::BackendError(e.to_string()))?;
-                transfer
-                    .perform()
-                    .map_err(|e| IpfsError::BackendError(e.to_string()))?;
+                    .map_err(|e| eyre!(e.to_string()))?;
+                transfer.perform().map_err(|e| eyre!(e.to_string()))?;
             }
             Ok(())
         })
         .await
-        .map_err(|e| IpfsError::BackendError(e.to_string()))??;
+        .map_err(|e| eyre!(e.to_string()))??;
         Ok(())
     }
 }
@@ -277,8 +253,8 @@ mod tests {
         assert!(result.is_err());
 
         match result {
-            Err(IpfsError::FileError(e)) => {
-                assert_eq!(e.kind(), std::io::ErrorKind::InvalidData);
+            Err(e) => {
+                assert_eq!(e.to_string(), "File is not a valid SQLite database");
             }
             _ => panic!("Expected FileError with InvalidData kind"),
         }
@@ -298,8 +274,8 @@ mod tests {
         assert!(result.is_err());
 
         match result {
-            Err(IpfsError::BackendError(msg)) => {
-                assert!(msg.contains("exceeds maximum allowed size"));
+            Err(e) => {
+                assert!(e.to_string().contains("exceeds maximum allowed size"));
             }
             _ => panic!("Expected BackendError about file size"),
         }
@@ -381,19 +357,16 @@ mod tests {
     #[tokio::test]
     async fn test_error_handling() {
         // Test IpfsError Display implementation
-        let error = IpfsError::ConnectionError("test error".to_string());
+        let error = eyre!("Failed to connect to IPFS node: test error");
         assert_eq!(
             error.to_string(),
             "Failed to connect to IPFS node: test error"
         );
 
-        let error = IpfsError::FileError(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "file not found",
-        ));
+        let error = eyre!("File operation failed: file not found");
         assert_eq!(error.to_string(), "File operation failed: file not found");
 
-        let error = IpfsError::InvalidHash("invalid hash".to_string());
+        let error = eyre!("Invalid IPFS hash: invalid hash");
         assert_eq!(error.to_string(), "Invalid IPFS hash: invalid hash");
     }
 }

@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  build-mmr:
+    image: fossil-build-mmr:latest
+    container_name: fossil-build-mmr
+    volumes:
+      - ./:/app
+    command: ["--num-batches", "${NUM_BATCHES:-2}", "--env-file", "${ENV_FILE:-/app/.env.docker}"]
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+      - NUM_BATCHES=${NUM_BATCHES:-1}
+      - ETHEREUM_RPC_URL=http://anvil:8545
+    env_file:
+      - ${ENV_FILE:-.env}
+    networks:
+      - fossil-network
+
+networks:
+  fossil-network:
+    external: true
+    name: fossil-network 

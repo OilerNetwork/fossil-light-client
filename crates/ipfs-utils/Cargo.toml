@@ -12,6 +12,6 @@ curl = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
 serde_json = { workspace = true }
 dotenv = { workspace = true }
-
+eyre = { workspace = true }
 [dev-dependencies]
 tempfile = { workspace = true }

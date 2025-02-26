@@ -3,7 +3,7 @@ use num_traits::Num;
 use sha2::{Digest, Sha256};
 use std::str::FromStr;
 
-use crate::core::MMRError;
+use eyre::{eyre, Result};
 
 pub fn find_peaks(mut elements_count: usize) -> Vec<usize> {
     let mut mountain_elements_count = (1 << bit_length(elements_count)) - 1;
@@ -50,7 +50,7 @@ pub fn leaf_count_to_append_no_merges(leaf_count: usize) -> usize {
     (!leaf_count).trailing_zeros() as usize
 }
 
-pub fn hasher(data: Vec<String>) -> Result<String, MMRError> {
+pub fn hasher(data: Vec<String>) -> Result<String> {
     let mut sha2 = Sha256::new();
 
     //? We deliberately don't validate the size of the elements here, because we want to allow hashing of the RLP encoded block to get a block hash
@@ -83,7 +83,7 @@ pub fn hasher(data: Vec<String>) -> Result<String, MMRError> {
     Ok(format!("0x{:0>64}", hex::encode(hash)))
 }
 
-pub fn find_siblings(element_index: usize, elements_count: usize) -> Result<Vec<usize>, MMRError> {
+pub fn find_siblings(element_index: usize, elements_count: usize) -> Result<Vec<usize>> {
     let mut leaf_index = element_index_to_leaf_index(element_index)?;
     let mut height = 0;
     let mut siblings = Vec::new();
@@ -108,14 +108,14 @@ pub fn find_siblings(element_index: usize, elements_count: usize) -> Result<Vec<
     Ok(siblings)
 }
 
-pub fn element_index_to_leaf_index(element_index: usize) -> Result<usize, MMRError> {
+pub fn element_index_to_leaf_index(element_index: usize) -> Result<usize> {
     if element_index == 0 {
-        return Err(MMRError::InvalidElementIndex);
+        return Err(eyre!("InvalidElementIndex: {}", element_index));
     }
     elements_count_to_leaf_count(element_index - 1)
 }
 
-pub fn elements_count_to_leaf_count(elements_count: usize) -> Result<usize, MMRError> {
+pub fn elements_count_to_leaf_count(elements_count: usize) -> Result<usize> {
     let mut leaf_count = 0;
     let mut mountain_leaf_count = 1 << bit_length(elements_count);
     let mut current_elements_count = elements_count;
@@ -130,7 +130,7 @@ pub fn elements_count_to_leaf_count(elements_count: usize) -> Result<usize, MMRE
     }
 
     if current_elements_count > 0 {
-        Err(MMRError::InvalidElementCount)
+        Err(eyre!("InvalidElementCount: {}", current_elements_count))
     } else {
         Ok(leaf_count)
     }

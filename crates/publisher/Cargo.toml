@@ -13,7 +13,7 @@ path = "bin/build_mmr.rs"
 
 [[bin]]
 name = "mmr-benchmark"
-path = "benches/mmr_benchmark.rs"
+path = "bin/mmr_benchmark.rs"
 
 [dependencies]
 clap = { workspace = true }
@@ -32,7 +32,6 @@ risc0-ethereum-contracts = { workspace = true }
 risc0-zkvm = { workspace = true }
 serde = { workspace = true }
 sqlx = { workspace = true }
-starknet = { workspace = true }
 starknet-crypto = { workspace = true }
 starknet-handler = { path = "../starknet-handler" }
 starknet-types-core = { workspace = true }

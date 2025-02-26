@@ -7,8 +7,6 @@ pub mod api;
 pub mod cli;
 pub mod core;
 pub mod db;
-pub mod errors;
 pub mod utils;
 
 pub use api::operations::prove_mmr_update;
-pub use errors::PublisherError;

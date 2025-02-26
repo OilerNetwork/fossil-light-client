@@ -3,37 +3,10 @@
 use crypto_bigint::U256 as CryptoBigIntU256;
 pub mod account;
 pub mod provider;
-use starknet::accounts::single_owner::SignError;
-use starknet::accounts::AccountError;
+use eyre::{eyre, Result};
 use starknet::core::codec::{Decode, Encode};
 use starknet::core::types::{ByteArray, U256};
-use starknet::signers::local_wallet::SignError as LocalWalletSignError;
-use thiserror::Error;
 use tracing::{debug, instrument};
-
-#[derive(Error, Debug)]
-pub enum StarknetHandlerError {
-    #[error("Failed to parse: {0}")]
-    ParseError(#[from] url::ParseError),
-    #[error("Failed to create selector: {0}")]
-    SelectorError(String),
-    #[error("Failed to execute transaction: {0}")]
-    TransactionError(String),
-    #[error("Starknet error: {0}")]
-    Starknet(#[from] SignError<LocalWalletSignError>),
-    #[error("Account error: {0}")]
-    Account(#[from] AccountError<SignError<LocalWalletSignError>>),
-    #[error("Utils error: {0}")]
-    Utils(#[from] common::UtilsError),
-    #[error("Encode error: {0}")]
-    Encode(#[from] starknet::core::codec::Error),
-    #[error("Error parsing int: {0}")]
-    ParseIntError(#[from] std::num::ParseIntError),
-    #[error("Provider error: {0}")]
-    Provider(#[from] starknet::providers::ProviderError),
-    #[error("Felt conversion error: {0}")]
-    FeltConversion(#[from] starknet::core::types::FromStrError),
-}
 
 #[derive(Clone, Debug, Encode, Decode)]
 pub struct MmrSnapshot {
@@ -121,21 +94,17 @@ impl MmrState {
 }
 
 #[instrument(level = "debug")]
-pub fn u256_from_hex(hex: &str) -> Result<U256, StarknetHandlerError> {
+pub fn u256_from_hex(hex: &str) -> Result<U256> {
     let hex_clean = hex.strip_prefix("0x").unwrap_or(hex);
 
     // Validate hex string length
     if hex_clean.len() != 64 {
-        return Err(StarknetHandlerError::ParseError(
-            url::ParseError::InvalidPort,
-        )); // Reusing existing error type
+        return Err(eyre!("Invalid hex string length: {}", hex_clean.len()));
     }
 
     // Validate hex characters
     if !hex_clean.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(StarknetHandlerError::ParseError(
-            url::ParseError::InvalidPort,
-        ));
+        return Err(eyre!("Invalid hex characters: {}", hex_clean));
     }
 
     let crypto_bigint = CryptoBigIntU256::from_be_hex(hex_clean);
