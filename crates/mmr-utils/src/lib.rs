@@ -43,7 +43,7 @@ impl StoreManager {
         .execute(&pool)
         .await?;
 
-        let manager = StoreManager {
+        let manager = Self {
             stores: Mutex::new(HashMap::new()),
         };
 
@@ -162,7 +162,7 @@ pub async fn initialize_mmr(store_path: &str) -> Result<(StoreManager, MMR, Sqli
     };
 
     let hasher = Arc::new(Sha2Hasher::new());
-    let mmr = MMR::new(store, hasher, Some(mmr_id.clone()));
+    let mmr = MMR::new(store, hasher, Some(mmr_id));
 
     Ok((store_manager, mmr, pool))
 }
@@ -204,7 +204,7 @@ pub fn create_database_file(current_dir: &Path, db_file_counter: usize) -> Resul
     let store_path = current_dir.join(format!("{}.db", db_file_counter));
     let store_path_str = store_path
         .to_str()
-        .ok_or(eyre!("Invalid path: {:?}", store_path))?;
+        .ok_or_else(|| eyre!("Invalid path: {:?}", store_path))?;
 
     if !Path::new(store_path_str).exists() {
         File::create(store_path_str)?;

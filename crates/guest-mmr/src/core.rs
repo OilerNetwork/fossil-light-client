@@ -30,7 +30,7 @@ impl GuestMMR {
             elements_count,
             leaves_count,
             hashes,
-            root_hash: "".to_string(),
+            root_hash: String::new(),
         }
     }
 
@@ -39,15 +39,15 @@ impl GuestMMR {
             elements_count: 0,
             leaves_count: 0,
             hashes: HashMap::new(),
-            root_hash: "".to_string(),
+            root_hash: String::new(),
         }
     }
 
-    pub fn get_elements_count(&self) -> usize {
+    pub const fn get_elements_count(&self) -> usize {
         self.elements_count
     }
 
-    pub fn get_leaves_count(&self) -> usize {
+    pub const fn get_leaves_count(&self) -> usize {
         self.leaves_count
     }
 
@@ -76,10 +76,10 @@ impl GuestMMR {
             // Pop the last two peaks to merge
             let right_hash = peaks
                 .pop()
-                .ok_or(eyre!("InsufficientPeaksForMerge: {}", peaks.len()))?;
+                .ok_or_else(|| eyre!("InsufficientPeaksForMerge: {}", peaks.len()))?;
             let left_hash = peaks
                 .pop()
-                .ok_or(eyre!("InsufficientPeaksForMerge: {}", peaks.len()))?;
+                .ok_or_else(|| eyre!("InsufficientPeaksForMerge: {}", peaks.len()))?;
 
             let parent_hash = hasher(vec![left_hash, right_hash])?;
             self.hashes.insert(last_element_idx, parent_hash.clone());
@@ -123,7 +123,7 @@ impl GuestMMR {
         let element_hash = self
             .hashes
             .get(&element_index)
-            .ok_or(eyre!("NoHashFoundForIndex({})", element_index))?;
+            .ok_or_else(|| eyre!("NoHashFoundForIndex({})", element_index))?;
 
         Ok(GuestProof {
             element_index,
@@ -190,10 +190,10 @@ impl GuestMMR {
             return Ok(false);
         }
 
-        let mut hash = element_value.clone();
+        let mut hash = element_value;
         let mut leaf_index = element_index_to_leaf_index(element_index)?;
 
-        for proof_hash in proof.siblings_hashes.iter() {
+        for proof_hash in &proof.siblings_hashes {
             let is_right = leaf_index % 2 == 1;
             leaf_index /= 2;
 
@@ -236,10 +236,10 @@ impl GuestMMR {
                 let mut peaks_hashes: VecDeque<String> = peaks_hashes.into();
                 let last = peaks_hashes
                     .pop_back()
-                    .ok_or(eyre!("InsufficientPeaksForMerge: {}", peaks_hashes.len()))?;
+                    .ok_or_else(|| eyre!("InsufficientPeaksForMerge: {}", peaks_hashes.len()))?;
                 let second_last = peaks_hashes
                     .pop_back()
-                    .ok_or(eyre!("InsufficientPeaksForMerge: {}", peaks_hashes.len()))?;
+                    .ok_or_else(|| eyre!("InsufficientPeaksForMerge: {}", peaks_hashes.len()))?;
                 let root0 = hasher(vec![second_last, last])?;
 
                 peaks_hashes
@@ -276,7 +276,7 @@ impl GuestMMR {
                 self.hashes
                     .get(&idx)
                     .cloned()
-                    .ok_or(eyre!("NoHashFoundForIndex({})", idx))?,
+                    .ok_or_else(|| eyre!("NoHashFoundForIndex({})", idx))?,
             );
         }
         Ok(hashes)

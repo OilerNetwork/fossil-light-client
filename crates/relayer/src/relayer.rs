@@ -25,7 +25,7 @@ impl Relayer {
         let signer: PrivateKeySigner = get_var("ACCOUNT_PRIVATE_KEY")?;
 
         // Create the wallet
-        let wallet = EthereumWallet::from(signer.clone());
+        let wallet = EthereumWallet::from(signer);
 
         // Get the L2 proxy address as a string first
         let addr_str = get_env_var("L2_MSG_PROXY")?;

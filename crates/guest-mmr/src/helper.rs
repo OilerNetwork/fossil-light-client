@@ -26,11 +26,11 @@ pub fn find_peaks(mut elements_count: usize) -> Vec<usize> {
     peaks
 }
 
-pub fn leaf_count_to_peaks_count(leaf_count: usize) -> u32 {
+pub const fn leaf_count_to_peaks_count(leaf_count: usize) -> u32 {
     count_ones(leaf_count) as u32
 }
 
-pub(crate) fn count_ones(mut value: usize) -> usize {
+pub(crate) const fn count_ones(mut value: usize) -> usize {
     let mut ones_count = 0;
     while value > 0 {
         value &= value - 1;
@@ -39,11 +39,11 @@ pub(crate) fn count_ones(mut value: usize) -> usize {
     ones_count
 }
 
-fn bit_length(num: usize) -> usize {
+pub(crate) const fn bit_length(num: usize) -> usize {
     (std::mem::size_of::<usize>() * 8) - num.leading_zeros() as usize
 }
 
-pub fn leaf_count_to_append_no_merges(leaf_count: usize) -> usize {
+pub(crate) const fn leaf_count_to_append_no_merges(leaf_count: usize) -> usize {
     if leaf_count == 0 {
         return 0;
     }
@@ -62,7 +62,7 @@ pub fn hasher(data: Vec<String>) -> Result<String> {
     } else {
         let mut result: Vec<u8> = Vec::new();
 
-        for e in data.iter() {
+        for e in &data {
             let bigint = if e.starts_with("0x") || e.starts_with("0X") {
                 // Parse hexadecimal
                 BigInt::from_str_radix(&e[2..], 16)?
@@ -136,7 +136,7 @@ pub fn elements_count_to_leaf_count(elements_count: usize) -> Result<usize> {
     }
 }
 
-pub fn mmr_size_to_leaf_count(mmr_size: usize) -> usize {
+pub const fn mmr_size_to_leaf_count(mmr_size: usize) -> usize {
     let mut remaining_size = mmr_size;
     let bits = bit_length(remaining_size + 1);
     let mut mountain_tips = 1 << (bits - 1); // Using bitwise shift to calculate 2^(bits-1)
@@ -154,7 +154,7 @@ pub fn mmr_size_to_leaf_count(mmr_size: usize) -> usize {
     leaf_count
 }
 
-pub fn get_peak_info(mut elements_count: usize, mut element_index: usize) -> (usize, usize) {
+pub const fn get_peak_info(mut elements_count: usize, mut element_index: usize) -> (usize, usize) {
     let mut mountain_height = bit_length(elements_count);
     let mut mountain_elements_count = (1 << mountain_height) - 1;
     let mut mountain_index = 0;

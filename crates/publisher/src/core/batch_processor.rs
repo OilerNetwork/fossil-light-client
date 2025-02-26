@@ -456,6 +456,10 @@ fn group_headers_by_hour(headers: Vec<BlockHeader>) -> Vec<(i64, Vec<BlockHeader
                 if !current_group.is_empty() {
                     // Find timestamp closest to the hour
                     let representative_timestamp = h * 3600;
+                    info!(
+                        "Representative timestamp for hour {} is: {}",
+                        hour, representative_timestamp
+                    );
                     grouped_headers
                         .push((representative_timestamp, std::mem::take(&mut current_group)));
                 }

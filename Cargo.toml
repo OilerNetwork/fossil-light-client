@@ -14,6 +14,10 @@ members = [
     "crates/ipfs-utils",
 ]
 
+# Add this section to exclude methods from clippy checks
+[workspace.metadata]
+exclude-clippy = ["methods"]
+
 # Always optimize; building and running the guest takes much longer without optimization.
 [profile.dev]
 opt-level = 3

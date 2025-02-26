@@ -2,7 +2,6 @@
 
 use dotenv::dotenv;
 use eyre::{eyre, Result};
-use serde_json;
 use std::env;
 use std::fs;
 use std::io::Write;
@@ -38,7 +37,7 @@ impl IpfsManager {
             env::var("IPFS_TOKEN").map_err(|_| eyre!("IPFS_TOKEN not found in environment"))?;
 
         // Use default max file size
-        Ok(IpfsManager {
+        Ok(Self {
             add_url,
             fetch_base_url,
             token,
@@ -49,7 +48,7 @@ impl IpfsManager {
     pub async fn upload_db(&self, file_path: &Path) -> Result<String> {
         let metadata = fs::metadata(file_path).map_err(|_| eyre!("File operation failed"))?;
 
-        let contents = fs::read(&file_path)?;
+        let contents = fs::read(file_path)?;
         if !contents.starts_with(b"SQLite format 3\0") {
             return Err(eyre!("File is not a valid SQLite database"));
         }
@@ -144,7 +143,8 @@ impl IpfsManager {
         {
             let mut transfer = easy.transfer();
             transfer.write_function(|data| {
-                file.write_all(data).unwrap();
+                file.write_all(data)
+                    .map_err(|_| curl::easy::WriteError::Pause)?;
                 Ok(data.len())
             })?;
             transfer.perform()?;
@@ -154,7 +154,7 @@ impl IpfsManager {
         let response_code = easy.response_code()?;
         if response_code != 200 {
             // Clean up failed download
-            std::fs::remove_file(&output_path)?;
+            std::fs::remove_file(output_path)?;
             return Err(eyre!(
                 "HTTP error: {} for URL: {}",
                 response_code,

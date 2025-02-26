@@ -97,7 +97,7 @@ mod tests {
     }
 
     fn set_valid_env_vars() {
-        env::set_var("CHAIN_ID", "1");
+        env::set_var("CHAIN_ID", "500005");
         env::set_var("STARKNET_RPC_URL", "http://test.url");
         env::set_var("FOSSIL_VERIFIER", "verifier_addr");
         env::set_var("FOSSIL_STORE", "store_addr");
@@ -141,7 +141,7 @@ mod tests {
 
         let config = Config::from_env_test().unwrap();
 
-        assert_eq!(config.chain_id, 1);
+        assert_eq!(config.chain_id, 500005);
         assert_eq!(config.rpc_url, "http://test.url");
         assert_eq!(config.verifier_address, "verifier_addr");
         assert_eq!(config.store_address, "store_addr");
