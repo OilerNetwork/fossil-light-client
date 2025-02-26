@@ -1713,9 +1713,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.30"
+version = "4.5.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92b7b18d71fad5313a1e320fa9897994228ce274b60faa4d694fe0ea89cd9e6d"
+checksum = "027bb0d98429ae334a8698531da7077bdf906419543a35a55c2cb1b66437d767"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -1723,9 +1723,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.30"
+version = "4.5.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a35db2071778a7344791a4fb4f95308b5673d219dee3ae348b86642574ecc90c"
+checksum = "5589e0cba072e0f3d23791efac0fd8627b49c829c196a492e88168e6a669d863"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1765,7 +1765,6 @@ dependencies = [
  "starknet",
  "starknet-handler",
  "tempfile",
- "thiserror 2.0.11",
  "tokio",
  "tracing",
 ]
@@ -1780,11 +1779,9 @@ checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
 name = "common"
 version = "0.1.0"
 dependencies = [
- "alloy-contract 0.6.4",
  "dotenv",
- "ruint",
+ "eyre",
  "starknet-crypto 0.7.4 (git+https://github.com/xJonathanLEI/starknet-rs.git?branch=master)",
- "thiserror 2.0.11",
  "tracing-subscriber 0.3.19",
 ]
 
@@ -2373,6 +2370,7 @@ version = "0.1.0"
 dependencies = [
  "alloy 0.6.4",
  "common",
+ "eyre",
  "tokio",
  "tracing",
 ]
@@ -2763,15 +2761,12 @@ dependencies = [
 name = "guest-mmr"
 version = "0.1.0"
 dependencies = [
- "common",
+ "eyre",
  "guest-types",
  "hex",
- "mmr-utils",
  "num-bigint",
  "num-traits",
  "sha2",
- "thiserror 2.0.11",
- "tokio",
 ]
 
 [[package]]
@@ -3396,9 +3391,9 @@ version = "0.1.0"
 dependencies = [
  "curl",
  "dotenv",
+ "eyre",
  "serde_json",
  "tempfile",
- "thiserror 2.0.11",
  "tokio",
  "tracing",
 ]
@@ -3764,11 +3759,11 @@ dependencies = [
 name = "mmr-utils"
 version = "0.1.0"
 dependencies = [
+ "eyre",
  "hasher",
  "mmr",
  "sqlx",
  "store",
- "thiserror 2.0.11",
  "tokio",
  "uuid 1.14.0",
 ]
@@ -4368,6 +4363,7 @@ dependencies = [
  "dotenv",
  "eth-rlp-types",
  "ethereum",
+ "eyre",
  "garaga_rs",
  "guest-types",
  "hasher",
@@ -4384,9 +4380,7 @@ dependencies = [
  "starknet",
  "starknet-crypto 0.7.4 (git+https://github.com/xJonathanLEI/starknet-rs.git?branch=master)",
  "starknet-handler",
- "starknet-types-core",
  "store",
- "thiserror 2.0.11",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.19",
@@ -4672,7 +4666,6 @@ dependencies = [
  "dotenv",
  "eyre",
  "serial_test",
- "thiserror 2.0.11",
  "tokio",
  "tracing",
 ]
@@ -5915,10 +5908,10 @@ version = "0.1.0"
 dependencies = [
  "common",
  "crypto-bigint",
+ "eyre",
  "mockall",
  "starknet",
  "starknet-crypto 0.7.4 (git+https://github.com/xJonathanLEI/starknet-rs.git?branch=master)",
- "thiserror 2.0.11",
  "tokio",
  "tracing",
  "url",

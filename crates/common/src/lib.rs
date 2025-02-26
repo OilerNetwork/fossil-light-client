@@ -1,5 +1,6 @@
 #![deny(unused_crate_dependencies)]
 
+use eyre::{eyre, Result};
 use starknet_crypto::Felt;
 use std::{
     fs::{self, OpenOptions},
@@ -7,48 +8,22 @@ use std::{
     str::FromStr,
 };
 
-#[derive(thiserror::Error, Debug)]
-pub enum UtilsError {
-    #[error("Environment variable {0} not set")]
-    EnvVarNotSet(String),
-    #[error("Unable to parse string: {0}")]
-    ParseError(String),
-    #[error("Logger initialization failed")]
-    LoggerInitFailed,
-    #[error("Alloy contract error: {0}")]
-    AlloyContractError(#[from] alloy_contract::Error),
-    #[error("Failed to convert Uint to u64")]
-    UintError(#[from] ruint::FromUintError<u64>),
-    #[error("Environment variable error: {0}")]
-    EnvVarError(#[from] dotenv::Error),
-    #[error("Parse error: {0}")]
-    ParseStringError(String),
-    #[error("Felt conversion error: {0}")]
-    FeltError(String),
-    #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
-    #[error("Retry exhausted after {0} attempts: {1}")]
-    RetryExhausted(u32, String),
-}
-
 /// Retrieves an environment variable or returns an error if not set.
-pub fn get_env_var(key: &str) -> Result<String, UtilsError> {
+pub fn get_env_var(key: &str) -> Result<String> {
     Ok(dotenv::var(key)?)
 }
 
 /// Parses an environment variable into the desired type or returns an error.
-pub fn get_var<T: FromStr>(name: &str) -> Result<T, UtilsError>
+pub fn get_var<T: FromStr>(name: &str) -> Result<T>
 where
     T::Err: std::fmt::Display,
 {
     let var_value = get_env_var(name)?;
-    var_value
-        .parse()
-        .map_err(|e| UtilsError::ParseError(format!("{}: {}", name, e)))
+    var_value.parse().map_err(|e| eyre!("{}: {}", name, e))
 }
 
 /// Function to initialize logging and environment variables
-pub fn initialize_logger_and_env() -> Result<(), UtilsError> {
+pub fn initialize_logger_and_env() -> Result<()> {
     let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
         // Define default filter directives - adjust these based on your needs
         let directives = [
@@ -80,21 +55,21 @@ pub fn initialize_logger_and_env() -> Result<(), UtilsError> {
     Ok(())
 }
 
-pub fn string_array_to_felt_array(string_array: Vec<String>) -> Result<Vec<Felt>, UtilsError> {
+pub fn string_array_to_felt_array(string_array: Vec<String>) -> Result<Vec<Felt>> {
     string_array.iter().map(|s| felt(s)).collect()
 }
 
-pub fn felt(str: &str) -> Result<Felt, UtilsError> {
-    Felt::from_hex(str).map_err(|_| UtilsError::FeltError(format!("Invalid hex string: {}", str)))
+pub fn felt(str: &str) -> Result<Felt> {
+    Felt::from_hex(str).map_err(|_| eyre!("Invalid hex string: {}", str))
 }
 
-pub fn get_or_create_db_path(db_name: &str) -> Result<String, UtilsError> {
+pub fn get_or_create_db_path(db_name: &str) -> Result<String> {
     // Get path to the db-instances directory relative to the test file
     let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
-        .ok_or_else(|| UtilsError::ParseError("Missing parent directory".to_string()))?
+        .ok_or_else(|| eyre!("Missing parent directory"))?
         .parent()
-        .ok_or_else(|| UtilsError::ParseError("Missing root directory".to_string()))?
+        .ok_or_else(|| eyre!("Missing root directory"))?
         .join("db-instances");
 
     // Ensure the directory exists
@@ -115,9 +90,7 @@ pub fn get_or_create_db_path(db_name: &str) -> Result<String, UtilsError> {
     }
 
     // Convert to string
-    let db_path_str = db_file_path
-        .to_str()
-        .ok_or_else(|| UtilsError::ParseError("Invalid path".to_string()))?;
+    let db_path_str = db_file_path.to_str().ok_or_else(|| eyre!("Invalid path"))?;
 
     Ok(db_path_str.to_string())
 }

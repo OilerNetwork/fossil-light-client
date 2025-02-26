@@ -7,7 +7,6 @@ edition = "2021"
 common = { path = "../common" }
 
 eyre = { workspace = true }
-thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 dotenv = { workspace = true }
