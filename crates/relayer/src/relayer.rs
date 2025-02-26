@@ -205,11 +205,10 @@ mod tests {
         let result = Relayer::new().await;
         assert!(result.is_err());
 
-        // Verify it's the expected error type
-        match result {
-            Ok(_) => panic!("Expected error, got success"),
-            Err(e) => panic!("Expected Utils error, got {:?}", e),
-        }
+        // Just check that it's an error without expecting a specific type
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("environment variable not found"));
     }
 
     // Add a test to verify environment variable parsing
@@ -249,10 +248,8 @@ mod tests {
 
         let result = Relayer::new().await;
         assert!(result.is_err());
-        match result {
-            Ok(_) => panic!("Expected error, got success"),
-            Err(e) => panic!("Expected Utils error, got {:?}", e),
-        }
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("invalid string length"));
     }
 
     #[tokio::test]
@@ -269,10 +266,8 @@ mod tests {
 
         let result = Relayer::new().await;
         assert!(result.is_err());
-        match result {
-            Ok(_) => panic!("Expected error, got success"),
-            Err(e) => panic!("Expected Utils error, got {:?}", e),
-        }
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("Invalid Starknet address format"));
     }
 
     #[tokio::test]
