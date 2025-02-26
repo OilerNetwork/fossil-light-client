@@ -1,21 +1,21 @@
-use crate::errors::AccumulatorError;
+use eyre::{eyre, Result};
 
 /// Validates that a hex string represents a valid U256 (256-bit unsigned integer)
-pub fn validate_u256_hex(hex: &str) -> Result<(), AccumulatorError> {
+pub fn validate_u256_hex(hex: &str) -> Result<()> {
     if !hex.starts_with("0x") || hex.len() <= 2 {
         // Check for "0x" prefix and ensure there's data after it
-        return Err(AccumulatorError::InvalidU256Hex(hex.to_string()));
+        return Err(eyre!("Invalid U256 hex string: {}", hex));
     }
 
     // Remove '0x' prefix and check if remaining string is valid hex
     let hex_value = &hex[2..];
     if !hex_value.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(AccumulatorError::InvalidU256Hex(hex.to_string()));
+        return Err(eyre!("Invalid U256 hex string: {}", hex));
     }
 
     // Check length - maximum 64 hex chars (256 bits = 64 hex digits)
     if hex_value.len() > 64 {
-        return Err(AccumulatorError::InvalidU256Hex(hex.to_string()));
+        return Err(eyre!("Invalid U256 hex string: {}", hex));
     }
 
     Ok(())
@@ -50,8 +50,8 @@ mod tests {
     fn test_error_message() {
         let result = validate_u256_hex("invalid");
         match result {
-            Err(AccumulatorError::InvalidU256Hex(msg)) => {
-                assert_eq!(msg, "invalid");
+            Err(e) => {
+                assert_eq!(e.to_string(), "Invalid U256 hex string: invalid");
             }
             _ => panic!("Expected InvalidU256Hex error"),
         }

@@ -1,4 +1,5 @@
 use common::get_env_var;
+use eyre::{eyre, Result, WrapErr};
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
     core::types::{BlockId, EventFilter, Felt},
@@ -15,30 +16,20 @@ use mockall::automock;
 #[cfg(test)]
 #[automock]
 trait StarknetProviderFactory {
-    fn create_provider(
-        &self,
-        rpc_url: &str,
-    ) -> Result<StarknetProvider, starknet_handler::StarknetHandlerError>;
+    fn create_provider(&self, rpc_url: &str) -> Result<StarknetProvider>;
 }
 
 #[cfg(test)]
 #[automock]
 trait DatabaseUtils {
-    fn ensure_directory_exists(
-        &self,
-        path: &str,
-    ) -> Result<std::path::PathBuf, mmr_utils::MMRUtilsError>;
-    fn create_database_file(
-        &self,
-        dir: &std::path::Path,
-        index: u64,
-    ) -> Result<String, mmr_utils::MMRUtilsError>;
+    fn ensure_directory_exists(&self, path: &str) -> Result<std::path::PathBuf>;
+    fn create_database_file(&self, dir: &std::path::Path, index: u64) -> Result<String>;
 }
 
 #[cfg(test)]
 #[automock]
 trait EnvVarReader {
-    fn get_env_var(&self, key: &str) -> Result<String, common::UtilsError>;
+    fn get_env_var(&self, key: &str) -> Result<String>;
 }
 
 #[cfg(test)]
@@ -48,28 +39,7 @@ pub(crate) struct TestDependencies {
     provider_factory: Box<dyn StarknetProviderFactory>,
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum LightClientError {
-    #[error("Starknet handler error: {0}")]
-    StarknetHandler(#[from] starknet_handler::StarknetHandlerError),
-    #[error("Utils error: {0}")]
-    UtilsError(#[from] common::UtilsError),
-    #[error("MMR utils error: {0}")]
-    MmrUtilsError(#[from] mmr_utils::MMRUtilsError),
-    #[error("Publisher error: {0}")]
-    PublisherError(#[from] publisher::PublisherError),
-    #[error("Starknet provider error: {0}")]
-    StarknetProvider(#[from] starknet::providers::ProviderError),
-    #[error("Database file does not exist at path: {0}")]
-    ConfigError(String),
-    #[error("Polling interval must be greater than zero")]
-    PollingIntervalError,
-    #[error("Chain ID is not a valid number")]
-    ChainIdError(#[from] std::num::ParseIntError),
-    #[error("Felt conversion error: {0}")]
-    FeltConversion(#[from] starknet::core::types::FromStrError),
-}
-
+#[derive(Debug)]
 pub struct LightClient {
     starknet_provider: StarknetProvider,
     l2_store_addr: String,
@@ -91,30 +61,41 @@ impl LightClient {
         batch_size: u64,
         start_block: u64,
         blocks_per_run: u64,
-    ) -> Result<Self, LightClientError> {
+    ) -> Result<Self> {
         if polling_interval == 0 {
             error!("Polling interval must be greater than zero");
-            return Err(LightClientError::PollingIntervalError);
+            return Err(eyre!("Polling interval must be greater than zero"));
         }
 
         // Load environment variables
-        let starknet_rpc_url = get_env_var("STARKNET_RPC_URL")?;
-        let l2_store_addr = get_env_var("FOSSIL_STORE")?;
-        let verifier_addr = get_env_var("FOSSIL_VERIFIER")?;
-        let starknet_private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
-        let starknet_account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
-        let chain_id = get_env_var("CHAIN_ID")?.parse::<u64>()?;
+        let starknet_rpc_url = get_env_var("STARKNET_RPC_URL")
+            .wrap_err("Failed to get STARKNET_RPC_URL environment variable")?;
+        let l2_store_addr = get_env_var("FOSSIL_STORE")
+            .wrap_err("Failed to get FOSSIL_STORE environment variable")?;
+        let verifier_addr = get_env_var("FOSSIL_VERIFIER")
+            .wrap_err("Failed to get FOSSIL_VERIFIER environment variable")?;
+        let starknet_private_key = get_env_var("STARKNET_PRIVATE_KEY")
+            .wrap_err("Failed to get STARKNET_PRIVATE_KEY environment variable")?;
+        let starknet_account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")
+            .wrap_err("Failed to get STARKNET_ACCOUNT_ADDRESS environment variable")?;
+        let chain_id = get_env_var("CHAIN_ID")
+            .wrap_err("Failed to get CHAIN_ID environment variable")?
+            .parse::<u64>()
+            .wrap_err("Failed to parse CHAIN_ID as u64")?;
 
         // Initialize providers
-        let starknet_provider = StarknetProvider::new(&starknet_rpc_url)?;
+        let starknet_provider = StarknetProvider::new(&starknet_rpc_url)
+            .wrap_err("Failed to initialize Starknet provider")?;
 
         // Set up the database file path
-        let current_dir = ensure_directory_exists("../../db-instances")?;
-        let db_file = create_database_file(&current_dir, 0)?;
+        let current_dir = ensure_directory_exists("../../db-instances")
+            .wrap_err("Failed to ensure database directory exists")?;
+        let db_file =
+            create_database_file(&current_dir, 0).wrap_err("Failed to create database file")?;
 
         if !std::path::Path::new(&db_file).exists() {
             error!("Database file does not exist at path: {}", db_file);
-            return Err(LightClientError::ConfigError(db_file));
+            return Err(eyre!("Database file does not exist at path: {}", db_file));
         }
 
         Ok(Self {
@@ -133,9 +114,14 @@ impl LightClient {
     }
 
     /// Processes new events from the Starknet store contract.
-    pub async fn process_new_events(&mut self) -> Result<(), LightClientError> {
+    pub async fn process_new_events(&mut self) -> Result<()> {
         // Get the latest block number
-        let latest_block = self.starknet_provider.provider().block_number().await?;
+        let latest_block = self
+            .starknet_provider
+            .provider()
+            .block_number()
+            .await
+            .wrap_err("Failed to get latest block number from Starknet")?;
 
         // Don't process if we're already caught up with events
         if self.latest_processed_events_block >= latest_block {
@@ -166,7 +152,10 @@ impl LightClient {
         let event_filter = EventFilter {
             from_block: Some(BlockId::Number(from_block)),
             to_block: Some(BlockId::Number(to_block)),
-            address: Some(Felt::from_hex(&self.l2_store_addr)?),
+            address: Some(
+                Felt::from_hex(&self.l2_store_addr)
+                    .wrap_err("Failed to convert store address to Felt")?,
+            ),
             keys: Some(vec![vec![selector!("LatestBlockhashFromL1Stored")]]),
         };
 
@@ -174,7 +163,8 @@ impl LightClient {
             .starknet_provider
             .provider()
             .get_events(event_filter, None, 1)
-            .await?;
+            .await
+            .wrap_err("Failed to get events from Starknet provider")?;
 
         // Update the latest processed events block
         self.latest_processed_events_block = to_block;
@@ -190,18 +180,20 @@ impl LightClient {
 
     /// Handles the events by updating the MMR and verifying proofs.
     #[instrument(skip(self))]
-    pub async fn handle_events(&mut self) -> Result<(), LightClientError> {
+    pub async fn handle_events(&mut self) -> Result<()> {
         // Fetch the latest stored blockhash from L1
         let latest_relayed_block = self
             .starknet_provider
             .get_latest_relayed_block(&self.l2_store_addr)
-            .await?;
+            .await
+            .wrap_err("Failed to get latest relayed block from Starknet")?;
 
         // Fetch latest MMR state from L2
         let latest_mmr_block = self
             .starknet_provider
             .get_latest_mmr_block(&self.l2_store_addr)
-            .await?;
+            .await
+            .wrap_err("Failed to get latest MMR block from Starknet")?;
 
         // Update MMR and verify proofs
         self.update_mmr(latest_mmr_block, latest_relayed_block)
@@ -216,7 +208,7 @@ impl LightClient {
         &mut self,
         latest_mmr_block: u64,
         latest_relayed_block: u64,
-    ) -> Result<(), LightClientError> {
+    ) -> Result<()> {
         info!(
             latest_mmr_block,
             latest_relayed_block, "Starting MMR update"
@@ -232,7 +224,8 @@ impl LightClient {
 
         // Call the publisher function directly with all required parameters
         let _result = publisher::api::operations::update_mmr(
-            &get_env_var("STARKNET_RPC_URL")?,
+            &get_env_var("STARKNET_RPC_URL")
+                .wrap_err("Failed to get STARKNET_RPC_URL environment variable")?,
             self.chain_id,
             &self.verifier_addr,
             &self.l2_store_addr,
@@ -245,7 +238,7 @@ impl LightClient {
         .await
         .map_err(|e| {
             error!(error = %e, "Failed to update MMR");
-            LightClientError::PublisherError(e)
+            eyre!("Failed to update MMR: {}", e)
         })?;
 
         // Update the latest processed MMR block
@@ -254,7 +247,7 @@ impl LightClient {
         Ok(())
     }
 
-    pub async fn run(&mut self) -> Result<(), LightClientError> {
+    pub async fn run(&mut self) -> Result<()> {
         info!(
             "Listening for events from block {} with polling interval {} seconds",
             self.latest_processed_events_block + 1,
@@ -276,26 +269,53 @@ impl LightClient {
         start_block: u64,
         blocks_per_run: u64,
         deps: TestDependencies,
-    ) -> Result<Self, LightClientError> {
+    ) -> Result<Self> {
         if polling_interval == 0 {
-            return Err(LightClientError::PollingIntervalError);
+            return Err(eyre!("Polling interval must be greater than zero"));
         }
 
-        let starknet_rpc_url = deps.env_reader.get_env_var("STARKNET_RPC_URL")?;
-        let l2_store_addr = deps.env_reader.get_env_var("FOSSIL_STORE")?;
-        let verifier_addr = deps.env_reader.get_env_var("FOSSIL_VERIFIER")?;
-        let starknet_private_key = deps.env_reader.get_env_var("STARKNET_PRIVATE_KEY")?;
-        let starknet_account_address = deps.env_reader.get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
-        let chain_id = deps.env_reader.get_env_var("CHAIN_ID")?.parse::<u64>()?;
+        let starknet_rpc_url = deps
+            .env_reader
+            .get_env_var("STARKNET_RPC_URL")
+            .wrap_err("Failed to get STARKNET_RPC_URL environment variable")?;
+        let l2_store_addr = deps
+            .env_reader
+            .get_env_var("FOSSIL_STORE")
+            .wrap_err("Failed to get FOSSIL_STORE environment variable")?;
+        let verifier_addr = deps
+            .env_reader
+            .get_env_var("FOSSIL_VERIFIER")
+            .wrap_err("Failed to get FOSSIL_VERIFIER environment variable")?;
+        let starknet_private_key = deps
+            .env_reader
+            .get_env_var("STARKNET_PRIVATE_KEY")
+            .wrap_err("Failed to get STARKNET_PRIVATE_KEY environment variable")?;
+        let starknet_account_address = deps
+            .env_reader
+            .get_env_var("STARKNET_ACCOUNT_ADDRESS")
+            .wrap_err("Failed to get STARKNET_ACCOUNT_ADDRESS environment variable")?;
+        let chain_id = deps
+            .env_reader
+            .get_env_var("CHAIN_ID")
+            .wrap_err("Failed to get CHAIN_ID environment variable")?
+            .parse::<u64>()
+            .wrap_err("Failed to parse CHAIN_ID as u64")?;
 
-        let starknet_provider = deps.provider_factory.create_provider(&starknet_rpc_url)?;
+        let starknet_provider = deps
+            .provider_factory
+            .create_provider(&starknet_rpc_url)
+            .wrap_err("Failed to create Starknet provider")?;
         let current_dir = deps
             .db_utils
-            .ensure_directory_exists("../../db-instances")?;
-        let db_file = deps.db_utils.create_database_file(&current_dir, 0)?;
+            .ensure_directory_exists("../../db-instances")
+            .wrap_err("Failed to ensure database directory exists")?;
+        let db_file = deps
+            .db_utils
+            .create_database_file(&current_dir, 0)
+            .wrap_err("Failed to create database file")?;
 
         if !std::path::Path::new(&db_file).exists() {
-            return Err(LightClientError::ConfigError(db_file));
+            return Err(eyre!("Database file does not exist at path: {}", db_file));
         }
 
         Ok(Self {
@@ -380,10 +400,11 @@ mod tests {
         };
 
         let result = LightClient::new_with_deps(0, 100, 0, 10, deps).await;
-        assert!(matches!(
-            result,
-            Err(LightClientError::PollingIntervalError)
-        ));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Polling interval must be greater than zero"));
     }
 
     #[tokio::test]
@@ -428,8 +449,12 @@ mod tests {
 
         let result = LightClient::new_with_deps(10, 100, 0, 10, deps).await;
 
-        // The file doesn't exist, so we should get ConfigError
-        assert!(matches!(result, Err(LightClientError::ConfigError(_))));
+        // The file doesn't exist, so we should get an error
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Database file does not exist"));
     }
 
     #[tokio::test]
@@ -461,6 +486,10 @@ mod tests {
         };
 
         let result = LightClient::new_with_deps(10, 100, 0, 10, deps).await;
-        assert!(matches!(result, Err(LightClientError::ChainIdError(_))));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Failed to parse CHAIN_ID"));
     }
 }

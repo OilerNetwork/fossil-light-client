@@ -1,9 +1,9 @@
 use crate::core::{MMRStateManager, ProofGenerator};
 use crate::db::DbConnection;
-use crate::errors::AccumulatorError;
 use crate::utils::BatchResult;
 use common::get_or_create_db_path;
 use eth_rlp_types::BlockHeader;
+use eyre::{eyre, Result};
 use guest_types::{CombinedInput, GuestOutput, MMRInput};
 use ipfs_utils::IpfsManager;
 use mmr::PeaksOptions;
@@ -26,16 +26,14 @@ impl<'a> BatchProcessor<'a> {
         batch_size: u64,
         proof_generator: ProofGenerator<CombinedInput>,
         mmr_state_manager: MMRStateManager<'a>,
-    ) -> Result<Self, AccumulatorError> {
+    ) -> Result<Self> {
         if batch_size == 0 {
-            return Err(AccumulatorError::InvalidInput(
-                "Batch size must be greater than 0",
-            ));
+            return Err(eyre!("Batch size must be greater than 0"));
         }
 
         let ipfs_manager = IpfsManager::with_endpoint().map_err(|e| {
             error!(error = %e, "Failed to create IPFS manager");
-            AccumulatorError::StorageError(e.to_string())
+            eyre!("Failed to create IPFS manager: {}", e)
         })?;
 
         Ok(Self {
@@ -63,20 +61,16 @@ impl<'a> BatchProcessor<'a> {
         chain_id: u64,
         start_block: u64,
         end_block: u64,
-    ) -> Result<Option<BatchResult>, AccumulatorError> {
+    ) -> Result<Option<BatchResult>> {
         if end_block < start_block {
-            return Err(AccumulatorError::InvalidInput(
-                "End block cannot be less than start block",
-            ));
+            return Err(eyre!("End block cannot be less than start block"));
         }
 
         let batch_index = start_block / self.batch_size;
         let (batch_start, batch_end) = self.calculate_batch_bounds(batch_index)?;
 
         if start_block < batch_start {
-            return Err(AccumulatorError::InvalidInput(
-                "Start block is before batch start",
-            ));
+            return Err(eyre!("Start block is before batch start"));
         }
 
         let adjusted_end_block = std::cmp::min(end_block, batch_end);
@@ -89,8 +83,8 @@ impl<'a> BatchProcessor<'a> {
 
         // Extract IPFS hash from MMR state
         let ipfs_hash = mmr_state.ipfs_hash();
-        let ipfs_hash_str = String::try_from(ipfs_hash)
-            .map_err(|_| AccumulatorError::StorageError("Failed to convert IPFS hash".into()))?;
+        let ipfs_hash_str =
+            String::try_from(ipfs_hash).map_err(|_| eyre!("Failed to convert IPFS hash"))?;
         // Create path for the batch database with a unique identifier
         let batch_file_name = format!("batch_{}_{}.db", batch_index, uuid::Uuid::new_v4());
         let db_file_path = PathBuf::from(get_or_create_db_path(&batch_file_name).map_err(|e| {
@@ -192,10 +186,11 @@ impl<'a> BatchProcessor<'a> {
                 "No headers found for block range {} to {}",
                 start_block, adjusted_end_block
             );
-            return Err(AccumulatorError::EmptyHeaders {
+            return Err(eyre!(
+                "No headers found for block range {} to {}",
                 start_block,
-                end_block: adjusted_end_block,
-            });
+                adjusted_end_block
+            ));
         }
 
         let new_headers: Vec<String> = headers.iter().map(|h| h.block_hash.clone()).collect();
@@ -322,10 +317,7 @@ impl<'a> BatchProcessor<'a> {
             .ipfs_manager
             .upload_db(&db_file_path)
             .await
-            .map_err(|e| {
-                error!(error = %e, "Failed to upload batch file to IPFS");
-                AccumulatorError::StorageError(format!("Failed to upload to IPFS: {}", e))
-            })?;
+            .map_err(|e| eyre!("Failed to upload to IPFS: {}", e))?;
 
         let batch_result = Some(BatchResult::new(
             start_block,
@@ -339,46 +331,34 @@ impl<'a> BatchProcessor<'a> {
         Ok(batch_result)
     }
 
-    pub fn calculate_batch_bounds(&self, batch_index: u64) -> Result<(u64, u64), AccumulatorError> {
+    pub fn calculate_batch_bounds(&self, batch_index: u64) -> Result<(u64, u64)> {
         let batch_start = batch_index
             .checked_mul(self.batch_size)
-            .ok_or(AccumulatorError::InvalidInput("Batch index too large"))?;
+            .ok_or(eyre!("Batch index too large"))?;
 
         let batch_end = batch_start
             .checked_add(self.batch_size)
-            .ok_or(AccumulatorError::InvalidInput(
-                "Batch end calculation overflow",
-            ))?
+            .ok_or(eyre!("Batch end calculation overflow"))?
             .saturating_sub(1);
 
         Ok((batch_start, batch_end))
     }
 
-    pub fn calculate_start_block(&self, current_end: u64) -> Result<u64, AccumulatorError> {
+    pub fn calculate_start_block(&self, current_end: u64) -> Result<u64> {
         if current_end == 0 {
-            return Err(AccumulatorError::InvalidInput(
-                "Current end block cannot be 0",
-            ));
+            return Err(eyre!("Current end block cannot be 0"));
         }
 
         Ok(current_end.saturating_sub(current_end % self.batch_size))
     }
 
-    pub fn calculate_batch_range(
-        &self,
-        current_end: u64,
-        start_block: u64,
-    ) -> Result<BatchRange, AccumulatorError> {
+    pub fn calculate_batch_range(&self, current_end: u64, start_block: u64) -> Result<BatchRange> {
         if current_end < start_block {
-            return Err(AccumulatorError::InvalidInput(
-                "Current end block cannot be less than start block",
-            ));
+            return Err(eyre!("Current end block cannot be less than start block"));
         }
 
         if current_end == 0 {
-            return Err(AccumulatorError::InvalidInput(
-                "Current end block cannot be 0",
-            ));
+            return Err(eyre!("Current end block cannot be 0"));
         }
 
         let batch_start = current_end.saturating_sub(current_end % self.batch_size);
@@ -387,14 +367,11 @@ impl<'a> BatchProcessor<'a> {
         let batch_size_minus_one = self
             .batch_size
             .checked_sub(1)
-            .ok_or(AccumulatorError::InvalidInput("Invalid batch size"))?;
+            .ok_or(eyre!("Invalid batch size"))?;
 
-        let max_end =
-            batch_start
-                .checked_add(batch_size_minus_one)
-                .ok_or(AccumulatorError::InvalidInput(
-                    "Batch end calculation overflow",
-                ))?;
+        let max_end = batch_start
+            .checked_add(batch_size_minus_one)
+            .ok_or(eyre!("Batch end calculation overflow"))?;
 
         let effective_end = std::cmp::min(current_end, max_end);
 
@@ -411,11 +388,9 @@ pub struct BatchRange {
 }
 
 impl BatchRange {
-    pub fn new(start_block: u64, end_block: u64) -> Result<Self, AccumulatorError> {
+    pub fn new(start_block: u64, end_block: u64) -> Result<Self> {
         if end_block < start_block {
-            return Err(AccumulatorError::InvalidInput(
-                "End block cannot be less than start block",
-            ));
+            return Err(eyre!("End block cannot be less than start block"));
         }
         Ok(Self {
             start: start_block,
@@ -604,7 +579,9 @@ mod tests {
         let proof_generator = ProofGenerator::mock_for_tests();
         let processor = BatchProcessor::new(100, proof_generator, mmr_state_manager).unwrap();
         let result = processor.process_batch(1, 200, 100).await;
-        assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
+        assert!(
+            matches!(result, Err(e) if e.to_string().contains("End block cannot be less than start block"))
+        );
     }
 
     #[tokio::test]

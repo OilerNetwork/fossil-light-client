@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use starknet_crypto::Felt;
 use starknet_handler::MmrState;
 
-use crate::PublisherError;
+use eyre::{eyre, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Groth16 {
@@ -49,11 +49,11 @@ impl Stark {
         self.receipt.journal.clone()
     }
 
-    pub fn image_id(&self) -> Result<[u8; 32], PublisherError> {
+    pub fn image_id(&self) -> Result<[u8; 32]> {
         self.image_id
             .clone()
             .try_into()
-            .map_err(|_| PublisherError::ReceiptError)
+            .map_err(|_| eyre!("Failed to convert image ID to [u8; 32]"))
     }
 }
 

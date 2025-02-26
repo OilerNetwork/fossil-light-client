@@ -4,10 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-thiserror = { workspace = true }
 dotenv = { workspace = true }
 starknet-crypto = { workspace = true }
+eyre = { workspace = true }
 
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-alloy-contract = { version = "0.6.4" }
-ruint = "1.12.3"

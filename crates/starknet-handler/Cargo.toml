@@ -6,15 +6,15 @@ edition = "2021"
 [dependencies]
 common = { path = "../common" }
 
-thiserror = { workspace = true }
 starknet = { workspace = true }
 tracing = { workspace = true }
 starknet-crypto = { workspace = true }
 tokio = {workspace = true}
+eyre = { workspace = true }
 
 crypto-bigint = "0.5.5"
-url = "2.5.4" 
 
 [dev-dependencies]
-mockall = "0.13"
-tokio = { version = "1.0", features = ["full"] } 
+mockall = "0.13.1"
+tokio = { version = "1.43.0", features = ["full"] } 
+url = "2.5.4"
