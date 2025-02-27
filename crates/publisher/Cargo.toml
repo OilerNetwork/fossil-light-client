@@ -30,7 +30,11 @@ mmr = { workspace = true }
 mmr-utils = { path = "../mmr-utils" }
 pyo3 = { workspace = true }
 risc0-ethereum-contracts = { workspace = true }
-risc0-zkvm = { version = "1.2.4" }
+risc0-zkvm = { version = "1.2.4", default-features = false, features = [
+    "std",
+    "unstable",
+    "client"
+] }
 serde = { workspace = true }
 sqlx = { workspace = true }
 starknet-crypto = { workspace = true }
