@@ -276,24 +276,7 @@ impl<'a> BatchProcessor<'a> {
                 }
                 Err(e) => {
                     error!(error = %e, "Failed to generate proof");
-                    #[cfg(debug_assertions)]
-                    {
-                        warn!("DEBUG MODE: Creating a dummy proof for development");
-                        let dummy_output = GuestOutput::new(
-                            batch_index,
-                            adjusted_end_block,
-                            "0x1234".to_string(),
-                            "0x5678".to_string(),
-                            new_headers.len(),
-                            "0x9abc".to_string(),
-                            vec![],
-                        );
-                        (Some(dummy_output), None)
-                    }
-                    #[cfg(not(debug_assertions))]
-                    {
-                        return Err(e.into());
-                    }
+                    return Err(e.into());
                 }
             };
 
