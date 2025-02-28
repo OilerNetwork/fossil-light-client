@@ -11,6 +11,7 @@ services:
       - RUST_LOG=${RUST_LOG:-info}
       - NUM_BATCHES=${NUM_BATCHES:-1}
       - ETHEREUM_RPC_URL=http://anvil:8545
+      - BONSAI_API_URL=${BONSAI_API_URL:-https://api.bonsai.xyz/}
     env_file:
       - ${ENV_FILE:-.env}
     networks:

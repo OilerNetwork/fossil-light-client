@@ -17,4 +17,4 @@ alloy-sol-types = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full", "test-util"] }
-serial_test = "2.0"
+serial_test = "3.2.0"

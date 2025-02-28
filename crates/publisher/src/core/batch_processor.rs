@@ -441,7 +441,7 @@ fn group_headers_by_hour(headers: Vec<BlockHeader>) -> Vec<(i64, Vec<BlockHeader
                     let representative_timestamp = h * 3600;
                     info!(
                         "Representative timestamp for hour {} is: {}",
-                        hour, representative_timestamp
+                        h, representative_timestamp
                     );
                     grouped_headers
                         .push((representative_timestamp, std::mem::take(&mut current_group)));
@@ -452,10 +452,14 @@ fn group_headers_by_hour(headers: Vec<BlockHeader>) -> Vec<(i64, Vec<BlockHeader
         }
     }
 
-    // Push the last group
+    // Process the last group if it exists
     if !current_group.is_empty() {
         if let Some(h) = current_hour {
             let representative_timestamp = h * 3600;
+            info!(
+                "Representative timestamp for hour {} is: {}",
+                h, representative_timestamp
+            );
             grouped_headers.push((representative_timestamp, current_group));
         }
     }
