@@ -12,45 +12,44 @@ name = "build-mmr"
 path = "bin/build_mmr.rs"
 
 [[bin]]
-name = "extract-fees"
-path = "bin/extract_fees.rs"
-
-[[bin]]
 name = "mmr-benchmark"
-path = "benches/mmr_benchmark.rs"
+path = "bin/mmr_benchmark.rs"
 
 [dependencies]
-clap = { workspace = true, features = ["derive"] }
+clap = { workspace = true }
 common = { path = "../common" }
 dotenv = { workspace = true }
 eth-rlp-types = { workspace = true }
 ethereum = { path = "../ethereum" }
-garaga_rs = { git = "https://github.com/keep-starknet-strange/garaga.git", branch = "main", default-features = false }
+eyre = { workspace = true }
+garaga_rs = { workspace = true }
 guest-types = { path = "../guest-types" }
 ipfs-utils = { path = "../ipfs-utils" }
 methods = { path = "../methods" }
-mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
+mmr = { workspace = true }
 mmr-utils = { path = "../mmr-utils" }
-pyo3 = { version = "0.23.3", features = ["extension-module"] }
-risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum", tag = "v1.3.2" }
-risc0-zkvm = { version = "1.2.4" }
-serde = "1.0"
+pyo3 = { workspace = true }
+risc0-ethereum-contracts = { workspace = true }
+risc0-zkvm = { version = "1.2.5", default-features = false, features = [
+    "std",
+    "unstable",
+    "client",
+    "bonsai"
+] }
+serde = { workspace = true }
 sqlx = { workspace = true }
-starknet = { workspace = true }
 starknet-crypto = { workspace = true }
 starknet-handler = { path = "../starknet-handler" }
-starknet-types-core = "0.1.7"
-store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
-thiserror = { workspace = true }
+store = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing = { workspace = true }
-tracing-subscriber = "0.3"
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
 
 [dev-dependencies]
-hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = [
-    "sha256",
-] }
-mockall = "0.13"
+hasher = { workspace = true }
+mockall = { workspace = true }
+starknet = { workspace = true }
 
 [lib]
 name = "publisher"

@@ -2,7 +2,8 @@ use starknet::providers::Provider;
 use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
 
-use crate::{MmrSnapshot, StarknetHandlerError};
+use crate::MmrSnapshot;
+use eyre::Result;
 use starknet::macros::selector;
 use starknet::{
     core::{
@@ -12,7 +13,7 @@ use starknet::{
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Url},
 };
 use starknet_crypto::Felt;
-
+#[derive(Debug)]
 pub struct StarknetProvider {
     provider: Arc<JsonRpcClient<HttpTransport>>,
     rpc_url: String,
@@ -20,7 +21,7 @@ pub struct StarknetProvider {
 
 impl StarknetProvider {
     #[instrument(level = "debug", fields(rpc_url = %rpc_url))]
-    pub fn new(rpc_url: &str) -> Result<Self, StarknetHandlerError> {
+    pub fn new(rpc_url: &str) -> Result<Self> {
         debug!("Initializing StarknetProvider");
 
         let parsed_url = Url::parse(rpc_url)?;
@@ -41,10 +42,7 @@ impl StarknetProvider {
     }
 
     #[instrument(skip(self), level = "debug")]
-    pub async fn get_latest_mmr_block(
-        &self,
-        l2_store_address: &str,
-    ) -> Result<u64, StarknetHandlerError> {
+    pub async fn get_latest_mmr_block(&self, l2_store_address: &str) -> Result<u64> {
         debug!("Fetching latest MMR block");
 
         let entry_point_selector = selector!("get_latest_mmr_block");
@@ -68,10 +66,7 @@ impl StarknetProvider {
     }
 
     #[instrument(skip(self), level = "debug")]
-    pub async fn get_min_mmr_block(
-        &self,
-        l2_store_address: &str,
-    ) -> Result<u64, StarknetHandlerError> {
+    pub async fn get_min_mmr_block(&self, l2_store_address: &str) -> Result<u64> {
         debug!("Fetching min MMR block");
 
         let entry_point_selector = selector!("get_min_mmr_block");
@@ -99,7 +94,7 @@ impl StarknetProvider {
         &self,
         l2_store_address: &str,
         batch_index: u64,
-    ) -> Result<MmrSnapshot, StarknetHandlerError> {
+    ) -> Result<MmrSnapshot> {
         debug!(batch_index, "Fetching MMR state");
 
         let entry_point_selector = selector!("get_mmr_state");
@@ -117,16 +112,13 @@ impl StarknetProvider {
             .await?;
 
         let mmr_state = MmrSnapshot::decode(&data)?;
-        info!("Retrieved MMR state");
+        info!("Retrieved On-chain MMR state");
 
         Ok(mmr_state)
     }
 
     #[instrument(skip(self), level = "debug")]
-    pub async fn get_latest_relayed_block(
-        &self,
-        l2_store_address: &str,
-    ) -> Result<u64, StarknetHandlerError> {
+    pub async fn get_latest_relayed_block(&self, l2_store_address: &str) -> Result<u64> {
         debug!("Fetching latest relayed block");
 
         let entry_point_selector = selector!("get_latest_blockhash_from_l1");

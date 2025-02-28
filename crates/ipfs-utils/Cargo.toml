@@ -7,12 +7,10 @@ license = "MIT"
 
 [dependencies]
 tracing = { workspace = true }
-thiserror = {workspace = true}
- 
-ipfs-api = "0.17.0"
-tokio = { version = "1.28", features = ["full"] }
-anyhow = "1.0"
-futures-util = "0.3"
-
+curl = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+serde_json = { workspace = true }
+dotenv = { workspace = true }
+eyre = { workspace = true }
 [dev-dependencies]
-tempfile = "3.5"
+tempfile = { workspace = true }

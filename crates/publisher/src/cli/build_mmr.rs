@@ -1,8 +1,9 @@
 use crate::core::AccumulatorBuilder;
+use crate::core::{BatchProcessor, MMRStateManager, ProofGenerator};
 use clap::Parser;
 use common::{get_env_var, initialize_logger_and_env};
+use methods::{MMR_BUILD_ELF, MMR_BUILD_ID};
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
-
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
@@ -47,14 +48,19 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     let starknet_account =
         StarknetAccount::new(starknet_provider.provider(), &private_key, &account_address)?;
 
+    // Create the batch processor first
+    let proof_generator = ProofGenerator::new(MMR_BUILD_ELF, MMR_BUILD_ID)?;
+    let mmr_state_manager = MMRStateManager::new(starknet_account, &store_address, &rpc_url);
+    let batch_processor = BatchProcessor::new(args.batch_size, proof_generator, mmr_state_manager)?;
+
+    // Then create the accumulator builder
     let mut builder = AccumulatorBuilder::new(
         &rpc_url,
         chain_id,
         &verifier_address,
-        &store_address,
-        starknet_account,
-        args.batch_size,
-        args.skip_proof,
+        batch_processor,
+        0, // current_batch
+        0, // total_batches
     )
     .await
     .map_err(|e| {

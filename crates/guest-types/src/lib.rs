@@ -27,7 +27,7 @@ pub struct AppendResult {
 }
 
 impl AppendResult {
-    pub fn new(
+    pub const fn new(
         leaves_count: usize,
         elements_count: usize,
         element_index: usize,
@@ -45,15 +45,15 @@ impl AppendResult {
         &self.value
     }
 
-    pub fn element_index(&self) -> usize {
+    pub const fn element_index(&self) -> usize {
         self.element_index
     }
 
-    pub fn leaves_count(&self) -> usize {
+    pub const fn leaves_count(&self) -> usize {
         self.leaves_count
     }
 
-    pub fn last_element_idx(&self) -> usize {
+    pub const fn last_element_idx(&self) -> usize {
         self.elements_count
     }
 }
@@ -71,7 +71,7 @@ pub struct GuestOutput {
 }
 
 impl GuestOutput {
-    pub fn new(
+    pub const fn new(
         batch_index: u64,
         latest_mmr_block: u64,
         latest_mmr_block_hash: String,
@@ -91,7 +91,7 @@ impl GuestOutput {
         }
     }
 
-    pub fn latest_mmr_block(&self) -> u64 {
+    pub const fn latest_mmr_block(&self) -> u64 {
         self.latest_mmr_block
     }
 
@@ -103,11 +103,11 @@ impl GuestOutput {
         &self.root_hash
     }
 
-    pub fn batch_index(&self) -> u64 {
+    pub const fn batch_index(&self) -> u64 {
         self.batch_index
     }
 
-    pub fn leaves_count(&self) -> usize {
+    pub const fn leaves_count(&self) -> usize {
         self.leaves_count
     }
 
@@ -123,44 +123,37 @@ pub struct CombinedInput {
     batch_size: u64,
     headers: Vec<(i64, Vec<BlockHeader>)>, // (representative_timestamp, headers)
     mmr_input: MMRInput,
-    skip_proof_verification: bool,
 }
 
 impl CombinedInput {
-    pub fn new(
+    pub const fn new(
         chain_id: u64,
         batch_size: u64,
         headers: Vec<(i64, Vec<BlockHeader>)>,
         mmr_input: MMRInput,
-        skip_proof_verification: bool,
     ) -> Self {
         Self {
             chain_id,
             batch_size,
             headers,
             mmr_input,
-            skip_proof_verification,
         }
     }
 
-    pub fn chain_id(&self) -> u64 {
+    pub const fn chain_id(&self) -> u64 {
         self.chain_id
     }
 
-    pub fn batch_size(&self) -> u64 {
+    pub const fn batch_size(&self) -> u64 {
         self.batch_size
     }
 
-    pub fn headers(&self) -> &Vec<(i64, Vec<BlockHeader>)> {
+    pub const fn headers(&self) -> &Vec<(i64, Vec<BlockHeader>)> {
         &self.headers
     }
 
-    pub fn mmr_input(&self) -> &MMRInput {
+    pub const fn mmr_input(&self) -> &MMRInput {
         &self.mmr_input
-    }
-
-    pub fn skip_proof_verification(&self) -> bool {
-        self.skip_proof_verification
     }
 }
 
@@ -173,7 +166,7 @@ pub struct MMRInput {
 }
 
 impl MMRInput {
-    pub fn new(
+    pub const fn new(
         initial_peaks: Vec<String>,
         elements_count: usize,
         leaves_count: usize,
@@ -191,11 +184,11 @@ impl MMRInput {
         self.initial_peaks.clone()
     }
 
-    pub fn elements_count(&self) -> usize {
+    pub const fn elements_count(&self) -> usize {
         self.elements_count
     }
 
-    pub fn leaves_count(&self) -> usize {
+    pub const fn leaves_count(&self) -> usize {
         self.leaves_count
     }
 }
@@ -208,7 +201,7 @@ pub struct BatchProof {
     method_id: [u32; 8],
 }
 impl BatchProof {
-    pub fn new(receipt: Receipt, image_id: Vec<u8>, method_id: [u32; 8]) -> Self {
+    pub const fn new(receipt: Receipt, image_id: Vec<u8>, method_id: [u32; 8]) -> Self {
         Self {
             receipt,
             image_id,
@@ -216,11 +209,11 @@ impl BatchProof {
         }
     }
 
-    pub fn receipt(&self) -> &Receipt {
+    pub const fn receipt(&self) -> &Receipt {
         &self.receipt
     }
 
-    pub fn method_id(&self) -> [u32; 8] {
+    pub const fn method_id(&self) -> [u32; 8] {
         self.method_id
     }
 }
@@ -232,7 +225,7 @@ pub struct FinalHash {
 }
 
 impl FinalHash {
-    pub fn new(hash: String, index: usize) -> Self {
+    pub const fn new(hash: String, index: usize) -> Self {
         Self { hash, index }
     }
 
@@ -240,7 +233,7 @@ impl FinalHash {
         &self.hash
     }
 
-    pub fn index(&self) -> usize {
+    pub const fn index(&self) -> usize {
         self.index
     }
 }
@@ -262,7 +255,7 @@ pub struct BlocksValidityInput {
     proofs: Vec<GuestProof>,
 }
 impl BlocksValidityInput {
-    pub fn new(
+    pub const fn new(
         chain_id: u64,
         headers: Vec<BlockHeader>,
         mmr_input: MMRInput,
@@ -276,19 +269,19 @@ impl BlocksValidityInput {
         }
     }
 
-    pub fn chain_id(&self) -> u64 {
+    pub const fn chain_id(&self) -> u64 {
         self.chain_id
     }
 
-    pub fn headers(&self) -> &Vec<BlockHeader> {
+    pub const fn headers(&self) -> &Vec<BlockHeader> {
         &self.headers
     }
 
-    pub fn proofs(&self) -> &Vec<GuestProof> {
+    pub const fn proofs(&self) -> &Vec<GuestProof> {
         &self.proofs
     }
 
-    pub fn mmr_input(&self) -> &MMRInput {
+    pub const fn mmr_input(&self) -> &MMRInput {
         &self.mmr_input
     }
 }
@@ -331,12 +324,11 @@ mod tests {
     fn test_combined_input() {
         let mmr_input = MMRInput::new(vec!["peak1".to_string()], 10, 5, vec!["elem1".to_string()]);
 
-        let input = CombinedInput::new(1, 100, Vec::new(), mmr_input.clone(), false);
+        let input = CombinedInput::new(1, 100, Vec::new(), mmr_input.clone());
 
         assert_eq!(input.chain_id(), 1);
         assert_eq!(input.batch_size(), 100);
         assert!(input.headers().is_empty());
-        assert!(!input.skip_proof_verification());
 
         // Test MMRInput getters
         assert_eq!(input.mmr_input().elements_count(), 10);

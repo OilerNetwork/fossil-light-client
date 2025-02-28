@@ -7,21 +7,14 @@ edition = "2021"
 common = { path = "../common" }
 
 eyre = { workspace = true }
-thiserror = { workspace = true }
 tracing = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 dotenv = { workspace = true }
 clap = { workspace = true }
-
-alloy = { version = "0.6.4", features = [
-    "providers",
-    "network",
-    "sol-types",
-    "signer-local",
-] }
-alloy-contract = "0.6.4"
-alloy-sol-types = { version = "0.8.12", features = ["json"] }
+alloy = { workspace = true }
+alloy-contract = { workspace = true }
+alloy-sol-types = { workspace = true }
 
 [dev-dependencies]
-tokio = { version = "1.0", features = ["full", "test-util"] }
-serial_test = "2.0"
+tokio = { workspace = true, features = ["full", "test-util"] }
+serial_test = "3.2.0"

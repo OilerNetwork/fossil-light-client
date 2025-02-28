@@ -9,12 +9,10 @@ use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, Veri
 use serde::Deserialize;
 use tokio::task;
 use tokio::time::{sleep, Duration};
-use tracing::{debug, error, info};
+use tracing::{debug, info};
 
-use crate::{
-    errors::ProofGeneratorError,
-    utils::{Groth16, Stark},
-};
+use crate::utils::{Groth16, Stark};
+use eyre::{eyre, Result};
 
 const MAX_RETRIES: u32 = 3;
 const INITIAL_RETRY_DELAY_MS: u64 = 1000;
@@ -30,20 +28,13 @@ impl<T> ProofGenerator<T>
 where
     T: serde::Serialize + Clone + Send + 'static,
 {
-    pub fn new(
-        method_elf: &'static [u8],
-        method_id: [u32; 8],
-    ) -> Result<Self, ProofGeneratorError> {
+    pub fn new(method_elf: &'static [u8], method_id: [u32; 8]) -> Result<Self> {
         if method_elf.is_empty() {
-            return Err(ProofGeneratorError::InvalidInput(
-                "Method ELF cannot be empty",
-            ));
+            return Err(eyre!("Method ELF cannot be empty: {:?}", method_elf));
         }
 
         if method_id.iter().all(|&x| x == 0) {
-            return Err(ProofGeneratorError::InvalidInput(
-                "Method ID cannot be all zeros",
-            ));
+            return Err(eyre!("Method ID cannot be all zeros: {:?}", method_id));
         }
 
         Ok(Self {
@@ -54,10 +45,10 @@ where
     }
 
     /// Generate a standard Stark proof for intermediate batches
-    pub async fn generate_stark_proof(&self, input: T) -> Result<Stark, ProofGeneratorError> {
+    pub async fn generate_stark_proof(&self, input: T) -> Result<Stark> {
         let input_size = std::mem::size_of_val(&input);
         if input_size == 0 {
-            return Err(ProofGeneratorError::InvalidInput("Input cannot be empty"));
+            return Err(eyre!("Input cannot be empty"));
         }
 
         info!("Generating STARK proof for intermediate batch");
@@ -68,60 +59,44 @@ where
             let method_id = self.method_id;
             let input = input.clone();
 
-            move || -> Result<Stark, ProofGeneratorError> {
+            move || -> Result<Stark> {
                 debug!("Building executor environment");
                 let env = ExecutorEnv::builder()
                     .write(&input)
-                    .map_err(|e| {
-                        error!("Failed to write input to executor env: {}", e);
-                        ProofGeneratorError::ExecutorEnvError(e.to_string())
-                    })?
+                    .map_err(|e| eyre!("Failed to write input to executor env: {}", e))?
                     .build()
-                    .map_err(|e| {
-                        error!("Failed to build executor env: {}", e);
-                        ProofGeneratorError::ExecutorEnvError(e.to_string())
-                    })?;
+                    .map_err(|e| eyre!("Failed to build executor env: {}", e))?;
 
                 debug!("Generating STARK proof with default prover");
                 let receipt = default_prover()
                     .prove(env, method_elf)
-                    .map_err(|e| {
-                        error!("Failed to generate STARK proof: {}", e);
-                        ProofGeneratorError::ReceiptError(e.to_string())
-                    })?
+                    .map_err(|e| eyre!("Failed to generate STARK proof: {}", e))?
                     .receipt;
 
                 debug!("Computing image ID");
-                let image_id = compute_image_id(method_elf).map_err(|e| {
-                    error!("Failed to compute image ID: {}", e);
-                    ProofGeneratorError::ImageIdError(e.to_string())
-                })?;
+                let image_id = compute_image_id(method_elf)
+                    .map_err(|e| eyre!("Failed to compute image ID: {}", e))?;
 
                 info!("Successfully generated STARK proof");
                 Ok(Stark::new(receipt, image_id.as_bytes().to_vec(), method_id))
             }
         })
         .await?
-        .map_err(|e| {
-            error!("Failed to spawn blocking task: {}", e);
-            ProofGeneratorError::SpawnBlocking(e.to_string())
-        })?;
+        .map_err(|e| eyre!("Failed to spawn blocking task: {}", e))?;
 
         Ok(proof)
     }
 
     /// Generate a Groth16 proof for the final batch
-    pub async fn generate_groth16_proof(&self, input: T) -> Result<Groth16, ProofGeneratorError> {
+    pub async fn generate_groth16_proof(&self, input: T) -> Result<Groth16> {
         self.generate_groth16_proof_with_retry(input).await
     }
 
-    pub fn decode_journal<U: for<'a> Deserialize<'a>>(
-        &self,
-        proof: &Groth16,
-    ) -> Result<U, ProofGeneratorError> {
+    pub fn decode_journal<U: for<'a> Deserialize<'a>>(&self, proof: &Groth16) -> Result<U> {
         if proof.receipt().journal.bytes.is_empty() {
-            return Err(ProofGeneratorError::InvalidInput(
-                "Proof journal cannot be empty",
+            return Err(eyre!(
+                "Proof journal cannot be empty: {:?}",
+                proof.receipt().journal.bytes
             ));
         }
 
@@ -129,10 +104,7 @@ where
         Ok(receipt.journal.decode()?)
     }
 
-    async fn generate_groth16_proof_with_retry(
-        &self,
-        input: T,
-    ) -> Result<Groth16, ProofGeneratorError> {
+    async fn generate_groth16_proof_with_retry(&self, input: T) -> Result<Groth16> {
         let mut retries = 0;
         let mut last_error = None;
 
@@ -158,20 +130,17 @@ where
         }
 
         Err(last_error.unwrap_or_else(|| {
-            ProofGeneratorError::ReceiptError(format!(
+            eyre!(
                 "Failed to generate Groth16 proof after {} attempts",
                 MAX_RETRIES
-            ))
+            )
         }))
     }
 
-    async fn generate_groth16_proof_internal(
-        &self,
-        input: T,
-    ) -> Result<Groth16, ProofGeneratorError> {
+    async fn generate_groth16_proof_internal(&self, input: T) -> Result<Groth16> {
         let input_size = std::mem::size_of_val(&input);
         if input_size == 0 {
-            return Err(ProofGeneratorError::InvalidInput("Input cannot be empty"));
+            return Err(eyre!("Input cannot be empty"));
         }
 
         debug!("Input size: {} bytes", input_size);
@@ -179,19 +148,13 @@ where
         let method_elf = self.method_elf;
         let input = input.clone();
 
-        let proof = task::spawn_blocking(move || -> Result<Groth16, ProofGeneratorError> {
+        let proof = task::spawn_blocking(move || -> Result<Groth16> {
             debug!("Building executor environment");
             let env = ExecutorEnv::builder()
                 .write(&input)
-                .map_err(|e| {
-                    error!("Failed to write input to executor env: {}", e);
-                    ProofGeneratorError::ExecutorEnvError(e.to_string())
-                })?
+                .map_err(|e| eyre!("Failed to write input to executor env: {}", e))?
                 .build()
-                .map_err(|e| {
-                    error!("Failed to build executor env: {}", e);
-                    ProofGeneratorError::ExecutorEnvError(e.to_string())
-                })?;
+                .map_err(|e| eyre!("Failed to build executor env: {}", e))?;
 
             debug!("Generating proof with Groth16 options");
             let receipt = default_prover()
@@ -201,23 +164,16 @@ where
                     method_elf,
                     &ProverOpts::groth16(),
                 )
-                .map_err(|e| {
-                    error!("Failed to generate Groth16 proof: {}", e);
-                    ProofGeneratorError::ReceiptError(e.to_string())
-                })?
+                .map_err(|e| eyre!("Failed to generate Groth16 proof: {}", e))?
                 .receipt;
 
             debug!("Encoding seal");
-            let encoded_seal = encode_seal(&receipt).map_err(|e| {
-                error!("Failed to encode seal: {}", e);
-                ProofGeneratorError::SealError(e.to_string())
-            })?;
+            let encoded_seal =
+                encode_seal(&receipt).map_err(|e| eyre!("Failed to encode seal: {}", e))?;
 
             debug!("Computing image ID");
-            let image_id = compute_image_id(method_elf).map_err(|e| {
-                error!("Failed to compute image ID: {}", e);
-                ProofGeneratorError::ImageIdError(e.to_string())
-            })?;
+            let image_id = compute_image_id(method_elf)
+                .map_err(|e| eyre!("Failed to compute image ID: {}", e))?;
 
             let journal = receipt.journal.bytes.clone();
 
@@ -231,21 +187,24 @@ where
             debug!("Generating calldata");
             let calldata =
                 get_groth16_calldata_felt(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
-                    .map_err(|e| {
-                        error!("Failed to generate calldata: {}", e);
-                        ProofGeneratorError::CalldataError(e.to_string())
-                    })?;
+                    .map_err(|e| eyre!("Failed to generate calldata: {}", e))?;
 
             info!("Successfully generated Groth16 proof and calldata.");
             Ok(Groth16::new(receipt, calldata))
         })
         .await?
-        .map_err(|e| {
-            error!("Failed to spawn blocking task: {}", e);
-            ProofGeneratorError::SpawnBlocking(e.to_string())
-        })?;
+        .map_err(|e| eyre!("Failed to spawn blocking task: {}", e))?;
 
         Ok(proof)
+    }
+
+    #[cfg(test)]
+    pub fn mock_for_tests() -> Self {
+        Self {
+            method_elf: &[],
+            method_id: [0; 8],
+            _phantom: std::marker::PhantomData,
+        }
     }
 }
 
@@ -272,15 +231,13 @@ mod tests {
         // Test empty ELF
         let result = ProofGenerator::<TestInput>::new(&[], TEST_METHOD_ID);
         assert!(matches!(
-            result.unwrap_err(),
-            ProofGeneratorError::InvalidInput(_)
+            result.unwrap_err(), e if e.to_string().contains("Method ELF cannot be empty")
         ));
 
         // Test zero method ID
         let result = ProofGenerator::<TestInput>::new(TEST_METHOD_ELF, [0; 8]);
         assert!(matches!(
-            result.unwrap_err(),
-            ProofGeneratorError::InvalidInput(_)
+            result.unwrap_err(), e if e.to_string().contains("Method ID cannot be all zeros")
         ));
     }
 

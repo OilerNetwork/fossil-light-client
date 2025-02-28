@@ -9,6 +9,7 @@ pub trait IFossilStore<TContractState> {
     fn store_latest_blockhash_from_l1(ref self: TContractState, block_number: u64, blockhash: u256);
     fn update_store_state(
         ref self: TContractState,
+        verifier_caller: starknet::ContractAddress,
         journal: verifier::Journal,
         avg_fees: Span<verifier::AvgFees>,
         ipfs_hash: ByteArray,
@@ -23,6 +24,7 @@ pub trait IFossilStore<TContractState> {
     fn get_avg_fees_in_range(
         self: @TContractState, start_timestamp: u64, end_timestamp: u64,
     ) -> Array<u64>;
+    fn upgrade(ref self: TContractState, new_class_hash: starknet::ClassHash);
 }
 
 #[starknet::contract]
@@ -30,6 +32,18 @@ pub mod Store {
     use core::starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
+    use openzeppelin_access::ownable::OwnableComponent;
+    use openzeppelin_upgrades::UpgradeableComponent;
+
+    component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
+    component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
+
+    #[abi(embed_v0)]
+    impl OwnableMixinImpl = OwnableComponent::OwnableMixinImpl<ContractState>;
+    impl OwnableInternalImpl = OwnableComponent::InternalImpl<ContractState>;
+
+    // Upgradeable
+    impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
 
     const HOUR_IN_SECONDS: u64 = 3600;
 
@@ -70,6 +84,10 @@ pub mod Store {
         min_mmr_block: u64,
         min_update_interval: u64,
         avg_fees: Map<u64, AvgFees>,
+        #[substorage(v0)]
+        ownable: OwnableComponent::Storage,
+        #[substorage(v0)]
+        upgradeable: UpgradeableComponent::Storage,
     }
 
     #[event]
@@ -77,12 +95,23 @@ pub mod Store {
     enum Event {
         LatestBlockhashFromL1Stored: LatestBlockhashFromL1Stored,
         MmrStateUpdated: MmrStateUpdated,
+        IPFSHashUpdated: IPFSHashUpdated,
+        #[flat]
+        OwnableEvent: OwnableComponent::Event,
+        #[flat]
+        UpgradeableEvent: UpgradeableComponent::Event,
     }
 
     #[derive(Drop, starknet::Event)]
     struct LatestBlockhashFromL1Stored {
         block_number: u64,
         blockhash: u256,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct IPFSHashUpdated {
+        batch_index: u64,
+        ipfs_hash: ByteArray,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -94,6 +123,11 @@ pub mod Store {
         root_hash: u256,
     }
 
+    #[constructor]
+    fn constructor(ref self: ContractState, owner: starknet::ContractAddress) {
+        self.ownable.initializer(owner);
+    }
+
     #[abi(embed_v0)]
     impl FossilStoreImpl of super::IFossilStore<ContractState> {
         fn initialize(
@@ -102,6 +136,7 @@ pub mod Store {
             l1_message_proxy_address: starknet::ContractAddress,
             min_update_interval: u64,
         ) {
+            self.ownable.assert_only_owner();
             assert!(!self.initialized.read(), "Contract already initialized");
             self.initialized.write(true);
             self.verifier_address.write(verifier_address);
@@ -126,6 +161,7 @@ pub mod Store {
 
         fn update_store_state(
             ref self: ContractState,
+            verifier_caller: starknet::ContractAddress,
             journal: verifier::Journal,
             avg_fees: Span<verifier::AvgFees>,
             ipfs_hash: ByteArray,
@@ -166,7 +202,6 @@ pub mod Store {
             curr_state.latest_mmr_block_hash.write(journal.latest_mmr_block_hash);
             curr_state.leaves_count.write(journal.leaves_count);
             curr_state.root_hash.write(journal.root_hash);
-            curr_state.ipfs_hash.write(ipfs_hash);
             curr_state.first_block_parent_hash.write(journal.first_block_parent_hash);
 
             for avg_fee in avg_fees {
@@ -196,6 +231,11 @@ pub mod Store {
                         root_hash: journal.root_hash,
                     },
                 );
+
+            if verifier_caller == self.ownable.Ownable_owner.read() {
+                curr_state.ipfs_hash.write(ipfs_hash.clone());
+                self.emit(IPFSHashUpdated { batch_index: journal.batch_index, ipfs_hash });
+            }
         }
 
         fn get_mmr_state(self: @ContractState, batch_index: u64) -> MMRSnapshot {
@@ -260,6 +300,11 @@ pub mod Store {
                 i += HOUR_IN_SECONDS;
             };
             fees
+        }
+
+        fn upgrade(ref self: ContractState, new_class_hash: starknet::ClassHash) {
+            self.ownable.assert_only_owner();
+            self.upgradeable.upgrade(new_class_hash);
         }
     }
 }

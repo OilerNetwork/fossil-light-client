@@ -8,7 +8,8 @@ edition = "2023_11"
 [dependencies]
 starknet.workspace = true
 verifier = { path = "../verifier" }
-
+openzeppelin_access.workspace = true
+openzeppelin_upgrades.workspace = true
 [dev-dependencies]
 assert_macros.workspace = true
 snforge_std.workspace = true

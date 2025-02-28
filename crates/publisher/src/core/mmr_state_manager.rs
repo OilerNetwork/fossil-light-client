@@ -1,24 +1,23 @@
-use crate::errors::AccumulatorError;
 use crate::utils::validate_u256_hex;
+use eyre::{eyre, Result};
 use guest_types::GuestOutput;
 use mmr::MMR;
 use mmr_utils::StoreManager;
 use starknet_handler::{account::StarknetAccount, u256_from_hex, MmrState};
 use store::SqlitePool;
 use tracing::{debug, error, info};
-// use jsonrpc_client::{JsonRpcClient, HttpTransport, Url};
-// use std::sync::Arc;
-
 pub struct MMRStateManager<'a> {
     account: StarknetAccount,
     store_address: &'a str,
+    rpc_url: &'a str,
 }
 
 impl<'a> MMRStateManager<'a> {
-    pub fn new(account: StarknetAccount, store_address: &'a str) -> Self {
+    pub fn new(account: StarknetAccount, store_address: &'a str, rpc_url: &'a str) -> Self {
         Self {
             account,
             store_address,
+            rpc_url,
         }
     }
 
@@ -30,6 +29,10 @@ impl<'a> MMRStateManager<'a> {
         self.store_address
     }
 
+    pub fn rpc_url(&self) -> &'a str {
+        self.rpc_url
+    }
+
     pub async fn update_state(
         &self,
         store_manager: StoreManager,
@@ -38,11 +41,9 @@ impl<'a> MMRStateManager<'a> {
         latest_block_number: u64,
         guest_output: Option<&GuestOutput>,
         headers: &Vec<String>,
-    ) -> Result<MmrState, AccumulatorError> {
+    ) -> Result<MmrState> {
         if headers.is_empty() {
-            return Err(AccumulatorError::InvalidInput(
-                "Headers list cannot be empty",
-            ));
+            return Err(eyre!("Headers list cannot be empty: {:?}", headers));
         }
 
         info!("Updating MMR state with {} headers...", headers.len());
@@ -138,14 +139,12 @@ impl<'a> MMRStateManager<'a> {
         mmr: &mut MMR,
         pool: &SqlitePool,
         headers: &Vec<String>,
-    ) -> Result<(), AccumulatorError> {
+    ) -> Result<()> {
         debug!("Appending headers to MMR");
 
         for hash in headers {
             if hash.trim().is_empty() {
-                return Err(AccumulatorError::InvalidInput(
-                    "Header hash cannot be empty",
-                ));
+                return Err(eyre!("Header hash cannot be empty: {:?}", hash));
             }
 
             let append_result = mmr.append(hash.clone()).await.map_err(|e| {
@@ -164,10 +163,7 @@ impl<'a> MMRStateManager<'a> {
         Ok(())
     }
 
-    async fn verify_mmr_state(
-        mmr: &MMR,
-        guest_output: &GuestOutput,
-    ) -> Result<(), AccumulatorError> {
+    async fn verify_mmr_state(mmr: &MMR, guest_output: &GuestOutput) -> Result<()> {
         debug!("Verifying MMR state");
 
         let leaves_count = mmr.leaves_count.get().await.map_err(|e| {
@@ -175,8 +171,11 @@ impl<'a> MMRStateManager<'a> {
             e
         })?;
         if leaves_count != guest_output.leaves_count() as usize {
-            error!("Leaves count mismatch");
-            return Err(AccumulatorError::InvalidStateTransition);
+            return Err(eyre!(
+                "Invalid state transition: leaves_count mismatch: {} != {}",
+                leaves_count,
+                guest_output.leaves_count()
+            ));
         }
 
         let new_element_count = mmr.elements_count.get().await.map_err(|e| {
@@ -195,14 +194,14 @@ impl<'a> MMRStateManager<'a> {
             })?;
 
         if new_root_hash != guest_output.root_hash() {
-            error!("Root hash mismatch");
-            return Err(AccumulatorError::InvalidStateTransition);
+            return Err(eyre!(
+                "Invalid state transition: root_hash mismatch: {} != {}",
+                new_root_hash,
+                guest_output.root_hash()
+            ));
         }
 
-        validate_u256_hex(&new_root_hash).map_err(|e| {
-            error!(error = %e, "Invalid root hash format");
-            e
-        })?;
+        validate_u256_hex(&new_root_hash).map_err(|e| e)?;
 
         debug!("MMR state verified successfully");
         Ok(())
@@ -211,12 +210,12 @@ impl<'a> MMRStateManager<'a> {
     async fn create_new_state(
         latest_block_number: u64,
         guest_output: &GuestOutput,
-    ) -> Result<MmrState, AccumulatorError> {
+    ) -> Result<MmrState> {
         debug!("Creating new MMR state");
 
         let root_hash = guest_output.root_hash().trim_start_matches("0x");
         if root_hash.is_empty() {
-            return Err(AccumulatorError::InvalidInput("Root hash cannot be empty"));
+            return Err(eyre!("Root hash cannot be empty"));
         }
 
         let latest_mmr_block_hash =
@@ -234,6 +233,26 @@ impl<'a> MMRStateManager<'a> {
 
         debug!("New MMR state created successfully");
         Ok(new_state)
+    }
+
+    #[cfg(test)]
+    pub fn mock() -> Self {
+        use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient, Url};
+        use std::sync::Arc;
+
+        let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(
+            Url::parse("http://localhost:5050").expect("Invalid URL"),
+        )));
+        let account = StarknetAccount::new(
+            provider, "0x0", "0x0", // private key as &str
+        )
+        .expect("Failed to create StarknetAccount");
+
+        MMRStateManager::new(
+            account,
+            "0x0",                   // store_address
+            "http://localhost:5050", // rpc_url
+        )
     }
 }
 
@@ -258,7 +277,8 @@ mod tests {
         .expect("Failed to create StarknetAccount");
 
         let store_address = "0x1234567890abcdef"; // Valid hex store address
-        let mmr_state_manager = MMRStateManager::new(account, store_address);
+        let rpc_url = "http://localhost:5050"; // Valid rpc_url
+        let mmr_state_manager = MMRStateManager::new(account, store_address, rpc_url);
 
         let memory_store = Arc::new(InMemoryStore::new(None));
         let pool = SqlitePool::connect("sqlite::memory:")
@@ -327,7 +347,7 @@ mod tests {
             .update_state(store_manager, &mut mmr, &pool, 100, None, &vec![])
             .await;
 
-        assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
+        assert!(matches!(result, Err(e) if e.to_string().contains("Headers list cannot be empty")));
     }
 
     #[tokio::test]
@@ -339,7 +359,7 @@ mod tests {
         let result =
             MMRStateManager::append_headers(store_manager, &mut mmr, &pool, &headers).await;
 
-        assert!(matches!(result, Err(AccumulatorError::InvalidInput(_))));
+        assert!(matches!(result, Err(e) if e.to_string().contains("Header hash cannot be empty")));
     }
 
     #[tokio::test]

@@ -1,6 +1,6 @@
-use crate::errors::{DbError, PublisherError};
 use common::get_env_var;
 use eth_rlp_types::BlockHeader;
+use eyre::{eyre, Result};
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use std::sync::Arc;
@@ -18,7 +18,7 @@ impl DbConnection {
     const RETRY_DELAY: Duration = Duration::from_secs(5);
 
     /// Creates a new database connection with retries
-    pub async fn new() -> Result<Arc<Self>, DbError> {
+    pub async fn new() -> Result<Arc<Self>> {
         let mut attempt = 0;
 
         while attempt < Self::MAX_RETRIES {
@@ -43,11 +43,11 @@ impl DbConnection {
                         );
                         sleep(Self::RETRY_DELAY).await;
                     } else {
-                        return Err(DbError::Connection(format!(
+                        return Err(eyre!(
                             "Failed to connect after {} attempts: {}",
                             Self::MAX_RETRIES,
                             e
-                        )));
+                        ));
                     }
                 }
             }
@@ -57,7 +57,7 @@ impl DbConnection {
     }
 
     /// Internal method to attempt a database connection
-    async fn try_connect() -> Result<Arc<Self>, DbError> {
+    async fn try_connect() -> Result<Arc<Self>> {
         let database_url = get_env_var("DATABASE_URL")?;
 
         let pool = PgPoolOptions::new()
@@ -68,7 +68,7 @@ impl DbConnection {
             .acquire_timeout(std::time::Duration::from_secs(30))
             .connect(&database_url)
             .await
-            .map_err(DbError::Database)?;
+            .map_err(|e| eyre!("Failed to connect to database: {}", e))?;
 
         Ok(Arc::new(Self { pool }))
     }
@@ -77,12 +77,13 @@ impl DbConnection {
         &self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<Vec<BlockHeader>, DbError> {
+    ) -> Result<Vec<BlockHeader>> {
         if start_block > end_block {
-            return Err(DbError::InvalidBlockRange {
+            return Err(eyre!(
+                "Invalid block range: start block {} is greater than end block {}",
                 start_block,
-                end_block,
-            });
+                end_block
+            ));
         }
         let temp_headers = sqlx::query_as!(
             TempBlockHeader,
@@ -90,10 +91,11 @@ impl DbConnection {
             SELECT block_hash, number, gas_limit, gas_used, nonce, 
                    transaction_root, receipts_root, state_root, 
                    base_fee_per_gas, parent_hash, miner, logs_bloom, 
-                   difficulty, totaldifficulty, sha3_uncles, "timestamp", 
+                   difficulty, totaldifficulty, sha3_uncles, 
+                   CASE WHEN CAST("timestamp" AS text) ~ '^[0-9]+$' THEN CAST("timestamp" AS bigint) END AS "timestamp",
                    extra_data, mix_hash, withdrawals_root, 
                    blob_gas_used, excess_blob_gas, parent_beacon_block_root
-            FROM blockheaders
+            FROM public.blockheaders
             WHERE number BETWEEN $1 AND $2
             ORDER BY number ASC
             "#,
@@ -103,7 +105,6 @@ impl DbConnection {
         .fetch_all(&self.pool)
         .await?;
 
-        // Convert TempBlockHeader to BlockHeader
         let headers: Vec<BlockHeader> =
             temp_headers.into_iter().map(temp_to_block_header).collect();
 
@@ -113,7 +114,7 @@ impl DbConnection {
     pub async fn get_block_header_by_number(
         &self,
         block_number: u64,
-    ) -> Result<Option<BlockHeader>, DbError> {
+    ) -> Result<Option<BlockHeader>> {
         let temp_header = sqlx::query_as!(
             TempBlockHeader,
             r#"
@@ -141,12 +142,13 @@ impl DbConnection {
         &self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<Vec<BlockHeader>, DbError> {
+    ) -> Result<Vec<BlockHeader>> {
         if start_block > end_block {
-            return Err(DbError::InvalidBlockRange {
+            return Err(eyre!(
+                "Invalid block range: start block {} is greater than end block {}",
                 start_block,
-                end_block,
-            });
+                end_block
+            ));
         }
 
         let temp_headers = sqlx::query_as!(
@@ -254,7 +256,7 @@ fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
     }
 }
 
-pub fn get_store_path(db_file: Option<String>) -> Result<String, PublisherError> {
+pub fn get_store_path(db_file: Option<String>) -> Result<String> {
     // Load the database file path from the environment or use the provided argument
     let store_path = if let Some(db_file) = db_file {
         db_file
