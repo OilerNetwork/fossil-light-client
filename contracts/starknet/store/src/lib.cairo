@@ -20,10 +20,10 @@ pub trait IFossilStore<TContractState> {
     fn get_min_mmr_block(self: @TContractState) -> u64;
     fn get_batch_last_block_link(self: @TContractState, batch_index: u64) -> u256;
     fn get_batch_first_block_parent_hash(self: @TContractState, batch_index: u64) -> u256;
-    fn get_avg_fee(self: @TContractState, timestamp: u64) -> u64;
+    fn get_avg_fee(self: @TContractState, timestamp: u64) -> felt252;
     fn get_avg_fees_in_range(
         self: @TContractState, start_timestamp: u64, end_timestamp: u64,
-    ) -> Array<u64>;
+    ) -> Array<felt252>;
     fn upgrade(ref self: TContractState, new_class_hash: starknet::ClassHash);
 }
 
@@ -32,6 +32,7 @@ pub mod Store {
     use core::starknet::storage::{
         Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
     };
+    use fp::{UFixedPoint123x128, UFixedPoint123x128Impl, UFixedPoint123x128StorePacking};
     use openzeppelin_access::ownable::OwnableComponent;
     use openzeppelin_upgrades::UpgradeableComponent;
 
@@ -60,7 +61,7 @@ pub mod Store {
     #[starknet::storage_node]
     pub struct AvgFees {
         data_points: u64,
-        avg_fee: u64,
+        avg_fee: felt252,
     }
 
     #[derive(Drop, Serde, Debug)]
@@ -208,16 +209,42 @@ pub mod Store {
                 let mut curr_avg_fee = self.avg_fees.entry(*avg_fee.timestamp);
                 if curr_avg_fee.data_points.read() == 0 {
                     curr_avg_fee.data_points.write(*avg_fee.data_points);
-                    curr_avg_fee.avg_fee.write(*avg_fee.avg_fee);
+                    let avg_fee_fixed_point: UFixedPoint123x128 = (*avg_fee.avg_fee).into();
+                    curr_avg_fee
+                        .avg_fee
+                        .write(UFixedPoint123x128StorePacking::pack(avg_fee_fixed_point));
                 } else {
-                    let existing_points = curr_avg_fee.data_points.read();
-                    let existing_fee = curr_avg_fee.avg_fee.read();
-                    let new_data_points = existing_points + *avg_fee.data_points;
-                    let new_avg_fee = (existing_fee * existing_points
-                        + *avg_fee.avg_fee * *avg_fee.data_points)
-                        / new_data_points;
-                    curr_avg_fee.data_points.write(new_data_points);
-                    curr_avg_fee.avg_fee.write(new_avg_fee);
+                    let existing_points_fixed: UFixedPoint123x128 = curr_avg_fee
+                        .data_points
+                        .read()
+                        .into();
+                    let existing_fee_fixed: UFixedPoint123x128 =
+                        UFixedPoint123x128StorePacking::unpack(
+                        curr_avg_fee.avg_fee.read(),
+                    );
+
+                    let avg_fee_data_points_fixed: UFixedPoint123x128 = (*avg_fee.data_points)
+                        .into();
+                    let new_data_points_fixed: UFixedPoint123x128 = existing_points_fixed
+                        + avg_fee_data_points_fixed;
+
+                    let avg_fee_fixed: UFixedPoint123x128 = (*avg_fee.avg_fee).into();
+                    let new_avg_fee_fixed: UFixedPoint123x128 = (existing_fee_fixed
+                        * existing_points_fixed
+                        + avg_fee_fixed * avg_fee_data_points_fixed)
+                        / new_data_points_fixed;
+
+                    curr_avg_fee
+                        .avg_fee
+                        .write(UFixedPoint123x128StorePacking::pack(new_avg_fee_fixed));
+                    curr_avg_fee
+                        .data_points
+                        .write(
+                            new_data_points_fixed
+                                .get_integer()
+                                .try_into()
+                                .expect('Failed to convert u128 to u64'),
+                        );
                 }
             };
 
@@ -271,7 +298,7 @@ pub mod Store {
             curr_state.latest_mmr_block_hash.read()
         }
 
-        fn get_avg_fee(self: @ContractState, timestamp: u64) -> u64 {
+        fn get_avg_fee(self: @ContractState, timestamp: u64) -> felt252 {
             assert!(timestamp % HOUR_IN_SECONDS == 0, "Timestamp must be a multiple of 3600");
             let curr_state = self.avg_fees.entry(timestamp);
             curr_state.avg_fee.read()
@@ -279,7 +306,7 @@ pub mod Store {
 
         fn get_avg_fees_in_range(
             self: @ContractState, start_timestamp: u64, end_timestamp: u64,
-        ) -> Array<u64> {
+        ) -> Array<felt252> {
             assert!(
                 start_timestamp <= end_timestamp,
                 "Start timestamp must be less than or equal to end timestamp",
@@ -292,7 +319,7 @@ pub mod Store {
                 end_timestamp % HOUR_IN_SECONDS == 0, "End timestamp must be a multiple of 3600",
             );
 
-            let mut fees = array![];
+            let mut fees: Array<felt252> = array![];
 
             let mut i = start_timestamp;
             while i <= end_timestamp {
