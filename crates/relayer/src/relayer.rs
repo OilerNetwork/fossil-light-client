@@ -25,7 +25,7 @@ impl Relayer {
         let signer: PrivateKeySigner = get_var("ACCOUNT_PRIVATE_KEY")?;
 
         // Create the wallet
-        let wallet = EthereumWallet::from(signer.clone());
+        let wallet = EthereumWallet::from(signer);
 
         // Get the L2 proxy address as a string first
         let addr_str = get_env_var("L2_MSG_PROXY")?;
@@ -58,7 +58,6 @@ impl Relayer {
         let provider_url = get_env_var("ETH_RPC_URL")?;
 
         let provider = ProviderBuilder::new()
-            .with_recommended_fillers()
             .wallet(self.wallet.clone())
             .on_builtin(&provider_url)
             .await?;

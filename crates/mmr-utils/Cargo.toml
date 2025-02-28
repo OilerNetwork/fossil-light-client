@@ -4,14 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sqlx = { workspace = true }
 eyre = { workspace = true }
-
-uuid = "1.14.0"
-
-store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
-hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = ["sha256"] }
-mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
+hasher = { workspace = true }
+mmr = { workspace = true }
+sqlx = { workspace = true }
+store = { workspace = true }
+uuid = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["full"] }

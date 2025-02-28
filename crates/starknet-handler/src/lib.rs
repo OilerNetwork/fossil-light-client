@@ -19,19 +19,19 @@ pub struct MmrSnapshot {
 }
 
 impl MmrSnapshot {
-    pub fn latest_mmr_block(&self) -> u64 {
+    pub const fn latest_mmr_block(&self) -> u64 {
         self.latest_mmr_block
     }
 
-    pub fn latest_mmr_block_hash(&self) -> U256 {
+    pub const fn latest_mmr_block_hash(&self) -> U256 {
         self.latest_mmr_block_hash
     }
 
-    pub fn root_hash(&self) -> U256 {
+    pub const fn root_hash(&self) -> U256 {
         self.root_hash
     }
 
-    pub fn leaves_count(&self) -> u64 {
+    pub const fn leaves_count(&self) -> u64 {
         self.leaves_count
     }
 
@@ -68,15 +68,15 @@ impl MmrState {
         }
     }
 
-    pub fn latest_mmr_block(&self) -> u64 {
+    pub const fn latest_mmr_block(&self) -> u64 {
         self.latest_mmr_block
     }
 
-    pub fn latest_mmr_block_hash(&self) -> U256 {
+    pub const fn latest_mmr_block_hash(&self) -> U256 {
         self.latest_mmr_block_hash
     }
 
-    pub fn root_hash(&self) -> U256 {
+    pub const fn root_hash(&self) -> U256 {
         self.root_hash
     }
 
@@ -84,7 +84,7 @@ impl MmrState {
     //     self.elements_count
     // }
 
-    pub fn leaves_count(&self) -> u64 {
+    pub const fn leaves_count(&self) -> u64 {
         self.leaves_count
     }
 
@@ -99,12 +99,12 @@ pub fn u256_from_hex(hex: &str) -> Result<U256> {
 
     // Validate hex string length
     if hex_clean.len() != 64 {
-        return Err(eyre!("Invalid hex string length"));
+        return Err(eyre!("Invalid hex string length: {}", hex_clean.len()));
     }
 
     // Validate hex characters
     if !hex_clean.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err(eyre!("Invalid hex characters"));
+        return Err(eyre!("Invalid hex characters: {}", hex_clean));
     }
 
     let crypto_bigint = CryptoBigIntU256::from_be_hex(hex_clean);

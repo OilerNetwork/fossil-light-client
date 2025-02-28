@@ -14,6 +14,10 @@ members = [
     "crates/ipfs-utils",
 ]
 
+# Add this section to exclude methods from clippy checks
+[workspace.metadata]
+exclude-clippy = ["methods"]
+
 # Always optimize; building and running the guest takes much longer without optimization.
 [profile.dev]
 opt-level = 3
@@ -23,23 +27,61 @@ debug = 1
 lto = true
 
 [workspace.dependencies]
+# External git dependencies - these seem necessary based on the project structure
 eth-rlp-types = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", package = "eth-rlp-types", branch = "tiny-keccak" }
 eth-rlp-verify = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", branch = "tiny-keccak" }
 starknet = { git = "https://github.com/xJonathanLEI/starknet-rs.git", branch = "master" }
 starknet-crypto = { git = "https://github.com/xJonathanLEI/starknet-rs.git", branch = "master" }
+mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
+store = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }
+hasher = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher", features = [
+    "sha256",
+] }
+garaga_rs = { git = "https://github.com/keep-starknet-strange/garaga.git", branch = "main", default-features = false }
+risc0-ethereum-contracts = { git = "https://github.com/risc0/risc0-ethereum", tag = "v1.3.2" }
 
+# Core dependencies that are commonly used across crates
 sqlx = { version = "0.8.3", features = [
     "postgres",
     "runtime-tokio-native-tls",
 ] }
 eyre = "0.6.12"
 tracing = "0.1.41"
-tokio = "1.41.1"
+tokio = "1.43.0"
 dotenv = "0.15"
 clap = { version = "4.5.31", features = ["derive"] }
-axum = { version = "0.8.1", features = ["macros"] }
+serde = { version = "1.0.218", features = ["derive"] }
+serde_json = "1.0.139"
+uuid = "1.15.0"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+
+# Ethereum/blockchain related
+alloy = { version = "0.11.1", features = [
+    "providers",
+    "network",
+    "sol-types",
+    "signer-local",
+] }
+alloy-contract = "0.11.1"
+alloy-sol-types = { version = "0.8.21", features = ["json"] }
+
+# Testing dependencies
+mockall = "0.13.1"
+tempfile = "3.17.1"
+
+# Crypto and numeric dependencies
+sha2 = { git = "https://github.com/risc0/RustCrypto-hashes.git", tag = "sha2-v0.10.8-risczero.0", features = [
+    'compress',
+] }
+num-bigint = "0.4.6"
+num-traits = "0.2.19"
+crypto-bigint = "0.5.5"
+
+# Other utilities
+curl = "0.4.47"
+hex = "0.4.3"
+url = "2.5.4"
+pyo3 = { version = "0.23.5", features = ["extension-module"] }
 
 [patch.crates-io]
 sha2 = { git = "https://github.com/risc0/RustCrypto-hashes.git", tag = "sha2-v0.10.8-risczero.0" }
-
-
