@@ -97,7 +97,7 @@ deploy_contracts() {
     while [ $attempt -le $max_attempts ]; do
         echo -e "${BLUE}${BOLD}Deploying Ethereum contracts (Attempt $attempt/$max_attempts)...${NC}"
         
-        if forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ETH_RPC_URL; then
+        if forge script script/LocalTesting.s.sol:LocalSetup --broadcast --fork-url $ETH_RPC_URL; then
             return 0
         fi
         
@@ -153,7 +153,7 @@ fi
 # Get the fork block number from cast if in docker mode
 if [ "$ENV_TYPE" = "docker" ]; then
     # Use cast to get the current block number
-    BLOCK_NUMBER=$(cast block-number --rpc-url "$ETH_RPC_URL")
+    BLOCK_NUMBER=$(cast block-number --fork-url "$ETH_RPC_URL")
     
     if [ -n "$BLOCK_NUMBER" ]; then
         echo -e "${YELLOW}Found fork block number: $BLOCK_NUMBER${NC}"
