@@ -413,7 +413,7 @@ impl BatchRange {
 }
 
 /// Groups block headers into vectors based on their timestamp hour and finds representative timestamps
-fn group_headers_by_hour(headers: Vec<BlockHeader>) -> Vec<(i64, Vec<BlockHeader>)> {
+pub fn group_headers_by_hour(headers: Vec<BlockHeader>) -> Vec<(i64, Vec<BlockHeader>)> {
     let mut grouped_headers: Vec<(i64, Vec<BlockHeader>)> = Vec::new();
     let mut current_group: Vec<BlockHeader> = Vec::new();
     let mut current_hour: Option<i64> = None;

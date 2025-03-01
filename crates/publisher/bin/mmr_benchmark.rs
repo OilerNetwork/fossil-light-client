@@ -1,24 +1,24 @@
 use clap::Parser;
+use common::initialize_logger_and_env;
+use guest_types::CombinedInput;
 use methods::MMR_BENCHMARK_ELF;
-use publisher::db::DbConnection;
+use publisher::{core::group_headers_by_hour, db::DbConnection};
 use risc0_zkvm::{default_executor, ExecutorEnv};
 use tracing::error;
 
 #[derive(Parser)]
 #[command(name = "mmr_benchmark")]
 struct Args {
-    #[arg(long, default_value = "0")]
+    #[arg(long, default_value = "7000000")]
     start_block: u64,
 
-    #[arg(long, default_value = "1023")]
+    #[arg(long, default_value = "7001023")]
     end_block: u64,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::filter::EnvFilter::from_default_env())
-        .init();
+    initialize_logger_and_env()?;
 
     let args = Args::parse();
 
@@ -31,8 +31,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .get_block_headers_by_block_range(args.start_block, args.end_block)
         .await?;
 
+    let headers_by_hour = group_headers_by_hour(block_headers);
+
+    let mut combined_input: CombinedInput = Default::default();
+    combined_input.headers = headers_by_hour;
+    combined_input.chain_id = 1;
+    combined_input.batch_size = args.end_block - args.start_block + 1;
+
     // Execute the guest code.
-    let env = ExecutorEnv::builder().write(&block_headers)?.build()?;
+    let env = ExecutorEnv::builder().write(&combined_input)?.build()?;
     let exec = default_executor();
     exec.execute(env, MMR_BENCHMARK_ELF)?;
 

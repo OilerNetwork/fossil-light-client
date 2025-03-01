@@ -117,11 +117,11 @@ impl GuestOutput {
 }
 
 // CombinedInput
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone)]
 pub struct CombinedInput {
-    chain_id: u64,
-    batch_size: u64,
-    headers: Vec<(i64, Vec<BlockHeader>)>, // (representative_timestamp, headers)
+    pub chain_id: u64,
+    pub batch_size: u64,
+    pub headers: Vec<(i64, Vec<BlockHeader>)>, // (representative_timestamp, headers)
     mmr_input: MMRInput,
 }
 
@@ -157,7 +157,7 @@ impl CombinedInput {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct MMRInput {
     initial_peaks: Vec<String>,
     elements_count: usize,
