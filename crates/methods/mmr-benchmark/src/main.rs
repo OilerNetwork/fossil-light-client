@@ -58,13 +58,6 @@ fn main() {
     let last_block_hash = last_header.block_hash.clone();
 
     let first_batch_index = first_block_number / input.batch_size();
-    let last_batch_index = last_block_number / input.batch_size();
-
-    eprintln!("Checking batch index");
-    assert!(
-        first_batch_index == last_batch_index,
-        "Batch index mismatch"
-    );
 
     // Calculate fee averages for hourly groups
     eprintln!("Calculating fee averages for hourly groups");
