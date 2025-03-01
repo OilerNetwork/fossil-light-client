@@ -2414,7 +2414,7 @@ dependencies = [
 [[package]]
 name = "eth-rlp-types"
 version = "0.1.0"
-source = "git+https://github.com/NethermindEth/eth-rlp-verify.git?branch=tiny-keccak#89f7857b9c11ac74c435d6d422621ddf7babf6a0"
+source = "git+https://github.com/NethermindEth/eth-rlp-verify.git?branch=tiny-keccak#5b2aec5ad8a6c14cf8a2d91a24268246513c4db9"
 dependencies = [
  "ethereum-types 0.15.1",
  "eyre",

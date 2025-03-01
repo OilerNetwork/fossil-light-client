@@ -1,5 +1,5 @@
 use clap::Parser;
-use common::{get_env_var, initialize_logger};
+use common::initialize_logger;
 use guest_types::CombinedInput;
 use methods::MMR_BENCHMARK_ELF;
 use publisher::{core::group_headers_by_hour, db::DbConnection};
