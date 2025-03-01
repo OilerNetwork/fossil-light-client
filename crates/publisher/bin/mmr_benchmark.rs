@@ -1,4 +1,5 @@
 use clap::Parser;
+use common::initialize_logger_and_env;
 use guest_types::CombinedInput;
 use methods::MMR_BENCHMARK_ELF;
 use publisher::{core::group_headers_by_hour, db::DbConnection};
@@ -17,9 +18,7 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::filter::EnvFilter::from_default_env())
-        .init();
+    initialize_logger_and_env()?;
 
     let args = Args::parse();
 
