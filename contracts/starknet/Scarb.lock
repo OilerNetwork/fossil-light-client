@@ -5,11 +5,18 @@ version = 1
 name = "fossil_store"
 version = "0.1.0"
 dependencies = [
+ "fp",
  "openzeppelin_access",
  "openzeppelin_upgrades",
  "snforge_std",
  "verifier",
 ]
+
+[[package]]
+name = "fp"
+version = "0.1.4"
+source = "registry+https://scarbs.xyz/"
+checksum = "sha256:f636c02dfcb0fd321cd865c3ef0d5d352c7e27e4e21a2c3ad5836ab0d2511236"
 
 [[package]]
 name = "garaga"

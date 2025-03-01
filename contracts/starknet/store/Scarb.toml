@@ -10,6 +10,8 @@ starknet.workspace = true
 verifier = { path = "../verifier" }
 openzeppelin_access.workspace = true
 openzeppelin_upgrades.workspace = true
+fp = "0.1.4"
+
 [dev-dependencies]
 assert_macros.workspace = true
 snforge_std.workspace = true
