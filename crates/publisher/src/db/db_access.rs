@@ -160,8 +160,13 @@ fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
         totaldifficulty: temp.totaldifficulty,
         sha3_uncles: temp.sha3_uncles, // Option<String> (if exists)
 
-        // Convert timestamp from Option<i64> to Option<String>
-        timestamp: temp.timestamp,
+        // Convert timestamp from decimal to hex string format
+        timestamp: temp.timestamp.map(|ts| {
+            // Parse the decimal string to u64, then format as hex
+            ts.parse::<u64>()
+                .map(|t| format!("0x{:x}", t))
+                .unwrap_or(ts)
+        }),
         extra_data: temp.extra_data,
         mix_hash: temp.mix_hash,
         withdrawals_root: temp.withdrawals_root,
