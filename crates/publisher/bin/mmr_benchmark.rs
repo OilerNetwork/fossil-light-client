@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut combined_input: CombinedInput = Default::default();
     combined_input.headers = headers_by_hour;
-    combined_input.chain_id = 11155111;
+    combined_input.chain_id = 1;
     combined_input.batch_size = args.end_block - args.start_block + 1;
 
     // Execute the guest code.
