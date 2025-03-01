@@ -4,7 +4,7 @@ mod relayer;
 
 use crate::relayer::Relayer;
 use clap::Parser;
-use common::initialize_logger_and_env;
+use common::initialize_logger;
 use eyre::Result;
 use tracing::info;
 
@@ -22,7 +22,7 @@ async fn main() -> Result<()> {
 
     // Initialize environment with specified file
     dotenv::from_path(&args.env_file)?;
-    initialize_logger_and_env()?;
+    initialize_logger()?;
 
     info!("Starting the relayer...");
 

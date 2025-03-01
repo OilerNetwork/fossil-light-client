@@ -4,7 +4,7 @@ mod client;
 
 use clap::Parser;
 use client::LightClient;
-use common::initialize_logger_and_env;
+use common::initialize_logger;
 use eyre::Result;
 
 #[derive(Parser)]
@@ -40,7 +40,7 @@ async fn main() -> Result<()> {
 
     // Initialize environment with specified file
     dotenv::from_path(&args.env_file)?;
-    initialize_logger_and_env()?;
+    initialize_logger()?;
 
     tracing::info!("Starting Fossil Light Client...");
 

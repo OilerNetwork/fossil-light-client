@@ -91,8 +91,7 @@ impl DbConnection {
             SELECT block_hash, number, gas_limit, gas_used, nonce, 
                    transaction_root, receipts_root, state_root, 
                    base_fee_per_gas, parent_hash, miner, logs_bloom, 
-                   difficulty, totaldifficulty, sha3_uncles, 
-                   CASE WHEN CAST("timestamp" AS text) ~ '^[0-9]+$' THEN CAST("timestamp" AS bigint) END AS "timestamp",
+                   difficulty, totaldifficulty, sha3_uncles, timestamp, 
                    extra_data, mix_hash, withdrawals_root, 
                    blob_gas_used, excess_blob_gas, parent_beacon_block_root
             FROM public.blockheaders
@@ -110,128 +109,44 @@ impl DbConnection {
 
         Ok(headers)
     }
-
-    pub async fn get_block_header_by_number(
-        &self,
-        block_number: u64,
-    ) -> Result<Option<BlockHeader>> {
-        let temp_header = sqlx::query_as!(
-            TempBlockHeader,
-            r#"
-            SELECT block_hash, number, gas_limit, gas_used, nonce, 
-                   transaction_root, receipts_root, state_root, 
-                   base_fee_per_gas, parent_hash, miner, logs_bloom, 
-                   difficulty, totaldifficulty, sha3_uncles, "timestamp", 
-                   extra_data, mix_hash, withdrawals_root, 
-                   blob_gas_used, excess_blob_gas, parent_beacon_block_root
-            FROM blockheaders
-            WHERE number = $1
-            "#,
-            block_number as i64
-        )
-        .fetch_optional(&self.pool)
-        .await?;
-
-        // Convert TempBlockHeader to BlockHeader if found
-        let header = temp_header.map(temp_to_block_header);
-
-        Ok(header)
-    }
-
-    pub async fn get_hourly_block_headers_in_range(
-        &self,
-        start_block: u64,
-        end_block: u64,
-    ) -> Result<Vec<BlockHeader>> {
-        if start_block > end_block {
-            return Err(eyre!(
-                "Invalid block range: start block {} is greater than end block {}",
-                start_block,
-                end_block
-            ));
-        }
-
-        let temp_headers = sqlx::query_as!(
-            TempBlockHeader,
-            r#"
-            WITH hourly_blocks AS (
-                SELECT DISTINCT ON (date_trunc('hour', to_timestamp("timestamp")))
-                    block_hash, number, gas_limit, gas_used, nonce, 
-                    transaction_root, receipts_root, state_root, 
-                    base_fee_per_gas, parent_hash, miner, logs_bloom, 
-                    difficulty, totaldifficulty, sha3_uncles, "timestamp", 
-                    extra_data, mix_hash, withdrawals_root, 
-                    blob_gas_used, excess_blob_gas, parent_beacon_block_root
-                FROM blockheaders
-                WHERE number BETWEEN $1 AND $2
-                ORDER BY date_trunc('hour', to_timestamp("timestamp")), number ASC
-            )
-            SELECT * FROM hourly_blocks
-            ORDER BY number ASC
-            "#,
-            start_block as i64,
-            end_block as i64
-        )
-        .fetch_all(&self.pool)
-        .await?;
-
-        let headers: Vec<BlockHeader> =
-            temp_headers.into_iter().map(temp_to_block_header).collect();
-
-        Ok(headers)
-    }
-}
-
-#[derive(sqlx::FromRow, Debug)]
-pub struct DbBlockHeader {
-    pub block_hash: Option<String>,
-    pub number: i64,
-    pub gas_limit: Option<i64>,
-    pub gas_used: Option<i64>,
-    pub base_fee_per_gas: Option<String>,
-    pub nonce: Option<String>,
-    pub transaction_root: Option<String>,
-    pub receipts_root: Option<String>,
-    pub state_root: Option<String>,
-    pub timestamp: Option<i64>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
 struct TempBlockHeader {
-    pub block_hash: String,
-    pub number: i64,
-    pub gas_limit: i64,
-    pub gas_used: i64,
-    pub nonce: String,
-    pub transaction_root: Option<String>,
-    pub receipts_root: Option<String>,
-    pub state_root: Option<String>,
-    pub base_fee_per_gas: Option<String>,
-    pub parent_hash: Option<String>,
-    pub miner: Option<String>,
-    pub logs_bloom: Option<String>,
-    pub difficulty: Option<String>,
-    pub totaldifficulty: Option<String>,
-    pub sha3_uncles: Option<String>,
-    pub timestamp: Option<i64>, // Assuming this is stored as bigint
-    pub extra_data: Option<String>,
-    pub mix_hash: Option<String>,
-    pub withdrawals_root: Option<String>,
-    pub blob_gas_used: Option<String>,
-    pub excess_blob_gas: Option<String>,
-    pub parent_beacon_block_root: Option<String>,
+    pub block_hash: Option<String>,       // character(66), nullable
+    pub number: i64,                      // bigint NOT NULL
+    pub gas_limit: i64,                   // bigint NOT NULL
+    pub gas_used: i64,                    // bigint NOT NULL
+    pub base_fee_per_gas: Option<String>, // character varying(78), nullable
+    pub nonce: String,                    // character varying(78) NOT NULL
+    pub transaction_root: Option<String>, // character(66), nullable
+    pub receipts_root: Option<String>,    // character(66), nullable
+    pub state_root: Option<String>,       // character(66), nullable
+    pub parent_hash: Option<String>,      // character varying(66), nullable
+    pub miner: Option<String>,            // character varying(42), nullable
+    pub logs_bloom: Option<String>,       // character varying(1024), nullable
+    pub difficulty: Option<String>,       // character varying(78), nullable
+    pub totaldifficulty: Option<String>,  // character varying(78), nullable
+    pub sha3_uncles: Option<String>,      // character varying(66), nullable
+    pub timestamp: Option<String>,        // character varying(100), nullable
+    pub extra_data: Option<String>,       // character varying(1024), nullable
+    pub mix_hash: Option<String>,         // character varying(66), nullable
+    pub withdrawals_root: Option<String>, // character varying(66), nullable
+    pub blob_gas_used: Option<String>,    // character varying(78), nullable
+    pub excess_blob_gas: Option<String>,  // character varying(78), nullable
+    pub parent_beacon_block_root: Option<String>, // character varying(66), nullable
 }
 
 fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
     BlockHeader {
-        block_hash: temp.block_hash,             // String (not Option<String>)
-        number: temp.number,                     // i64 (not Option<i64>)
-        gas_limit: temp.gas_limit,               // i64 (not Option<i64>)
-        gas_used: temp.gas_used,                 // i64 (not Option<i64>)
-        nonce: temp.nonce,                       // String (not Option<String>)
+        block_hash: temp.block_hash.unwrap(), // String (not Option<String>)
+        number: temp.number,                  // i64 (not Option<i64>)
+        gas_limit: temp.gas_limit,            // i64 (not Option<i64>)
+        gas_used: temp.gas_used,              // i64 (not Option<i64>)
+        nonce: temp.nonce,                    // String (not Option<String>)
         transaction_root: temp.transaction_root, // Option<String>
-        receipts_root: temp.receipts_root,       // Option<String>
-        state_root: temp.state_root,             // Option<String>
+        receipts_root: temp.receipts_root,    // Option<String>
+        state_root: temp.state_root,          // Option<String>
         base_fee_per_gas: temp.base_fee_per_gas, // Option<String>
 
         // Only assign fields that exist in EthBlockHeader
@@ -240,19 +155,19 @@ fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
         miner: temp.miner,             // Option<String> (if exists)
 
         // For the following, use Option<String> correctly
-        logs_bloom: Some(temp.logs_bloom.unwrap_or_default()),
-        difficulty: Some(temp.difficulty.unwrap_or_else(|| "0x0".to_string())),
-        totaldifficulty: Some(temp.totaldifficulty.unwrap_or_else(|| "0x0".to_string())),
+        logs_bloom: temp.logs_bloom,
+        difficulty: temp.difficulty,
+        totaldifficulty: temp.totaldifficulty,
         sha3_uncles: temp.sha3_uncles, // Option<String> (if exists)
 
         // Convert timestamp from Option<i64> to Option<String>
-        timestamp: temp.timestamp.map(|ts| format!("0x{:x}", ts)), // Convert i64 to hex string
-        extra_data: Some(temp.extra_data.unwrap_or_default()),
-        mix_hash: Some(temp.mix_hash.unwrap_or_default()),
-        withdrawals_root: Some(temp.withdrawals_root.unwrap_or_default()),
-        blob_gas_used: Some(temp.blob_gas_used.unwrap_or_default()),
-        excess_blob_gas: Some(temp.excess_blob_gas.unwrap_or_default()),
-        parent_beacon_block_root: Some(temp.parent_beacon_block_root.unwrap_or_default()),
+        timestamp: temp.timestamp,
+        extra_data: temp.extra_data,
+        mix_hash: temp.mix_hash,
+        withdrawals_root: temp.withdrawals_root,
+        blob_gas_used: temp.blob_gas_used,
+        excess_blob_gas: temp.excess_blob_gas,
+        parent_beacon_block_root: temp.parent_beacon_block_root,
     }
 }
 

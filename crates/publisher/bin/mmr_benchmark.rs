@@ -1,5 +1,5 @@
 use clap::Parser;
-use common::initialize_logger_and_env;
+use common::{get_env_var, initialize_logger};
 use guest_types::CombinedInput;
 use methods::MMR_BENCHMARK_ELF;
 use publisher::{core::group_headers_by_hour, db::DbConnection};
@@ -18,7 +18,11 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    initialize_logger_and_env()?;
+    dotenv::from_path(".env")?;
+    initialize_logger()?;
+
+    let database_url = get_env_var("DATABASE_URL")?;
+    println!("database_url: {}", database_url);
 
     let args = Args::parse();
 
@@ -30,12 +34,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let block_headers = db_connection
         .get_block_headers_by_block_range(args.start_block, args.end_block)
         .await?;
+    println!("block_headers 0: {:?}", block_headers[0]);
 
     let headers_by_hour = group_headers_by_hour(block_headers);
 
     let mut combined_input: CombinedInput = Default::default();
     combined_input.headers = headers_by_hour;
-    combined_input.chain_id = 1;
+    combined_input.chain_id = 11155111;
     combined_input.batch_size = args.end_block - args.start_block + 1;
 
     // Execute the guest code.

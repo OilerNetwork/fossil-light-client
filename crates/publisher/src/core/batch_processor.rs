@@ -422,7 +422,7 @@ pub fn group_headers_by_hour(headers: Vec<BlockHeader>) -> Vec<(i64, Vec<BlockHe
         let timestamp = header
             .timestamp
             .as_ref()
-            .and_then(|ts| i64::from_str_radix(ts.trim_start_matches("0x"), 16).ok())
+            .and_then(|ts| ts.parse::<i64>().ok())
             .unwrap_or_default();
 
         let hour = timestamp / 3600;
