@@ -1,7 +1,7 @@
 use crate::core::AccumulatorBuilder;
 use crate::core::{BatchProcessor, MMRStateManager, ProofGenerator};
 use clap::Parser;
-use common::{get_env_var, initialize_logger_and_env};
+use common::{get_env_var, initialize_logger};
 use methods::{MMR_BUILD_ELF, MMR_BUILD_ID};
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 #[derive(Parser, Debug)]
@@ -35,7 +35,7 @@ pub struct Args {
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     // Initialize environment with specified file
     dotenv::from_path(&args.env_file)?;
-    initialize_logger_and_env()?;
+    initialize_logger()?;
 
     let chain_id = get_env_var("CHAIN_ID")?.parse::<u64>()?;
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
