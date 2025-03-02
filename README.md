@@ -8,7 +8,9 @@
   - [Documentation Setup](#documentation-setup)
   - [Docker-Based Deployment](#docker-based-deployment)
     - [Docker Prerequisites](#docker-prerequisites)
-    - [Deployment Steps](#deployment-steps)
+    - [Docker Accumulation Steps](#docker-accumulation-steps)
+      - [Option 1: Using Local Development Network](#option-1-using-local-development-network)
+      - [Option 2: Using Production Networks](#option-2-using-production-networks)
     - [Management Commands](#management-commands)
   - [Manual Compilation and Execution](#manual-compilation-and-execution)
     - [Manual Prerequisites](#manual-prerequisites)
@@ -121,7 +123,13 @@ This will start a local server and open the documentation in your default browse
    chmod +x ~/.docker/cli-plugins/docker-buildx
    ```
 
-### Deployment Steps
+### Docker Accumulation Steps
+
+There are two main approaches for running the accumulation process:
+
+#### Option 1: Using Local Development Network
+
+This approach builds a local Ethereum and Starknet network for development and testing:
 
 1. Set up configuration:
 
@@ -130,11 +138,11 @@ This will start a local server and open the documentation in your default browse
    cp config/.env.docker.example .env.docker
    ```
 
-2. Build images:
+2. Build network containers:
 
    ```bash
-   chmod +x scripts/build-images.sh
-   ./scripts/build-images.sh
+   chmod +x scripts/build-network.sh
+   ./scripts/build-network.sh
    ```
 
 3. Start core infrastructure:
@@ -144,16 +152,50 @@ This will start a local server and open the documentation in your default browse
    docker-compose logs -f  # Monitor until initialization complete
    ```
 
-4. Deploy services:
+4. Run MMR accumulation:
 
    ```bash
-   # Initialize MMR builder
-   docker-compose -f docker-compose.services.yml run --rm mmr-builder
-   
-   # Deploy relayer and client
-   docker-compose -f docker-compose.services.yml up -d relayer
-   docker-compose -f docker-compose.services.yml up -d client
+   # Run with default settings (build all batches until block #0)
+   docker-compose -f docker-compose.accumulation.yml up
+
+   # Or specify number of batches
+   NUM_BATCHES=4 docker-compose -f docker-compose.accumulation.yml up
    ```
+
+#### Option 2: Using Production Networks
+
+This approach connects to existing Ethereum and Starknet networks:
+
+1. Set up configuration:
+
+   ```bash
+   # For testnet (Sepolia)
+   cp config/.env.local.example .env.sepolia
+   
+   # For mainnet
+   cp config/.env.local.example .env.mainnet
+   ```
+
+2. Update the configuration file with:
+   - Ethereum RPC endpoint
+   - Starknet RPC endpoint
+   - Contract addresses for deployed contracts
+   - API keys and other required credentials
+
+3. Run MMR accumulation:
+
+   ```bash
+   # For testnet (Sepolia)
+   ENV_FILE=.env.sepolia docker-compose -f docker-compose.accumulation.yml up
+   
+   # For mainnet
+   ENV_FILE=.env.mainnet docker-compose -f docker-compose.accumulation.yml up
+   
+   # Optionally specify number of batches
+   ENV_FILE=.env.sepolia NUM_BATCHES=4 docker-compose -f docker-compose.accumulation.yml up
+   ```
+
+The Docker image `ametelnethermind/fossil-build-mmr:latest` will be automatically pulled from DockerHub, so no local build is required.
 
 ### Management Commands
 
@@ -163,11 +205,11 @@ docker ps
 
 # View logs
 docker-compose logs -f
-docker-compose -f docker-compose.services.yml logs -f
+docker-compose -f docker-compose.accumulation.yml logs -f
 
 # Stop everything
 docker-compose down
-docker-compose -f docker-compose.services.yml down
+docker-compose -f docker-compose.accumulation.yml down
 ```
 
 ## Manual Compilation and Execution
@@ -204,13 +246,15 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    ```
 
    **Option 1: Standard deployment (with container build)**
+
    ```bash
    docker-compose up
    ```
 
    **Option 2: Faster deployment (build locally first)**
-   
+
    To save time during network container bootup, you can build the Starknet contracts locally before running docker-compose:
+
    ```bash
    # Build Starknet contracts locally
    cd contracts/starknet
@@ -301,7 +345,7 @@ Note: While blocks are processed in batches internally, fee queries operate on h
 
   ```bash
   docker-compose down
-  docker-compose -f docker-compose.services.yml down
+  docker-compose -f docker-compose.accumulation.yml down
   docker network rm fossil-network
   ```
 
@@ -319,15 +363,4 @@ Note: While blocks are processed in batches internally, fee queries operate on h
 
 ## Technical Notes
 
-```bash
-# View containers
-docker ps
-
-# View logs
-docker-compose logs -f
-docker-compose -f docker-compose.services.yml logs -f
-
-# Stop everything
-docker-compose down
-docker-compose -f docker-compose.services.yml down
-```
+For additional technical details and advanced configuration options, please refer to the [Technical Documentation](docs/technical-notes.md).

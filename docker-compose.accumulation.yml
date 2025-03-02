@@ -1,15 +1,12 @@
-version: '3'
-
 services:
   build-mmr:
-    image: fossil-build-mmr:latest
+    image: ametelnethermind/fossil-build-mmr:latest
     container_name: fossil-build-mmr
     volumes:
       - ./:/app
-    command: ["--num-batches", "${NUM_BATCHES:-2}", "--env-file", "${ENV_FILE:-/app/.env.docker}"]
+    command: ["--env-file", "${ENV_FILE:-/app/.env.docker}", "${NUM_BATCHES:+--num-batches}", "${NUM_BATCHES:+${NUM_BATCHES}}"]
     environment:
       - RUST_LOG=${RUST_LOG:-info}
-      - NUM_BATCHES=${NUM_BATCHES:-1}
       - ETHEREUM_RPC_URL=http://anvil:8545
       - BONSAI_API_URL=${BONSAI_API_URL:-https://api.bonsai.xyz/}
     env_file:
