@@ -361,6 +361,4 @@ Note: While blocks are processed in batches internally, fee queries operate on h
 - Verify Docker network connectivity
 - Check logs: `docker-compose logs -f`
 
-## Technical Notes
 
-For additional technical details and advanced configuration options, please refer to the [Technical Documentation](docs/technical-notes.md).
