@@ -201,7 +201,24 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    ```bash
    chmod +x scripts/build-network.sh
    ./scripts/build-network.sh
+   ```
+
+   **Option 1: Standard deployment (with container build)**
+   ```bash
    docker-compose up
+   ```
+
+   **Option 2: Faster deployment (build locally first)**
+   
+   To save time during network container bootup, you can build the Starknet contracts locally before running docker-compose:
+   ```bash
+   # Build Starknet contracts locally
+   cd contracts/starknet
+   scarb build
+   cd ../..
+   
+   # Run docker-compose with NO_BUILD=1 to skip the build step in the container
+   NO_BUILD=1 docker-compose up
    ```
 
    Wait for the `deploy-starknet` container to complete the deployment of all StarkNet contracts. The deployment is finished when you see a log message indicating environment variables have been updated. (it might take a few minutes)
