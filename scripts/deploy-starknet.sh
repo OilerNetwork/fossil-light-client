@@ -7,6 +7,9 @@ set -e
 ORIGINAL_DIR="$(pwd)"
 UPDATE_INTERVAL=0
 
+# Default build flag (true means we will build)
+BUILD=true
+
 # Update the environment file with new addresses
 update_env_var() {
     local env_file=$1
@@ -22,15 +25,34 @@ update_env_var() {
     fi
 }
 
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --no-build)
+            BUILD=false
+            shift
+            ;;
+        local|sepolia|mainnet|docker)
+            ENV_TYPE="$1"
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--no-build] <environment>"
+            echo "Available environments: local, sepolia, mainnet, docker"
+            exit 1
+            ;;
+    esac
+done
+
 # Check if environment argument is provided
-if [ -z "$1" ]; then
-    echo "Usage: $0 <environment>"
+if [ -z "$ENV_TYPE" ]; then
+    echo "Usage: $0 [--no-build] <environment>"
     echo "Available environments: local, sepolia, mainnet, docker"
     exit 1
 fi
 
 # Validate environment argument
-ENV_TYPE="$1"
 case "$ENV_TYPE" in
     "local" | "sepolia" | "mainnet")
         ENV_FILES=("$ORIGINAL_DIR/.env.$ENV_TYPE")
@@ -70,10 +92,15 @@ BOLD='\033[1m'
 RED='\033[0;31m'
 
 # Now deploy Starknet contracts
-echo -e "\n${BLUE}${BOLD}Building Starknet contracts...${NC}"
 cd "$STARKNET_DIR"
 
-# scarb build
+# Conditionally build the contracts
+if [ "$BUILD" = true ]; then
+    echo -e "\n${BLUE}${BOLD}Building Starknet contracts...${NC}"
+    scarb build
+else
+    echo -e "\n${BLUE}${BOLD}Skipping build step as --no-build flag was provided...${NC}"
+fi
 
 echo -e "\n${BLUE}${BOLD}Deploying Starknet contracts...${NC}"
 # Declare and deploy Fossil Store contract

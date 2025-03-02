@@ -8,7 +8,7 @@ services:
     env_file:
       - ${ENV_FILE:-.env.docker}
     healthcheck:
-      test: ["CMD", "cast", "block-number"]
+      test: [ "CMD", "cast", "block-number" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -27,7 +27,7 @@ services:
     depends_on:
       anvil:
         condition: service_healthy
-    command: ["./scripts/deploy-ethereum.sh", "docker"]
+    command: [ "./scripts/deploy-ethereum.sh", "docker" ]
 
   katana:
     image: fossil-katana:latest
@@ -54,7 +54,7 @@ services:
       deploy-ethereum:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "katana", "--version"]
+      test: [ "CMD", "katana", "--version" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -68,14 +68,13 @@ services:
     environment:
       - HOST_UID=${UID:-1000}
       - HOST_GID=${GID:-1000}
+      - NO_BUILD=${NO_BUILD:-}
     volumes:
       - .:/app
     depends_on:
       katana:
         condition: service_healthy
-    command: ["./scripts/deploy-starknet.sh", "docker"]
-
-
+    command: sh -c 'if [ -n "$NO_BUILD" ]; then ./scripts/deploy-starknet.sh --no-build docker; else ./scripts/deploy-starknet.sh docker; fi'
 
 networks:
   fossil:
