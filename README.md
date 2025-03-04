@@ -19,7 +19,7 @@
   - [Troubleshooting](#troubleshooting)
     - [Docker Issues](#docker-issues)
     - [Common Issues](#common-issues)
-  - [Technical Notes](#technical-notes)
+    - [Deploying to Sepolia Network](#deploying-to-sepolia-network)
 
 This documentation outlines two deployment approaches for the Fossil Light Client:
 
@@ -361,4 +361,15 @@ Note: While blocks are processed in batches internally, fee queries operate on h
 - Verify Docker network connectivity
 - Check logs: `docker-compose logs -f`
 
+### Deploying to Sepolia Network
+
+Deploy Ethereum contract
+```bash
+cd contracts/ethereum
+source ../../.env.sepolia && forge create --broadcast --rpc-url $ETH_RPC_URL --private-key $ACCOUNT_PRIVATE_KEY src/L1MessageSender.sol:L1MessageSender --etherscan-api-key $ETHERSCAN_API_KEY --verify --constructor-args $SN_MESSAGING
+```
+Deploy Starknet Contracts
+```bash
+ ./scripts/deploy-starknet.sh sepolia
+ ```
 

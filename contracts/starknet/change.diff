@@ -1,0 +1,234 @@
+diff --git a/.gitignore b/.gitignore
+index efbfb1a6..b8fc5080 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -33,10 +33,6 @@ vendor/
+ .env.docker
+ docker/rebuild-all.sh
+ 
+-contracts/starknet/account-sepolia
+-
+-contracts/starknet/keystore
+-
+ terminal
+ 
+ logs/anvil.log
+@@ -48,4 +44,6 @@ docs/.docusaurus/
+ 
+ .cargo/
+ 
+-changes.diff
+\ No newline at end of file
++changes.diff
++config/keystore
++config/sepolia-account
+\ No newline at end of file
+diff --git a/README.md b/README.md
+index abaaf684..53c48978 100644
+--- a/README.md
++++ b/README.md
+@@ -19,7 +19,7 @@
+   - [Troubleshooting](#troubleshooting)
+     - [Docker Issues](#docker-issues)
+     - [Common Issues](#common-issues)
+-  - [Technical Notes](#technical-notes)
++    - [Deploying to Sepolia Network](#deploying-to-sepolia-network)
+ 
+ This documentation outlines two deployment approaches for the Fossil Light Client:
+ 
+@@ -361,4 +361,12 @@ Note: While blocks are processed in batches internally, fee queries operate on h
+ - Verify Docker network connectivity
+ - Check logs: `docker-compose logs -f`
+ 
++### Deploying to Sepolia Network
++
++Deploy Ethereum contract
++```bash
++cd contracts/ethereum
++source ../../.env.sepolia && forge create --broadcast --rpc-url $ETH_RPC_URL --private-key $ACCOUNT_PRIVATE_KEY src/L1MessageSender.sol:L1MessageSender --etherscan-api-key $ETHERSCAN_API_KEY --verify --constructor-args $SN_MESSAGING
++```
++
+ 
+diff --git a/contracts/starknet/store/Scarb.toml b/contracts/starknet/store/Scarb.toml
+index 95b74a7e..64432c67 100644
+--- a/contracts/starknet/store/Scarb.toml
++++ b/contracts/starknet/store/Scarb.toml
+@@ -26,3 +26,6 @@ sierra = true
+ test = "snforge test"
+ 
+ [lib]
++
++[tool.voyager]
++fossil_store = { path = "src/lib.cairo" }
+diff --git a/crates/publisher/Cargo.toml b/crates/publisher/Cargo.toml
+index fbbec72f..532fabe1 100644
+--- a/crates/publisher/Cargo.toml
++++ b/crates/publisher/Cargo.toml
+@@ -3,6 +3,10 @@ name = "publisher"
+ version = "0.1.0"
+ edition = "2021"
+ 
++[features]
++default = []
++mmr-benchmark = []
++
+ [[bin]]
+ name = "update-mmr"
+ path = "bin/update_mmr.rs"
+@@ -14,6 +18,7 @@ path = "bin/build_mmr.rs"
+ [[bin]]
+ name = "mmr-benchmark"
+ path = "bin/mmr_benchmark.rs"
++required-features = ["mmr-benchmark"]
+ 
+ [dependencies]
+ clap = { workspace = true }
+@@ -34,7 +39,7 @@ risc0-zkvm = { version = "1.2.5", default-features = false, features = [
+     "std",
+     "unstable",
+     "client",
+-    "bonsai"
++    "bonsai",
+ ] }
+ serde = { workspace = true }
+ sqlx = { workspace = true }
+diff --git a/docker-compose.accumulation.yml b/docker-compose.accumulation.yml
+index 25a8a73e..cab8f013 100644
+--- a/docker-compose.accumulation.yml
++++ b/docker-compose.accumulation.yml
+@@ -4,7 +4,15 @@ services:
+     container_name: fossil-build-mmr
+     volumes:
+       - ./:/app
+-    command: ["--env-file", "${ENV_FILE:-/app/.env.docker}", "${NUM_BATCHES:+--num-batches}", "${NUM_BATCHES:+${NUM_BATCHES}}"]
++    command:
++      [
++        "--env-file",
++        "${ENV_FILE:-/app/.env.docker}",
++        "${NUM_BATCHES:+--num-batches}",
++        "${NUM_BATCHES:+${NUM_BATCHES}}",
++        "${START_BLOCK:+--start-block}",
++        "${START_BLOCK:+${START_BLOCK}}",
++      ]
+     environment:
+       - RUST_LOG=${RUST_LOG:-info}
+       - ETHEREUM_RPC_URL=http://anvil:8545
+@@ -17,4 +25,4 @@ services:
+ networks:
+   fossil-network:
+     external: true
+-    name: fossil-network 
+\ No newline at end of file
++    name: fossil-network
+diff --git a/docker-compose.yml b/docker-compose.yml
+index 83c7b274..91ef2a61 100644
+--- a/docker-compose.yml
++++ b/docker-compose.yml
+@@ -8,7 +8,7 @@ services:
+     env_file:
+       - ${ENV_FILE:-.env.docker}
+     healthcheck:
+-      test: [ "CMD", "cast", "block-number" ]
++      test: ["CMD", "cast", "block-number"]
+       interval: 5s
+       timeout: 5s
+       retries: 5
+@@ -27,7 +27,7 @@ services:
+     depends_on:
+       anvil:
+         condition: service_healthy
+-    command: [ "./scripts/deploy-ethereum.sh", "docker" ]
++    command: ["./scripts/deploy-ethereum.sh", "docker"]
+ 
+   katana:
+     image: fossil-katana:latest
+@@ -54,7 +54,7 @@ services:
+       deploy-ethereum:
+         condition: service_completed_successfully
+     healthcheck:
+-      test: [ "CMD", "katana", "--version" ]
++      test: ["CMD", "katana", "--version"]
+       interval: 5s
+       timeout: 5s
+       retries: 5
+diff --git a/scripts/deploy-starknet.sh b/scripts/deploy-starknet.sh
+index 1571f7c3..bed1bf48 100755
+--- a/scripts/deploy-starknet.sh
++++ b/scripts/deploy-starknet.sh
+@@ -5,7 +5,20 @@ set -e
+ 
+ # Store the original directory (works both in container and local environment)
+ ORIGINAL_DIR="$(pwd)"
+-UPDATE_INTERVAL=0
++
++# Set update interval based on environment
++case "$ENV_TYPE" in
++    "local" | "docker")
++        UPDATE_INTERVAL=0
++        ;;
++    "sepolia" | "mainnet")
++        UPDATE_INTERVAL=900
++        ;;
++    *)
++        echo "Invalid environment. Must be one of: local, sepolia, mainnet, docker"
++        exit 1
++        ;;
++esac
+ 
+ # Default build flag (true means we will build)
+ BUILD=true
+@@ -110,7 +123,7 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$FOSSILSTORE_HASH${NC}"
+ echo
+ 
+ echo -e "${YELLOW}Deploying Fossil Store contract...${NC}"
+-FOSSILSTORE_ADDRESS=$(starkli deploy $FOSSILSTORE_HASH $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
++FOSSILSTORE_ADDRESS=$(starkli deploy $FOSSILSTORE_HASH $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL  -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+ echo -e "${GREEN}Contract address: ${BOLD}$FOSSILSTORE_ADDRESS${NC}"
+ echo
+ 
+@@ -121,7 +134,7 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$L1MESSAGEPROXY_HASH${NC}"
+ echo
+ 
+ echo -e "${YELLOW}Deploying Fossil L1MessageProxy contract...${NC}"
+-L1MESSAGEPROXY_ADDRESS=$(starkli deploy $L1MESSAGEPROXY_HASH $L1_MESSAGE_SENDER $FOSSILSTORE_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
++L1MESSAGEPROXY_ADDRESS=$(starkli deploy $L1MESSAGEPROXY_HASH $L1_MESSAGE_SENDER $FOSSILSTORE_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL  -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+ echo -e "${GREEN}Contract address: ${BOLD}$L1MESSAGEPROXY_ADDRESS${NC}"
+ echo
+ 
+@@ -138,7 +151,7 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$VERIFIER_HASH${NC}"
+ echo
+ 
+ echo -e "${YELLOW}Deploying Groth16 Verifier contract...${NC}"
+-VERIFIER_ADDRESS=$(starkli deploy $VERIFIER_HASH $ECIP_HASH --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --salt 1 | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
++VERIFIER_ADDRESS=$(starkli deploy $VERIFIER_HASH $ECIP_HASH --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL  | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+ echo -e "${GREEN}Contract deployed at: ${BOLD}$VERIFIER_ADDRESS${NC}"
+ echo
+ 
+@@ -148,14 +161,22 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$FOSSIL_VERIFIER_HASH${NC}"
+ echo
+ 
+ echo -e "${YELLOW}Deploying Fossil Verifier contract...${NC}"
+-FOSSIL_VERIFIER_ADDRESS=$(starkli deploy $FOSSIL_VERIFIER_HASH $VERIFIER_ADDRESS $FOSSILSTORE_ADDRESS $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
++FOSSIL_VERIFIER_ADDRESS=$(starkli deploy $FOSSIL_VERIFIER_HASH $VERIFIER_ADDRESS $FOSSILSTORE_ADDRESS $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL  -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+ echo -e "${GREEN}Contract deployed at: ${BOLD}$FOSSIL_VERIFIER_ADDRESS${NC}"
+ echo
+ 
+-echo -e "${YELLOW}Initializing Fossil Store contract...${NC}"
+-starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS $L1MESSAGEPROXY_ADDRESS $UPDATE_INTERVAL --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w
+-echo -e "${GREEN}Fossil Store contract initialized${NC}"
+-echo
++# Only initialize Fossil Store for local and docker environments
++if [ "$ENV_TYPE" = "local" ] || [ "$ENV_TYPE" = "docker" ]; then
++    echo -e "${YELLOW}Initializing Fossil Store contract...${NC}"
++    starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS $L1MESSAGEPROXY_ADDRESS $UPDATE_INTERVAL --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w
++    echo -e "${GREEN}Fossil Store contract initialized${NC}"
++    echo
++else
++    echo -e "${YELLOW}Skipping Fossil Store initialization for $ENV_TYPE environment...${NC}"
++    echo -e "${YELLOW}Please initialize the contract manually using starkli, sncast, or a block explorer with the following parameters:${NC}"
++    echo -e "${YELLOW}initialize($FOSSIL_VERIFIER_ADDRESS, $L1MESSAGEPROXY_ADDRESS, $UPDATE_INTERVAL)${NC}"
++    echo
++fi
+ 
+ echo -e "\n${GREEN}${BOLD}All contracts deployed!${NC}"
+ 

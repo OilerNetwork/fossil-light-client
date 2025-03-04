@@ -4,7 +4,15 @@ services:
     container_name: fossil-build-mmr
     volumes:
       - ./:/app
-    command: ["--env-file", "${ENV_FILE:-/app/.env.docker}", "${NUM_BATCHES:+--num-batches}", "${NUM_BATCHES:+${NUM_BATCHES}}"]
+    command:
+      [
+        "--env-file",
+        "${ENV_FILE:-/app/.env.docker}",
+        "${NUM_BATCHES:+--num-batches}",
+        "${NUM_BATCHES:+${NUM_BATCHES}}",
+        "${START_BLOCK:+--start-block}",
+        "${START_BLOCK:+${START_BLOCK}}",
+      ]
     environment:
       - RUST_LOG=${RUST_LOG:-info}
       - ETHEREUM_RPC_URL=http://anvil:8545
@@ -17,4 +25,4 @@ services:
 networks:
   fossil-network:
     external: true
-    name: fossil-network 
+    name: fossil-network

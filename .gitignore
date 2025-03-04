@@ -33,10 +33,6 @@ vendor/
 .env.docker
 docker/rebuild-all.sh
 
-contracts/starknet/account-sepolia
-
-contracts/starknet/keystore
-
 terminal
 
 logs/anvil.log
@@ -49,3 +45,5 @@ docs/.docusaurus/
 .cargo/
 
 changes.diff
+config/keystore
+config/sepolia-account

@@ -5,7 +5,20 @@ set -e
 
 # Store the original directory (works both in container and local environment)
 ORIGINAL_DIR="$(pwd)"
-UPDATE_INTERVAL=0
+
+# Set update interval based on environment
+case "$ENV_TYPE" in
+    "local" | "docker")
+        UPDATE_INTERVAL=0
+        ;;
+    "sepolia" | "mainnet")
+        UPDATE_INTERVAL=900
+        ;;
+    *)
+        echo "Invalid environment. Must be one of: local, sepolia, mainnet, docker"
+        exit 1
+        ;;
+esac
 
 # Default build flag (true means we will build)
 BUILD=true
@@ -110,7 +123,7 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$FOSSILSTORE_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Fossil Store contract...${NC}"
-FOSSILSTORE_ADDRESS=$(starkli deploy $FOSSILSTORE_HASH $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+FOSSILSTORE_ADDRESS=$(starkli deploy $FOSSILSTORE_HASH $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL  -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract address: ${BOLD}$FOSSILSTORE_ADDRESS${NC}"
 echo
 
@@ -121,7 +134,7 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$L1MESSAGEPROXY_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Fossil L1MessageProxy contract...${NC}"
-L1MESSAGEPROXY_ADDRESS=$(starkli deploy $L1MESSAGEPROXY_HASH $L1_MESSAGE_SENDER $FOSSILSTORE_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+L1MESSAGEPROXY_ADDRESS=$(starkli deploy $L1MESSAGEPROXY_HASH $L1_MESSAGE_SENDER $FOSSILSTORE_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL  -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract address: ${BOLD}$L1MESSAGEPROXY_ADDRESS${NC}"
 echo
 
@@ -138,7 +151,7 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$VERIFIER_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Groth16 Verifier contract...${NC}"
-VERIFIER_ADDRESS=$(starkli deploy $VERIFIER_HASH $ECIP_HASH --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --salt 1 | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+VERIFIER_ADDRESS=$(starkli deploy $VERIFIER_HASH $ECIP_HASH --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL  | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract deployed at: ${BOLD}$VERIFIER_ADDRESS${NC}"
 echo
 
@@ -148,14 +161,22 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$FOSSIL_VERIFIER_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Fossil Verifier contract...${NC}"
-FOSSIL_VERIFIER_ADDRESS=$(starkli deploy $FOSSIL_VERIFIER_HASH $VERIFIER_ADDRESS $FOSSILSTORE_ADDRESS $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --salt 1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+FOSSIL_VERIFIER_ADDRESS=$(starkli deploy $FOSSIL_VERIFIER_HASH $VERIFIER_ADDRESS $FOSSILSTORE_ADDRESS $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL  -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract deployed at: ${BOLD}$FOSSIL_VERIFIER_ADDRESS${NC}"
 echo
 
-echo -e "${YELLOW}Initializing Fossil Store contract...${NC}"
-starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS $L1MESSAGEPROXY_ADDRESS $UPDATE_INTERVAL --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w
-echo -e "${GREEN}Fossil Store contract initialized${NC}"
-echo
+# Only initialize Fossil Store for local and docker environments
+if [ "$ENV_TYPE" = "local" ] || [ "$ENV_TYPE" = "docker" ]; then
+    echo -e "${YELLOW}Initializing Fossil Store contract...${NC}"
+    starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS $L1MESSAGEPROXY_ADDRESS $UPDATE_INTERVAL --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w
+    echo -e "${GREEN}Fossil Store contract initialized${NC}"
+    echo
+else
+    echo -e "${YELLOW}Skipping Fossil Store initialization for $ENV_TYPE environment...${NC}"
+    echo -e "${YELLOW}Please initialize the contract manually using starkli, sncast, or a block explorer with the following parameters:${NC}"
+    echo -e "${YELLOW}initialize($FOSSIL_VERIFIER_ADDRESS, $L1MESSAGEPROXY_ADDRESS, $UPDATE_INTERVAL)${NC}"
+    echo
+fi
 
 echo -e "\n${GREEN}${BOLD}All contracts deployed!${NC}"
 
