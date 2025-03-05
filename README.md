@@ -363,13 +363,68 @@ Note: While blocks are processed in batches internally, fee queries operate on h
 
 ### Deploying to Sepolia Network
 
-Deploy Ethereum contract
+This section guides you through deploying the Fossil Light Client to the Sepolia testnet.
+
+#### 1. Configure Environment
+
+First, create and configure your Sepolia environment file:
+
+```bash
+# Copy the example configuration
+cp config/.env.local.example .env.sepolia
+
+# Edit the file with your specific configuration
+nano .env.sepolia
+```
+
+Ensure these variables are properly set in your `.env.sepolia` file:
+
+- `ETH_RPC_URL`: Your Sepolia Ethereum RPC endpoint
+- `ACCOUNT_PRIVATE_KEY`: Private key for deployment
+- `SN_MESSAGING`: Starknet core messaging contract address
+- `ETHERSCAN_API_KEY`: For contract verification
+- `STARKNET_RPC_URL`: Your Sepolia Starknet RPC endpoint
+
+#### 2. Deploy Ethereum Contract
+
+Deploy the L1MessageSender contract to Sepolia:
+
 ```bash
 cd contracts/ethereum
-source ../../.env.sepolia && forge create --broadcast --rpc-url $ETH_RPC_URL --private-key $ACCOUNT_PRIVATE_KEY src/L1MessageSender.sol:L1MessageSender --etherscan-api-key $ETHERSCAN_API_KEY --verify --constructor-args $SN_MESSAGING
+source ../../.env.sepolia && forge create --broadcast \
+  --rpc-url $ETH_RPC_URL \
+  --private-key $ACCOUNT_PRIVATE_KEY \
+  src/L1MessageSender.sol:L1MessageSender \
+  --etherscan-api-key $ETHERSCAN_API_KEY \
+  --verify \
+  --constructor-args $SN_MESSAGING
 ```
-Deploy Starknet Contracts
-```bash
- ./scripts/deploy-starknet.sh sepolia
- ```
 
+#### 3. Deploy Starknet Contracts
+
+Deploy the Starknet contracts using the provided script:
+
+```bash
+./scripts/deploy-starknet.sh sepolia
+```
+
+This script will:
+
+- Build and deploy all required Starknet contracts
+
+#### 4. Run MMR Accumulation
+
+Start the MMR accumulation process to build the initial state:
+
+```bash
+# Run in detached mode (-d flag)
+ENV_FILE=.env.sepolia NUM_BATCHES=700 docker-compose -f docker-compose.accumulation.yml up -d
+
+# To monitor the logs
+docker logs -f fossil-build-mmr
+```
+
+Parameters explained:
+
+- `ENV_FILE=.env.sepolia`: Environment file for Sepolia
+- `NUM_BATCHES=700`: Number of batches to process (each batch = 1024 blocks)
