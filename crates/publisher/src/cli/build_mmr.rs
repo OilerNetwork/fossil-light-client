@@ -30,6 +30,10 @@ pub struct Args {
     /// Start building from the latest MMR block
     #[arg(short = 'l', long, default_value_t = false)]
     pub from_latest: bool,
+
+    /// Resume from the minimum MMR block stored on-chain (minus 1)
+    #[arg(short = 'r', long, default_value_t = false)]
+    pub resume: bool,
 }
 
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
@@ -68,17 +72,53 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
         e
     })?;
 
-    // Build MMR from specified start block or finalized block
+    // Validate CLI arguments
     let result: Result<(), Box<dyn std::error::Error>> =
-        match (args.from_latest, args.start_block, args.num_batches) {
-            (true, Some(_), _) => Err("Cannot specify both --from-latest and --start-block".into()),
+        match (args.resume, args.from_latest, args.start_block) {
+            (true, true, _) => Err("Cannot specify both --resume and --from-latest".into()),
+            (true, _, Some(_)) => Err("Cannot specify both --resume and --start-block".into()),
+            (false, true, Some(_)) => {
+                Err("Cannot specify both --from-latest and --start-block".into())
+            }
             _ => Ok(()),
         };
 
-    match result {
-        Ok(_) => match (args.from_latest, args.start_block, args.num_batches) {
+    if let Err(e) = result {
+        return Err(e);
+    }
+
+    // Handle resume option
+    if args.resume {
+        // Get the minimum MMR block from the Starknet contract
+        let min_mmr_block = starknet_provider.get_min_mmr_block(&store_address).await?;
+
+        if min_mmr_block == 0 {
+            tracing::warn!("No minimum MMR block found on-chain, starting from finalized block");
+            builder.build_from_finalized().await?;
+        } else {
+            // Start from min_mmr_block - 1 to ensure proper overlap
+            let start_block = min_mmr_block.saturating_sub(1);
+            tracing::info!(
+                min_mmr_block,
+                start_block,
+                "Resuming from minimum MMR block minus 1"
+            );
+
+            match args.num_batches {
+                Some(num_batches) => {
+                    builder
+                        .build_from_block_with_batches(start_block, num_batches, true)
+                        .await?
+                }
+                None => builder.build_from_block(start_block, true).await?,
+            }
+        }
+    } else {
+        // Handle other options as before
+        match (args.from_latest, args.start_block, args.num_batches) {
             (true, Some(_), _) => {
-                return Err("Cannot specify both --from-latest and --start-block".into());
+                // This case should never happen due to earlier validation
+                unreachable!("Cannot specify both --from-latest and --start-block")
             }
             (true, None, Some(num_batches)) => {
                 builder
@@ -94,8 +134,7 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
             (false, Some(start_block), None) => builder.build_from_block(start_block, true).await?,
             (false, None, Some(num_batches)) => builder.build_with_num_batches(num_batches).await?,
             (false, None, None) => builder.build_from_finalized().await?,
-        },
-        Err(e) => return Err(e),
+        }
     }
 
     Ok(())
@@ -140,6 +179,7 @@ mod tests {
             env_file: ".env".to_string(),
             start_block: Some(100),
             from_latest: true,
+            resume: false,
         };
 
         // Check the validation directly
