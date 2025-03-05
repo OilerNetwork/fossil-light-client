@@ -6,20 +6,6 @@ set -e
 # Store the original directory (works both in container and local environment)
 ORIGINAL_DIR="$(pwd)"
 
-# Set update interval based on environment
-case "$ENV_TYPE" in
-    "local" | "docker")
-        UPDATE_INTERVAL=0
-        ;;
-    "sepolia" | "mainnet")
-        UPDATE_INTERVAL=900
-        ;;
-    *)
-        echo "Invalid environment. Must be one of: local, sepolia, mainnet, docker"
-        exit 1
-        ;;
-esac
-
 # Default build flag (true means we will build)
 BUILD=true
 
@@ -81,6 +67,20 @@ case "$ENV_TYPE" in
         echo "Invalid environment. Must be one of: local, sepolia, mainnet, docker"
         exit 1
     ;;
+esac
+
+# Set update interval based on environment
+case "$ENV_TYPE" in
+    "local" | "docker")
+        UPDATE_INTERVAL=0
+        ;;
+    "sepolia" | "mainnet")
+        UPDATE_INTERVAL=900
+        ;;
+    *)
+        echo "Invalid environment. Must be one of: local, sepolia, mainnet, docker"
+        exit 1
+        ;;
 esac
 
 # Check if environment files exist
