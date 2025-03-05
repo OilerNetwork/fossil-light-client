@@ -69,6 +69,7 @@ services:
       - HOST_UID=${UID:-1000}
       - HOST_GID=${GID:-1000}
       - NO_BUILD=${NO_BUILD:-}
+      - ENV_TYPE=docker
     volumes:
       - .:/app
     depends_on:
