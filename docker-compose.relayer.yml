@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  relayer:
+    image: fossil-relayer:latest
+    container_name: fossil-relayer
+    restart: unless-stopped
+    volumes:
+      - ./:/app
+    entrypoint: []
+    command: >
+      /bin/sh -c "
+      while true; do
+        echo \"Running relayer at \$(date)\"
+        relayer --env-file ${ENV_FILE:-/app/.env.docker}
+        echo \"Waiting for ${RELAY_TIME_MINUTES:-5} minutes before next relay...\"
+        sleep \$(( ${RELAY_TIME_MINUTES:-5} * 60 ))
+      done
+      "
+    environment:
+      - RUST_LOG=${RUST_LOG:-info}
+      - ETHEREUM_RPC_URL=http://anvil:8545
+      - STARKNET_RPC_URL=http://katana:5050
+      - BONSAI_API_URL=${BONSAI_API_URL:-https://api.bonsai.xyz/}
+      - SQLX_SLOW_STATEMENTS_THRESHOLD=0
+      - RELAY_TIME_MINUTES=${RELAY_TIME_MINUTES:-5}
+    env_file:
+      - ${ENV_FILE:-.env}
+    networks:
+      - fossil-network
+
+networks:
+  fossil-network:
+    external: true
+    name: fossil-network
