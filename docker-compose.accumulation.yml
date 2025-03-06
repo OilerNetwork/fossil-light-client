@@ -13,7 +13,6 @@ services:
       ${RESUME:+--resume}
       "
     environment:
-      - RUST_LOG=${RUST_LOG:-info}
       - ETHEREUM_RPC_URL=http://anvil:8545
       - BONSAI_API_URL=${BONSAI_API_URL:-https://api.bonsai.xyz/}
       - SQLX_SLOW_STATEMENTS_THRESHOLD=0
