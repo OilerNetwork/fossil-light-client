@@ -152,6 +152,15 @@ pub mod Store {
                 starknet::get_caller_address() == self.l1_message_proxy_address.read(),
                 "Only L1 Message Proxy can store latest blockhash from L1",
             );
+            let min_update_interval = self.min_update_interval.read();
+            let (latest_block_number, _) = self.latest_blockhash_from_l1.read();
+            let actual_update_interval = block_number - latest_block_number;
+            assert!(
+                actual_update_interval >= min_update_interval,
+                "Update interval: {} must be greater than or equal to the minimum update interval: {}",
+                actual_update_interval,
+                min_update_interval,
+            );
             self.latest_blockhash_from_l1.write((block_number, blockhash));
             self.emit(LatestBlockhashFromL1Stored { block_number, blockhash });
         }
@@ -171,20 +180,6 @@ pub mod Store {
                 starknet::get_caller_address() == self.verifier_address.read(),
                 "Only Fossil Verifier can update MMR state",
             );
-            let global_latest_mmr_block = self.latest_mmr_block.read();
-
-            if journal.latest_mmr_block > global_latest_mmr_block {
-                let min_update_interval = self.min_update_interval.read();
-                let actual_update_interval = journal.latest_mmr_block
-                    - self.latest_mmr_block.read();
-                assert!(
-                    actual_update_interval >= min_update_interval,
-                    "Update interval: {} must be greater than or equal to the minimum update interval: {}",
-                    actual_update_interval,
-                    min_update_interval,
-                );
-                self.latest_mmr_block.write(journal.latest_mmr_block);
-            }
 
             let mut curr_state = self.mmr_batches.entry(journal.batch_index);
 
