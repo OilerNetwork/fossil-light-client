@@ -213,7 +213,6 @@ pub mod Store {
                 self.min_mmr_block.write(lowest_batch_block);
             }
 
-            println!("journal.latest_mmr_block: {}", journal.latest_mmr_block);
             curr_state.latest_mmr_block_hash.write(journal.latest_mmr_block_hash);
             curr_state.leaves_count.write(journal.leaves_count);
             curr_state.root_hash.write(journal.root_hash);
