@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   relayer:
-    image: fossil-relayer:latest
+    image: nethermind.jfrog.io/kyoto-oiler-oci-local-dev/fossil-relayer:latest
     container_name: fossil-relayer
     restart: unless-stopped
     volumes:
