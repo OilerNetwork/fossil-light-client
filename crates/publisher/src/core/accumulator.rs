@@ -150,9 +150,7 @@ impl<'a> AccumulatorBuilder<'a> {
 
         info!(
             total_blocks = end_block - start_block + 1,
-            start_block,
-            end_block,
-            "Starting MMR update with new headers"
+            start_block, end_block, "Starting MMR update with new headers"
         );
 
         // Calculate batch indices for start and end blocks
@@ -162,25 +160,21 @@ impl<'a> AccumulatorBuilder<'a> {
 
         info!(
             start_batch_index,
-            end_batch_index,
-            total_batches,
-            "Updating Light Client with {} batches",
-            total_batches
+            end_batch_index, total_batches, "Updating Light Client with {} batches", total_batches
         );
 
         // Process each batch in sequence
         for batch_index in start_batch_index..=end_batch_index {
-            let (batch_start, batch_end) = self.batch_processor.calculate_batch_bounds(batch_index)?;
-            
+            let (batch_start, batch_end) =
+                self.batch_processor.calculate_batch_bounds(batch_index)?;
+
             // Calculate effective start and end for this batch
             let effective_start = std::cmp::max(start_block, batch_start);
             let effective_end = std::cmp::min(end_block, batch_end);
-            
+
             debug!(
                 batch_index,
-                effective_start,
-                effective_end,
-                "Processing batch within range"
+                effective_start, effective_end, "Processing batch within range"
             );
 
             // Process the batch and ensure we get a result
@@ -202,8 +196,7 @@ impl<'a> AccumulatorBuilder<'a> {
             self.current_batch += 1;
             info!(
                 progress = format!("{}/{}", batch_index - start_batch_index + 1, total_batches),
-                "Batch processed successfully for blocks {}-{}",
-                effective_start, effective_end
+                "Batch processed successfully for blocks {}-{}", effective_start, effective_end
             );
         }
 

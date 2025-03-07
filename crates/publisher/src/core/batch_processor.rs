@@ -73,7 +73,7 @@ impl<'a> BatchProcessor<'a> {
         let batch_index = start_block / self.batch_size;
         info!("Processing batch index: {}", batch_index);
         let (batch_start, batch_end) = self.calculate_batch_bounds(batch_index)?;
-        
+
         if start_block < batch_start {
             return Err(eyre!(
                 "Start block is before batch start: {} < {}",
@@ -81,9 +81,12 @@ impl<'a> BatchProcessor<'a> {
                 batch_start
             ));
         }
-        
+
         let adjusted_end_block = std::cmp::min(end_block, batch_end);
-        info!("Batch start: {}, Batch end: {}, Adjusted end block: {}", batch_start, batch_end, adjusted_end_block);
+        info!(
+            "Batch start: {}, Batch end: {}, Adjusted end block: {}",
+            batch_start, batch_end, adjusted_end_block
+        );
 
         // Check if batch state exists on-chain
         let provider = StarknetProvider::new(&self.mmr_state_manager.rpc_url())?;
