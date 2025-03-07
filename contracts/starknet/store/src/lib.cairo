@@ -14,6 +14,7 @@ pub trait IFossilStore<TContractState> {
         avg_fees: Span<verifier::AvgFees>,
         ipfs_hash: ByteArray,
     );
+    fn update_min_update_interval(ref self: TContractState, min_update_interval: u64);
     fn get_latest_blockhash_from_l1(self: @TContractState) -> (u64, u256);
     fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
     fn get_latest_mmr_block(self: @TContractState) -> u64;
@@ -97,6 +98,8 @@ pub mod Store {
         LatestBlockhashFromL1Stored: LatestBlockhashFromL1Stored,
         MmrStateUpdated: MmrStateUpdated,
         IPFSHashUpdated: IPFSHashUpdated,
+        AvgFeesUpdated: AvgFeesUpdated,
+        MinUpdateIntervalUpdated: MinUpdateIntervalUpdated,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         #[flat]
@@ -113,6 +116,17 @@ pub mod Store {
     struct IPFSHashUpdated {
         batch_index: u64,
         ipfs_hash: ByteArray,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct AvgFeesUpdated {
+        timestamp: u64,
+        avg_fee_fixed: felt252,
+    }
+
+    #[derive(Drop, starknet::Event)]
+    struct MinUpdateIntervalUpdated {
+        new_min_update_interval: u64,
     }
 
     #[derive(Drop, starknet::Event)]
@@ -229,9 +243,10 @@ pub mod Store {
                         + avg_fee_fixed * avg_fee_data_points_fixed)
                         / new_data_points_fixed;
 
-                    curr_avg_fee
-                        .avg_fee
-                        .write(UFixedPoint123x128StorePacking::pack(new_avg_fee_fixed));
+                    let packed_avg_fee_fixed: felt252 = UFixedPoint123x128StorePacking::pack(
+                        new_avg_fee_fixed,
+                    );
+                    curr_avg_fee.avg_fee.write(packed_avg_fee_fixed);
                     curr_avg_fee
                         .data_points
                         .write(
@@ -239,6 +254,12 @@ pub mod Store {
                                 .get_integer()
                                 .try_into()
                                 .expect('Failed to convert u128 to u64'),
+                        );
+                    self
+                        .emit(
+                            AvgFeesUpdated {
+                                timestamp: *avg_fee.timestamp, avg_fee_fixed: packed_avg_fee_fixed,
+                            },
                         );
                 }
             };
@@ -258,6 +279,11 @@ pub mod Store {
                 curr_state.ipfs_hash.write(ipfs_hash.clone());
                 self.emit(IPFSHashUpdated { batch_index: journal.batch_index, ipfs_hash });
             }
+        }
+
+        fn update_min_update_interval(ref self: ContractState, min_update_interval: u64) {
+            self.ownable.assert_only_owner();
+            self.min_update_interval.write(min_update_interval);
         }
 
         fn get_mmr_state(self: @ContractState, batch_index: u64) -> MMRSnapshot {
