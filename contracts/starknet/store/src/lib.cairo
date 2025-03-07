@@ -198,7 +198,10 @@ pub mod Store {
 
             let mut curr_state = self.mmr_batches.entry(journal.batch_index);
 
-            curr_state.latest_mmr_block.write(journal.latest_mmr_block);
+            let current_latest_mmr_block = self.latest_mmr_block.read();
+            if current_latest_mmr_block < journal.latest_mmr_block {
+                self.latest_mmr_block.write(journal.latest_mmr_block);
+            }
 
             let min_mmr_block = self.min_mmr_block.read();
             let lowest_batch_block = journal.latest_mmr_block - journal.leaves_count + 1;
@@ -210,10 +213,12 @@ pub mod Store {
                 self.min_mmr_block.write(lowest_batch_block);
             }
 
+            println!("journal.latest_mmr_block: {}", journal.latest_mmr_block);
             curr_state.latest_mmr_block_hash.write(journal.latest_mmr_block_hash);
             curr_state.leaves_count.write(journal.leaves_count);
             curr_state.root_hash.write(journal.root_hash);
             curr_state.first_block_parent_hash.write(journal.first_block_parent_hash);
+            curr_state.latest_mmr_block.write(journal.latest_mmr_block);
 
             for avg_fee in avg_fees {
                 let mut curr_avg_fee = self.avg_fees.entry(*avg_fee.timestamp);
