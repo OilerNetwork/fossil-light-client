@@ -155,25 +155,60 @@ impl<'a> AccumulatorBuilder<'a> {
             "Starting MMR update with new headers"
         );
 
-        // Process the batch and ensure we get a result
-        let batch_result = self
-            .batch_processor
-            .process_batch(self.chain_id, start_block, end_block)
-            .await?
-            .ok_or_else(|| {
-                eyre!(
-                    "No batch result returned for blocks {}-{}",
-                    start_block,
-                    end_block
-                )
-            })?;
+        // Calculate batch indices for start and end blocks
+        let start_batch_index = start_block / self.batch_processor.batch_size();
+        let end_batch_index = end_block / self.batch_processor.batch_size();
+        let total_batches = end_batch_index - start_batch_index + 1;
 
-        // Always handle the batch result with the is_build flag
-        self.handle_batch_result(&batch_result, is_build).await?;
-
-        self.current_batch += 1;
         info!(
-            "MMR update completed successfully for blocks {}-{}",
+            start_batch_index,
+            end_batch_index,
+            total_batches,
+            "Updating Light Client with {} batches",
+            total_batches
+        );
+
+        // Process each batch in sequence
+        for batch_index in start_batch_index..=end_batch_index {
+            let (batch_start, batch_end) = self.batch_processor.calculate_batch_bounds(batch_index)?;
+            
+            // Calculate effective start and end for this batch
+            let effective_start = std::cmp::max(start_block, batch_start);
+            let effective_end = std::cmp::min(end_block, batch_end);
+            
+            debug!(
+                batch_index,
+                effective_start,
+                effective_end,
+                "Processing batch within range"
+            );
+
+            // Process the batch and ensure we get a result
+            let batch_result = self
+                .batch_processor
+                .process_batch(self.chain_id, effective_start, effective_end)
+                .await?
+                .ok_or_else(|| {
+                    eyre!(
+                        "No batch result returned for blocks {}-{}",
+                        effective_start,
+                        effective_end
+                    )
+                })?;
+
+            // Always handle the batch result with the is_build flag
+            self.handle_batch_result(&batch_result, is_build).await?;
+
+            self.current_batch += 1;
+            info!(
+                progress = format!("{}/{}", batch_index - start_batch_index + 1, total_batches),
+                "Batch processed successfully for blocks {}-{}",
+                effective_start, effective_end
+            );
+        }
+
+        info!(
+            "MMR update completed successfully for all blocks {}-{}",
             start_block, end_block
         );
 
