@@ -26,6 +26,7 @@ pub trait IFossilStore<TContractState> {
         self: @TContractState, start_timestamp: u64, end_timestamp: u64,
     ) -> Array<felt252>;
     fn upgrade(ref self: TContractState, new_class_hash: starknet::ClassHash);
+    fn restore(ref self: TContractState, block_number: u64);
 }
 
 #[starknet::contract]
@@ -353,6 +354,10 @@ pub mod Store {
         fn upgrade(ref self: ContractState, new_class_hash: starknet::ClassHash) {
             self.ownable.assert_only_owner();
             self.upgradeable.upgrade(new_class_hash);
+        }
+
+        fn restore(ref self: ContractState, block_number: u64) {
+            self.latest_mmr_block.write(block_number);
         }
     }
 }
