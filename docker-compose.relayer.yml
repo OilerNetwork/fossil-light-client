@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  relayer:
+    image: fossil-relayer:latest
+    container_name: fossil-relayer
+    restart: unless-stopped
+    volumes:
+      - ./:/app
+    command: >
+      --env-file ${ENV_FILE:-/app/.env.docker}
+      --relay-time-minutes ${RELAY_TIME_MINUTES:-60}
+    environment:
+      - RELAY_TIME_MINUTES=${RELAY_TIME_MINUTES:-60}
+    env_file:
+      - ${ENV_FILE:-.env}
+    networks:
+      - fossil-network
+
+networks:
+  fossil-network:
+    external: true
+    name: fossil-network

@@ -1,0 +1,23 @@
+services:
+  build-mmr:
+    image: nethermind.jfrog.io/kyoto-oiler-oci-local-dev/fossil-client:latest
+    # image: fossil-client:latest
+    container_name: fossil-client
+    volumes:
+      - ./:/app
+    entrypoint: []
+    command: >
+      /bin/sh -c "
+      client --env-file ${ENV_FILE:-/app/.env.docker}
+      "
+    environment:
+      - ETHEREUM_RPC_URL=http://anvil:8545
+    env_file:
+      - ${ENV_FILE:-.env}
+    networks:
+      - fossil-network
+
+networks:
+  fossil-network:
+    external: true
+    name: fossil-network

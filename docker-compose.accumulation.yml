@@ -1,6 +1,7 @@
 services:
   build-mmr:
     image: nethermind.jfrog.io/kyoto-oiler-oci-local-dev/fossil-build-mmr:latest
+    # image: fossil-build-mmr
     container_name: fossil-build-mmr
     volumes:
       - ./:/app
@@ -13,7 +14,6 @@ services:
       ${RESUME:+--resume}
       "
     environment:
-      - RUST_LOG=${RUST_LOG:-info}
       - ETHEREUM_RPC_URL=http://anvil:8545
       - BONSAI_API_URL=${BONSAI_API_URL:-https://api.bonsai.xyz/}
       - SQLX_SLOW_STATEMENTS_THRESHOLD=0
