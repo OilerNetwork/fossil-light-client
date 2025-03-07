@@ -45,7 +45,6 @@ pub struct LightClient {
     verifier_addr: String,
     chain_id: u64,
     latest_processed_events_block: u64,
-    latest_processed_mmr_block: u64,
     starknet_private_key: String,
     starknet_account_address: String,
     polling_interval: Duration,
@@ -94,7 +93,6 @@ impl LightClient {
             verifier_addr,
             chain_id,
             latest_processed_events_block: start_block.saturating_sub(1),
-            latest_processed_mmr_block: start_block.saturating_sub(1),
             starknet_private_key,
             starknet_account_address,
             polling_interval: Duration::from_secs(polling_interval),
@@ -112,6 +110,7 @@ impl LightClient {
             .block_number()
             .await
             .wrap_err("Failed to get latest block number from Starknet")?;
+        info!("latest_block: {}", latest_block);
 
         // Don't process if we're already caught up with events
         if self.latest_processed_events_block >= latest_block {
@@ -228,9 +227,6 @@ impl LightClient {
         .await
         .map_err(|e| eyre!("Failed to update MMR: {}", e))?;
 
-        // Update the latest processed MMR block
-        self.latest_processed_mmr_block = latest_relayed_block;
-
         Ok(())
     }
 
@@ -311,7 +307,6 @@ impl LightClient {
             verifier_addr,
             chain_id,
             latest_processed_events_block: start_block.saturating_sub(1),
-            latest_processed_mmr_block: start_block.saturating_sub(1),
             starknet_private_key,
             starknet_account_address,
             polling_interval: Duration::from_secs(polling_interval),
