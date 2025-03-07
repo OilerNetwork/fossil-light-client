@@ -2,6 +2,7 @@ services:
   build-mmr:
     image: nethermind.jfrog.io/kyoto-oiler-oci-local-dev/fossil-build-mmr:latest
     # image: fossil-build-mmr
+    pull_policy: always
     container_name: fossil-build-mmr
     volumes:
       - ./:/app
