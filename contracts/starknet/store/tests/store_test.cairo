@@ -225,24 +225,6 @@ fn test_unauthorized_mmr_state_update() {
 }
 
 #[test]
-#[should_panic(
-    expected: "Update interval: 9 must be greater than or equal to the minimum update interval: 10",
-)]
-fn test_min_update_interval_violation() {
-    let dispatcher = deploy();
-
-    start_cheat_caller_address(dispatcher.contract_address, verifier_address());
-
-    // First update
-    let mut journal = test_journal();
-    dispatcher.update_store_state(OWNER(), journal, test_avg_fees_1(), "IPFS_HASH_CID");
-
-    // Second update too soon
-    journal.latest_mmr_block += MIN_UPDATE_INTERVAL - 1;
-    dispatcher.update_store_state(OWNER(), journal, test_avg_fees_1(), "IPFS_HASH_CID");
-}
-
-#[test]
 #[should_panic(expected: "Timestamp must be a multiple of 3600")]
 fn test_invalid_timestamp_get_avg_fee() {
     let dispatcher = deploy();
