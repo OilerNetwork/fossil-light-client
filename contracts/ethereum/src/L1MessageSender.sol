@@ -20,22 +20,34 @@ contract L1MessageSender {
         _snMessaging = IStarknetMessaging(snMessaging);
     }
 
-    function sendFinalizedBlockHashToL2(uint256 l2RecipientAddr) external payable {
+    function sendFinalizedBlockHashToL2(
+        uint256 l2RecipientAddr
+    ) external payable {
         uint256 finalizedBlockNumber = block.number - 96;
-        bytes32 parentHash = blockhash(finalizedBlockNumber);
+        bytes32 blockHash = blockhash(finalizedBlockNumber);
         uint256 blockNumber = uint256(finalizedBlockNumber);
-        _sendBlockHashToL2(parentHash, blockNumber, l2RecipientAddr);
+        _sendBlockHashToL2(blockHash, blockNumber, l2RecipientAddr);
     }
 
-    function _sendBlockHashToL2(bytes32 parentHash_, uint256 blockNumber_, uint256 _l2RecipientAddr) internal {
+    function _sendBlockHashToL2(
+        bytes32 blockHash_,
+        uint256 blockNumber_,
+        uint256 _l2RecipientAddr
+    ) internal {
         uint256[] memory message = new uint256[](4);
-        (uint256 parentHashLow, uint256 parentHashHigh) = uint256(parentHash_).split128();
-        (uint256 blockNumberLow, uint256 blockNumberHigh) = blockNumber_.split128();
-        message[0] = parentHashLow;
-        message[1] = parentHashHigh;
+        (uint256 blockHashLow, uint256 blockHashHigh) = uint256(blockHash_)
+            .split128();
+        (uint256 blockNumberLow, uint256 blockNumberHigh) = blockNumber_
+            .split128();
+        message[0] = blockHashLow;
+        message[1] = blockHashHigh;
         message[2] = blockNumberLow;
         message[3] = blockNumberHigh;
 
-        _snMessaging.sendMessageToL2{value: 30000}(_l2RecipientAddr, RECEIVE_FROM_L1_SELECTOR, message);
+        _snMessaging.sendMessageToL2{value: 30000}(
+            _l2RecipientAddr,
+            RECEIVE_FROM_L1_SELECTOR,
+            message
+        );
     }
 }
