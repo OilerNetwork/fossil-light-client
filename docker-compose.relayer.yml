@@ -2,13 +2,12 @@ version: '3.8'
 
 services:
   relayer:
-    image: nethermind.jfrog.io/kyoto-oiler-oci-local-dev/fossil-relayer:latest
+    image: fossil-relayer:latest
     container_name: fossil-relayer
     restart: unless-stopped
     volumes:
       - ./:/app
     command: >
-      relayer 
       --env-file ${ENV_FILE:-/app/.env.docker}
       --relay-time-minutes ${RELAY_TIME_MINUTES:-60}
     environment:
