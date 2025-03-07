@@ -66,7 +66,7 @@ pub async fn update_mmr(
     batch_size: u64,
     start_block: u64,
     end_block: u64,
-) -> Result<Option<String>> {
+) -> Result<()> {
     let starknet_provider = StarknetProvider::new(rpc_url)?;
     let starknet_account = StarknetAccount::new(
         starknet_provider.provider(),
@@ -95,6 +95,5 @@ pub async fn update_mmr(
         .update_mmr_with_new_headers(start_block, end_block, false)
         .await?;
 
-    // For now, return None as we don't have a way to capture the tx hash
-    Ok(None)
+    Ok(())
 }

@@ -150,8 +150,8 @@ impl<'a> AccumulatorBuilder<'a> {
 
         info!(
             total_blocks = end_block - start_block + 1,
-            latest_mmr_block = start_block - 1,
-            latest_relayed_block = end_block,
+            start_block,
+            end_block,
             "Starting MMR update with new headers"
         );
 

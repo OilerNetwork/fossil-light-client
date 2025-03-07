@@ -1836,7 +1836,6 @@ dependencies = [
  "common",
  "dotenv",
  "eyre",
- "mmr-utils",
  "mockall",
  "publisher",
  "starknet",
@@ -2414,7 +2413,7 @@ dependencies = [
 [[package]]
 name = "eth-rlp-types"
 version = "0.1.0"
-source = "git+https://github.com/NethermindEth/eth-rlp-verify.git?branch=tiny-keccak#5b2aec5ad8a6c14cf8a2d91a24268246513c4db9"
+source = "git+https://github.com/NethermindEth/eth-rlp-verify.git?rev=6849b2460525d4749c4955ec8470951c6043ffce#6849b2460525d4749c4955ec8470951c6043ffce"
 dependencies = [
  "ethereum-types 0.15.1",
  "eyre",

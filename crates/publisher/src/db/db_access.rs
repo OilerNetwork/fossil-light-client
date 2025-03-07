@@ -173,6 +173,7 @@ fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
         blob_gas_used: temp.blob_gas_used,
         excess_blob_gas: temp.excess_blob_gas,
         parent_beacon_block_root: temp.parent_beacon_block_root,
+        request_hash: None,
     }
 }
 

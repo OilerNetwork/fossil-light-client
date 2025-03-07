@@ -1,6 +1,5 @@
 use common::get_env_var;
 use eyre::{eyre, Result, WrapErr};
-use mmr_utils::{create_database_file, ensure_directory_exists};
 use starknet::{
     core::types::{BlockId, EventFilter, Felt},
     macros::selector,
@@ -88,16 +87,6 @@ impl LightClient {
         // Initialize providers
         let starknet_provider = StarknetProvider::new(&starknet_rpc_url)
             .wrap_err("Failed to initialize Starknet provider")?;
-
-        // Set up the database file path
-        let current_dir = ensure_directory_exists("../../db-instances")
-            .wrap_err("Failed to ensure database directory exists")?;
-        let db_file =
-            create_database_file(&current_dir, 0).wrap_err("Failed to create database file")?;
-
-        if !std::path::Path::new(&db_file).exists() {
-            return Err(eyre!("Database file does not exist at path: {}", db_file));
-        }
 
         Ok(Self {
             starknet_provider,
