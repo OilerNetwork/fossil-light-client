@@ -12,6 +12,7 @@ members = [
     "crates/mmr-utils",
     "crates/guest-mmr",
     "crates/ipfs-utils",
+    "crates/guest-fixed-utils",
 ]
 
 # Add this section to exclude methods from clippy checks

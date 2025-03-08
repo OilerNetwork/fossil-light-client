@@ -1,9 +1,9 @@
 // main.rs
+use eth_rlp_types::BlockHeader;
 use eth_rlp_verify::are_blocks_and_chain_valid;
-use risc0_zkvm::guest::env;
 use guest_mmr::core::GuestMMR;
 use guest_types::{CombinedInput, GuestOutput};
-use eth_rlp_types::BlockHeader;
+use risc0_zkvm::guest::env;
 
 const HOUR_IN_SECONDS: i64 = 3600;
 
@@ -11,7 +11,8 @@ fn main() {
     // Read combined input
     let input: CombinedInput = env::read();
     // Flatten headers for validation
-    let flattened_headers: Vec<BlockHeader> = input.headers()
+    let flattened_headers: Vec<BlockHeader> = input
+        .headers()
         .iter()
         .flat_map(|(_, headers)| headers.iter())
         .cloned()
@@ -55,10 +56,13 @@ fn main() {
     let first_batch_index = first_block_number / input.batch_size();
     let last_batch_index = last_block_number / input.batch_size();
 
-    assert!(first_batch_index == last_batch_index, "Batch index mismatch");
+    assert!(
+        first_batch_index == last_batch_index,
+        "Batch index mismatch"
+    );
 
     // Calculate fee averages for hourly groups
-    let mut avg_fees: Vec<(usize, usize, u64)> = Vec::new(); // (timestamp, data_points, avg_fee)
+    let mut avg_fees: Vec<(usize, usize, f64)> = Vec::new(); // (timestamp, data_points, avg_fee)
 
     for (claimed_timestamp, hour_group) in input.headers() {
         if hour_group.is_empty() {
@@ -66,16 +70,21 @@ fn main() {
         }
 
         // Verify the claimed timestamp is valid for this group
-        let group_timestamps: Vec<i64> = hour_group.iter()
+        let group_timestamps: Vec<i64> = hour_group
+            .iter()
             .filter_map(|header| {
-                header.timestamp.as_ref()
+                header
+                    .timestamp
+                    .as_ref()
                     .and_then(|ts| i64::from_str_radix(ts.trim_start_matches("0x"), 16).ok())
             })
             .collect();
 
         // Verify all timestamps are within the same hour as claimed_timestamp
         assert!(
-            group_timestamps.iter().all(|ts| ts / HOUR_IN_SECONDS == claimed_timestamp / HOUR_IN_SECONDS),
+            group_timestamps
+                .iter()
+                .all(|ts| ts / HOUR_IN_SECONDS == claimed_timestamp / HOUR_IN_SECONDS),
             "Timestamps in group don't belong to claimed hour"
         );
 
@@ -85,15 +94,18 @@ fn main() {
             "Claimed timestamp is not exactly on the hour"
         );
 
-        let total_fees: u64 = hour_group
+        let total_fees: f64 = hour_group
             .iter()
             .filter_map(|header| {
-                header.base_fee_per_gas.as_ref()
+                header
+                    .base_fee_per_gas
+                    .as_ref()
                     .and_then(|fee| u64::from_str_radix(fee.trim_start_matches("0x"), 16).ok())
+                    .map(|fee| fee as f64)
             })
             .sum();
 
-        let avg_fee = total_fees / hour_group.len() as u64;
+        let avg_fee = total_fees / hour_group.len() as f64;
         let data_points = hour_group.len();
 
         avg_fees.push((*claimed_timestamp as usize, data_points, avg_fee));
@@ -102,7 +114,10 @@ fn main() {
     let first_block_parent_hash = if first_batch_index == 0 {
         "0x0000000000000000000000000000000000000000000000000000000000000000".to_string()
     } else {
-        first_header.parent_hash.clone().expect("Parent hash is missing")
+        first_header
+            .parent_hash
+            .clone()
+            .expect("Parent hash is missing")
     };
 
     // Create output with avg_fees
