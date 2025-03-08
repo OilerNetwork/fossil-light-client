@@ -278,16 +278,22 @@ fn test_weighted_average_fee_calculation() {
 
     // Create test data with known weighted average result
     let timestamp: u64 = 3600; // 1 hour
+    let avg_fee_1: UFixedPoint123x128 = 100_u64.into();
+    let avg_fee_2: UFixedPoint123x128 = 200_u64.into();
+    let packed_avg_fee_1: felt252 = UFixedPoint123x128StorePacking::pack(avg_fee_1);
+    let packed_avg_fee_2: felt252 = UFixedPoint123x128StorePacking::pack(avg_fee_2);
     let mut avg_fees = array![
-        verifier::AvgFees { timestamp, avg_fee: 100, data_points: 10 },
-        verifier::AvgFees { timestamp, avg_fee: 200, data_points: 20 },
+        verifier::AvgFees { timestamp, avg_fee: packed_avg_fee_1, data_points: 10 },
+        verifier::AvgFees { timestamp, avg_fee: packed_avg_fee_2, data_points: 20 },
     ];
 
     // First update
     dispatcher.update_store_state(OWNER(), test_journal(), avg_fees.span(), "IPFS_HASH_CID");
 
     // Expected weighted average: (100 * 10 + 200 * 20) / (10 + 20) = 166.67 ≈ 166
-    let fee: UFixedPoint123x128 = dispatcher.get_avg_fee(timestamp).into();
+    let fee: UFixedPoint123x128 = UFixedPoint123x128StorePacking::unpack(
+        dispatcher.get_avg_fee(timestamp),
+    );
 
     // 166.226854911280625642308916404954512140970
     assert_eq!(fee.get_integer(), 166, "Incorrect weighted average calculation");

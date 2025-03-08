@@ -1,7 +1,6 @@
 #![deny(unused_crate_dependencies)]
 
 use eth_rlp_types::BlockHeader;
-use guest_fixed_utils::Felt as GuestFelt;
 use risc0_zkvm::Receipt;
 use serde::{Deserialize, Serialize};
 
@@ -60,7 +59,7 @@ impl AppendResult {
 }
 
 // GuestOutput
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GuestOutput {
     batch_index: u64,
     latest_mmr_block: u64,
@@ -68,7 +67,7 @@ pub struct GuestOutput {
     root_hash: String,
     leaves_count: usize,
     first_block_parent_hash: String,
-    avg_fees: Vec<(usize, usize, GuestFelt)>, // (timestamp, data_points, avg_fee)
+    avg_fees: Vec<(usize, usize, String)>, // (timestamp, data_points, avg_fee)
 }
 
 impl GuestOutput {
@@ -79,7 +78,7 @@ impl GuestOutput {
         root_hash: String,
         leaves_count: usize,
         first_block_parent_hash: String,
-        avg_fees: Vec<(usize, usize, GuestFelt)>,
+        avg_fees: Vec<(usize, usize, String)>,
     ) -> Self {
         Self {
             batch_index,
@@ -114,6 +113,10 @@ impl GuestOutput {
 
     pub fn first_block_parent_hash(&self) -> &str {
         &self.first_block_parent_hash
+    }
+
+    pub fn avg_fees(&self) -> &Vec<(usize, usize, String)> {
+        &self.avg_fees
     }
 }
 
@@ -316,22 +319,22 @@ mod tests {
                 (
                     0,
                     0,
-                    UFixedPoint123x128::pack(UFixedPoint123x128::from(100.0)),
+                    UFixedPoint123x128::pack(UFixedPoint123x128::from(100.0)).to_dec_string(),
                 ),
                 (
                     1,
                     0,
-                    UFixedPoint123x128::pack(UFixedPoint123x128::from(200.0)),
+                    UFixedPoint123x128::pack(UFixedPoint123x128::from(200.0)).to_dec_string(),
                 ),
                 (
                     2,
                     0,
-                    UFixedPoint123x128::pack(UFixedPoint123x128::from(300.0)),
+                    UFixedPoint123x128::pack(UFixedPoint123x128::from(300.0)).to_dec_string(),
                 ),
                 (
                     3,
                     0,
-                    UFixedPoint123x128::pack(UFixedPoint123x128::from(400.0)),
+                    UFixedPoint123x128::pack(UFixedPoint123x128::from(400.0)).to_dec_string(),
                 ),
             ],
         );

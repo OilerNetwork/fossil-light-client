@@ -31,7 +31,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let block_headers = db_connection
         .get_block_headers_by_block_range(args.start_block, args.end_block)
         .await?;
-    println!("block_headers 0: {:?}", block_headers[0]);
 
     let headers_by_hour = group_headers_by_hour(block_headers);
 

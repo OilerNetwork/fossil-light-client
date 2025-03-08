@@ -27,7 +27,7 @@ pub mod L1MessageProxy {
         block_number_high: felt252,
     ) {
         let block_hash = u256 {
-            low: block_hash_high.try_into().unwrap(), high: block_hash_low.try_into().unwrap(),
+            low: block_hash_low.try_into().unwrap(), high: block_hash_high.try_into().unwrap(),
         };
         let block_number: u64 = block_number_low.try_into().unwrap();
         assert!(

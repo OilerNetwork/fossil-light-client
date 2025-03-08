@@ -27,5 +27,3 @@ test = "snforge test"
 
 [lib]
 
-[tool.voyager]
-fossil_store = { path = "src/lib.cairo" }

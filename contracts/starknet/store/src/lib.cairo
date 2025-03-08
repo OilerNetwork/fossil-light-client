@@ -196,79 +196,91 @@ pub mod Store {
                 "Only Fossil Verifier can update MMR state",
             );
 
-            let mut curr_state = self.mmr_batches.entry(journal.batch_index);
+            let mut batch_state = self.mmr_batches.entry(journal.batch_index);
 
-            let current_latest_mmr_block = self.latest_mmr_block.read();
-            if current_latest_mmr_block < journal.latest_mmr_block {
+            // Update latest MMR block if the new one is more recent
+            let current_latest_block = self.latest_mmr_block.read();
+            if current_latest_block < journal.latest_mmr_block {
                 self.latest_mmr_block.write(journal.latest_mmr_block);
             }
 
-            let min_mmr_block = self.min_mmr_block.read();
-            let lowest_batch_block = journal.latest_mmr_block - journal.leaves_count + 1;
-            if min_mmr_block != 0 {
-                if lowest_batch_block < min_mmr_block {
-                    self.min_mmr_block.write(lowest_batch_block);
+            // Update minimum MMR block tracking
+            let current_min_block = self.min_mmr_block.read();
+            let batch_first_block = journal.latest_mmr_block - journal.leaves_count + 1;
+
+            if current_min_block != 0 {
+                if batch_first_block < current_min_block {
+                    self.min_mmr_block.write(batch_first_block);
                 }
             } else {
-                self.min_mmr_block.write(lowest_batch_block);
+                self.min_mmr_block.write(batch_first_block);
             }
 
-            curr_state.latest_mmr_block_hash.write(journal.latest_mmr_block_hash);
-            curr_state.leaves_count.write(journal.leaves_count);
-            curr_state.root_hash.write(journal.root_hash);
-            curr_state.first_block_parent_hash.write(journal.first_block_parent_hash);
-            curr_state.latest_mmr_block.write(journal.latest_mmr_block);
+            // Update batch state with journal data
+            batch_state.latest_mmr_block_hash.write(journal.latest_mmr_block_hash);
+            batch_state.leaves_count.write(journal.leaves_count);
+            batch_state.root_hash.write(journal.root_hash);
+            batch_state.first_block_parent_hash.write(journal.first_block_parent_hash);
+            batch_state.latest_mmr_block.write(journal.latest_mmr_block);
 
-            for avg_fee in avg_fees {
-                let mut curr_avg_fee = self.avg_fees.entry(*avg_fee.timestamp);
-                if curr_avg_fee.data_points.read() == 0 {
-                    curr_avg_fee.data_points.write(*avg_fee.data_points);
-                    let avg_fee_fixed_point: UFixedPoint123x128 = (*avg_fee.avg_fee).into();
-                    curr_avg_fee
-                        .avg_fee
-                        .write(UFixedPoint123x128StorePacking::pack(avg_fee_fixed_point));
+            // Process average fees data
+            for fee_entry in avg_fees {
+                let mut stored_fee_entry = self.avg_fees.entry(*fee_entry.timestamp);
+
+                if stored_fee_entry.data_points.read() == 0 {
+                    // First entry for this timestamp - store directly
+                    stored_fee_entry.data_points.write(*fee_entry.data_points);
+                    stored_fee_entry.avg_fee.write(*fee_entry.avg_fee);
+
+                    self
+                        .emit(
+                            AvgFeesUpdated {
+                                timestamp: *fee_entry.timestamp, avg_fee_fixed: *fee_entry.avg_fee,
+                            },
+                        );
                 } else {
-                    let existing_points_fixed: UFixedPoint123x128 = curr_avg_fee
-                        .data_points
-                        .read()
+                    // Merge with existing fee data using weighted average
+                    let existing_points: UFixedPoint123x128 = (stored_fee_entry.data_points.read())
                         .into();
-                    let existing_fee_fixed: UFixedPoint123x128 =
-                        UFixedPoint123x128StorePacking::unpack(
-                        curr_avg_fee.avg_fee.read(),
+                    let existing_fee = UFixedPoint123x128StorePacking::unpack(
+                        stored_fee_entry.avg_fee.read(),
                     );
 
-                    let avg_fee_data_points_fixed: UFixedPoint123x128 = (*avg_fee.data_points)
-                        .into();
-                    let new_data_points_fixed: UFixedPoint123x128 = existing_points_fixed
-                        + avg_fee_data_points_fixed;
-
-                    let avg_fee_fixed: UFixedPoint123x128 = (*avg_fee.avg_fee).into();
-                    let new_avg_fee_fixed: UFixedPoint123x128 = (existing_fee_fixed
-                        * existing_points_fixed
-                        + avg_fee_fixed * avg_fee_data_points_fixed)
-                        / new_data_points_fixed;
-
-                    let packed_avg_fee_fixed: felt252 = UFixedPoint123x128StorePacking::pack(
-                        new_avg_fee_fixed,
+                    let new_points: UFixedPoint123x128 = (*fee_entry.data_points).into();
+                    let new_fee: UFixedPoint123x128 = UFixedPoint123x128StorePacking::unpack(
+                        *fee_entry.avg_fee,
                     );
-                    curr_avg_fee.avg_fee.write(packed_avg_fee_fixed);
-                    curr_avg_fee
+
+                    let total_points = existing_points + new_points;
+
+                    // Calculate weighted average of fees
+                    let weighted_avg_fee = (existing_fee * existing_points + new_fee * new_points)
+                        / total_points;
+                    let packed_weighted_fee = UFixedPoint123x128StorePacking::pack(
+                        weighted_avg_fee,
+                    );
+
+                    // Update storage with merged data
+                    stored_fee_entry.avg_fee.write(packed_weighted_fee);
+                    stored_fee_entry
                         .data_points
                         .write(
-                            new_data_points_fixed
+                            total_points
                                 .get_integer()
                                 .try_into()
                                 .expect('Failed to convert u128 to u64'),
                         );
+
                     self
                         .emit(
                             AvgFeesUpdated {
-                                timestamp: *avg_fee.timestamp, avg_fee_fixed: packed_avg_fee_fixed,
+                                timestamp: *fee_entry.timestamp, avg_fee_fixed: packed_weighted_fee,
                             },
                         );
                 }
             };
 
+            // Emit MMR state update event
             self
                 .emit(
                     MmrStateUpdated {
@@ -280,8 +292,9 @@ pub mod Store {
                     },
                 );
 
+            // Only contract owner can update IPFS hash
             if verifier_caller == self.ownable.Ownable_owner.read() {
-                curr_state.ipfs_hash.write(ipfs_hash.clone());
+                batch_state.ipfs_hash.write(ipfs_hash.clone());
                 self.emit(IPFSHashUpdated { batch_index: journal.batch_index, ipfs_hash });
             }
         }
@@ -327,6 +340,8 @@ pub mod Store {
         fn get_avg_fee(self: @ContractState, timestamp: u64) -> felt252 {
             assert!(timestamp % HOUR_IN_SECONDS == 0, "Timestamp must be a multiple of 3600");
             let curr_state = self.avg_fees.entry(timestamp);
+
+            // Return the packed value directly - the caller will unpack it
             curr_state.avg_fee.read()
         }
 

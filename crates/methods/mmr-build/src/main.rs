@@ -1,7 +1,7 @@
 // main.rs
 use eth_rlp_types::BlockHeader;
 use eth_rlp_verify::are_blocks_and_chain_valid;
-use guest_fixed_utils::{UFixedPoint123x128, StorePacking, Felt};
+use guest_fixed_utils::{UFixedPoint123x128, StorePacking};
 use guest_mmr::core::GuestMMR;
 use guest_types::{CombinedInput, GuestOutput};
 use risc0_zkvm::guest::env;
@@ -63,7 +63,7 @@ fn main() {
     );
 
     // Calculate fee averages for hourly groups using fixed-point arithmetic
-    let mut avg_fees: Vec<(usize, usize, Felt)> = Vec::new(); // (timestamp, data_points, avg_fee_felt)
+    let mut avg_fees: Vec<(usize, usize, String)> = Vec::new(); // (timestamp, data_points, avg_fee_felt)
 
     for (claimed_timestamp, hour_group) in input.headers() {
         if hour_group.is_empty() {
@@ -122,7 +122,7 @@ fn main() {
         };
 
         // Pack the fixed-point value into a Felt
-        let avg_fee_felt = UFixedPoint123x128::pack(avg_fee_fixed);
+        let avg_fee_felt = UFixedPoint123x128::pack(avg_fee_fixed).to_dec_string();
 
         avg_fees.push((*claimed_timestamp as usize, valid_fee_count, avg_fee_felt));
     }
