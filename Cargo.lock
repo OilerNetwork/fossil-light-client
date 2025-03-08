@@ -2846,7 +2846,7 @@ dependencies = [
 name = "guest-fixed-utils"
 version = "0.1.0"
 dependencies = [
- "starknet",
+ "serde",
 ]
 
 [[package]]
@@ -2866,6 +2866,7 @@ name = "guest-types"
 version = "0.1.0"
 dependencies = [
  "eth-rlp-types",
+ "guest-fixed-utils",
  "risc0-zkvm",
  "serde",
 ]

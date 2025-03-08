@@ -1,6 +1,7 @@
 #![deny(unused_crate_dependencies)]
 
 use eth_rlp_types::BlockHeader;
+use guest_fixed_utils::Felt as GuestFelt;
 use risc0_zkvm::Receipt;
 use serde::{Deserialize, Serialize};
 
@@ -67,7 +68,7 @@ pub struct GuestOutput {
     root_hash: String,
     leaves_count: usize,
     first_block_parent_hash: String,
-    avg_fees: Vec<(usize, usize, u64)>, // (timestamp, data_points, avg_fee)
+    avg_fees: Vec<(usize, usize, GuestFelt)>, // (timestamp, data_points, avg_fee)
 }
 
 impl GuestOutput {
@@ -78,7 +79,7 @@ impl GuestOutput {
         root_hash: String,
         leaves_count: usize,
         first_block_parent_hash: String,
-        avg_fees: Vec<(usize, usize, u64)>,
+        avg_fees: Vec<(usize, usize, GuestFelt)>,
     ) -> Self {
         Self {
             batch_index,
@@ -288,6 +289,8 @@ impl BlocksValidityInput {
 
 #[cfg(test)]
 mod tests {
+    use guest_fixed_utils::{StorePacking, UFixedPoint123x128};
+
     use super::*;
 
     #[test]
@@ -309,7 +312,28 @@ mod tests {
             "root_hash".to_string(),
             50,
             "first_block_parent_hash".to_string(),
-            vec![(0, 0, 100), (1, 0, 200), (2, 0, 300), (3, 0, 400)],
+            vec![
+                (
+                    0,
+                    0,
+                    UFixedPoint123x128::pack(UFixedPoint123x128::from(100.0)),
+                ),
+                (
+                    1,
+                    0,
+                    UFixedPoint123x128::pack(UFixedPoint123x128::from(200.0)),
+                ),
+                (
+                    2,
+                    0,
+                    UFixedPoint123x128::pack(UFixedPoint123x128::from(300.0)),
+                ),
+                (
+                    3,
+                    0,
+                    UFixedPoint123x128::pack(UFixedPoint123x128::from(400.0)),
+                ),
+            ],
         );
 
         assert_eq!(output.batch_index(), 1);

@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 guest-types = { path = "../../guest-types" }
 guest-mmr = { path = "../../guest-mmr" }
+guest-fixed-utils = { path = "../../guest-fixed-utils" }
 common = { path = "../../common" }
 
 eth-rlp-types = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", package = "eth-rlp-types", rev = "6849b2460525d4749c4955ec8470951c6043ffce" }

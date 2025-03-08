@@ -1,6 +1,7 @@
 // main.rs
 use eth_rlp_types::BlockHeader;
 use eth_rlp_verify::are_blocks_and_chain_valid;
+use guest_fixed_utils::{UFixedPoint123x128, StorePacking, Felt};
 use guest_mmr::core::GuestMMR;
 use guest_types::{CombinedInput, GuestOutput};
 use risc0_zkvm::guest::env;
@@ -61,8 +62,8 @@ fn main() {
         "Batch index mismatch"
     );
 
-    // Calculate fee averages for hourly groups
-    let mut avg_fees: Vec<(usize, usize, f64)> = Vec::new(); // (timestamp, data_points, avg_fee)
+    // Calculate fee averages for hourly groups using fixed-point arithmetic
+    let mut avg_fees: Vec<(usize, usize, Felt)> = Vec::new(); // (timestamp, data_points, avg_fee_felt)
 
     for (claimed_timestamp, hour_group) in input.headers() {
         if hour_group.is_empty() {
@@ -94,21 +95,36 @@ fn main() {
             "Claimed timestamp is not exactly on the hour"
         );
 
-        let total_fees: f64 = hour_group
-            .iter()
-            .filter_map(|header| {
-                header
-                    .base_fee_per_gas
-                    .as_ref()
-                    .and_then(|fee| u64::from_str_radix(fee.trim_start_matches("0x"), 16).ok())
-                    .map(|fee| fee as f64)
-            })
-            .sum();
+        // Calculate total fees using fixed-point arithmetic
+        let mut total_fees = UFixedPoint123x128::from(0.0);
+        let mut valid_fee_count = 0;
 
-        let avg_fee = total_fees / hour_group.len() as f64;
-        let data_points = hour_group.len();
+        for header in hour_group {
+            if let Some(fee_str) = &header.base_fee_per_gas {
+                if let Ok(fee) = u64::from_str_radix(fee_str.trim_start_matches("0x"), 16) {
+                    // Convert fee to fixed-point and add to total
+                    let fee_fixed = UFixedPoint123x128::from(fee as f64);
+                    total_fees = UFixedPoint123x128::from(
+                        (total_fees.value.high as f64 + fee_fixed.value.high as f64) +
+                        ((total_fees.value.low as f64 + fee_fixed.value.low as f64) / 2f64.powi(128))
+                    );
+                    valid_fee_count += 1;
+                }
+            }
+        }
 
-        avg_fees.push((*claimed_timestamp as usize, data_points, avg_fee));
+        // Calculate average fee using fixed-point division
+        let count_fixed = UFixedPoint123x128::from(valid_fee_count as f64);
+        let avg_fee_fixed = if valid_fee_count > 0 {
+            total_fees / count_fixed
+        } else {
+            UFixedPoint123x128::from(0.0)
+        };
+
+        // Pack the fixed-point value into a Felt
+        let avg_fee_felt = UFixedPoint123x128::pack(avg_fee_fixed);
+
+        avg_fees.push((*claimed_timestamp as usize, valid_fee_count, avg_fee_felt));
     }
 
     let first_block_parent_hash = if first_batch_index == 0 {

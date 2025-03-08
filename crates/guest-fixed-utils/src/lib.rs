@@ -1,25 +1,25 @@
+#![allow(unused_crate_dependencies)]
+
 use core::convert::TryFrom;
-use starknet::core::types::{Felt, U256};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct UFixedPoint123x128 {
-    pub value: U256,
+pub struct U256 {
+    pub high: u128,
+    pub low: u128,
 }
 
-// Replace the direct implementation with a trait
-pub trait U256Extensions {
-    fn to_be_bytes(&self) -> [u8; 32];
-}
+impl U256 {
+    pub fn new(high: u128, low: u128) -> Self {
+        Self { high, low }
+    }
 
-impl U256Extensions for U256 {
-    fn to_be_bytes(&self) -> [u8; 32] {
+    pub fn to_be_bytes(&self) -> [u8; 32] {
         let mut bytes = [0u8; 32];
 
-        // Extract bytes using the public API
-        let high_bytes = self.high().to_be_bytes();
-        let low_bytes = self.low().to_be_bytes();
+        let high_bytes = self.high.to_be_bytes();
+        let low_bytes = self.low.to_be_bytes();
 
-        // Combine high and low parts
         bytes[0..16].copy_from_slice(&high_bytes);
         bytes[16..32].copy_from_slice(&low_bytes);
 
@@ -27,13 +27,144 @@ impl U256Extensions for U256 {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Felt {
+    // Internal representation as bytes
+    bytes: [u8; 32],
+}
+
+impl Felt {
+    pub fn from_bytes_be(bytes: &[u8; 32]) -> Self {
+        Self { bytes: *bytes }
+    }
+
+    pub fn to_bytes_be(&self) -> [u8; 32] {
+        self.bytes
+    }
+
+    /// Converts the Felt to a decimal string representation
+    pub fn to_dec_string(&self) -> String {
+        // Convert to U256 first
+        let u256: U256 = self.clone().into();
+
+        // Handle zero case
+        if u256.high == 0 && u256.low == 0 {
+            return "0".to_string();
+        }
+
+        // Convert to decimal string using base-10 division
+        let mut result = String::new();
+        let mut remaining = u256;
+        let ten = U256::new(0, 10);
+
+        while remaining.high != 0 || remaining.low != 0 {
+            // Divide by 10 and get remainder
+            let (quotient, remainder) = div_mod_u256(&remaining, &ten);
+
+            // Add digit to result
+            result.push(char::from_digit(remainder.low as u32, 10).unwrap());
+
+            // Continue with quotient
+            remaining = quotient;
+        }
+
+        // Reverse the string since we built it in reverse order
+        result.chars().rev().collect()
+    }
+}
+
+/// Helper function to divide a U256 by another U256 and return quotient and remainder
+fn div_mod_u256(a: &U256, b: &U256) -> (U256, U256) {
+    // Simple case: if divisor is larger than dividend
+    if (a.high < b.high) || (a.high == b.high && a.low < b.low) {
+        return (U256::new(0, 0), *a);
+    }
+
+    // Simple case: if both high parts are 0, just divide the low parts
+    if a.high == 0 && b.high == 0 {
+        return (U256::new(0, a.low / b.low), U256::new(0, a.low % b.low));
+    }
+
+    // For more complex cases, use a simple long division algorithm
+    let mut quotient = U256::new(0, 0);
+    let mut remainder = U256::new(0, 0);
+
+    // Process 256 bits from most significant to least significant
+    for i in (0..256).rev() {
+        // Shift remainder left by 1 bit
+        remainder = U256::new(
+            (remainder.high << 1) | (remainder.low >> 127),
+            remainder.low << 1,
+        );
+
+        // Get the current bit from dividend
+        let bit = if i >= 128 {
+            (a.high >> (i - 128)) & 1
+        } else {
+            (a.low >> i) & 1
+        };
+
+        // Add current bit to remainder
+        if bit == 1 {
+            remainder.low |= 1;
+        }
+
+        // If remainder >= divisor, subtract divisor and set quotient bit
+        if (remainder.high > b.high) || (remainder.high == b.high && remainder.low >= b.low) {
+            // remainder = remainder - divisor
+            if remainder.low < b.low {
+                remainder.high -= 1;
+            }
+            remainder.low = remainder.low.wrapping_sub(b.low);
+            remainder.high = remainder.high.wrapping_sub(b.high);
+
+            // Set quotient bit
+            if i >= 128 {
+                quotient.high |= 1 << (i - 128);
+            } else {
+                quotient.low |= 1 << i;
+            }
+        }
+    }
+
+    (quotient, remainder)
+}
+
+impl From<Felt> for U256 {
+    fn from(value: Felt) -> Self {
+        let bytes = value.to_bytes_be();
+
+        let mut high_bytes = [0u8; 16];
+        let mut low_bytes = [0u8; 16];
+
+        high_bytes.copy_from_slice(&bytes[0..16]);
+        low_bytes.copy_from_slice(&bytes[16..32]);
+
+        let high = u128::from_be_bytes(high_bytes);
+        let low = u128::from_be_bytes(low_bytes);
+
+        U256::new(high, low)
+    }
+}
+
+impl From<U256> for Felt {
+    fn from(value: U256) -> Self {
+        Felt::from_bytes_be(&value.to_be_bytes())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UFixedPoint123x128 {
+    pub value: U256,
+}
+
 impl TryFrom<UFixedPoint123x128> for Felt {
     type Error = &'static str;
     fn try_from(fp: UFixedPoint123x128) -> Result<Self, Self::Error> {
         // Bound check: the value must fit in a 252-bit field element.
         const FELT252_PRIME_HIGH: u128 = 0x8000000000000110000000000000000;
-        if fp.value.high() > FELT252_PRIME_HIGH
-            || (fp.value.high() == FELT252_PRIME_HIGH && fp.value.low() != 0)
+        if fp.value.high > FELT252_PRIME_HIGH
+            || (fp.value.high == FELT252_PRIME_HIGH && fp.value.low != 0)
         {
             return Err("FELT_OVERFLOW");
         }
@@ -57,11 +188,11 @@ impl From<f64> for UFixedPoint123x128 {
 
         // Convert fractional part to fixed-point representation
         // Multiply by 2^128 and truncate to get the lower bits
-        let fractional_bits = (fractional_part * 2f64.powi(128)).trunc() as u128;
+        let fractional_bits = (fractional_part * 2f64.powi(64) * 2f64.powi(64)).trunc() as u128;
 
         // Combine integer and fractional parts
         UFixedPoint123x128 {
-            value: U256::from_words(fractional_bits, integer_part),
+            value: U256::new(integer_part, fractional_bits),
         }
     }
 }
@@ -75,15 +206,15 @@ impl StorePacking<UFixedPoint123x128, Felt> for UFixedPoint123x128 {
     fn pack(value: UFixedPoint123x128) -> Felt {
         // Make sure the value fits within a Felt
         // A Felt is 251 bits, so we need to ensure our value is within that range
-        if value.value.high() >= (1u128 << 123) {
+        if value.value.high >= (1u128 << 123) {
             panic!("Value too large to pack into Felt");
         }
 
         // Convert to bytes and then to Felt
         let bytes = value.value.to_be_bytes();
 
-        // Create Felt from the bytes, handling potential overflow
-        Felt::from_bytes_be_slice(&bytes)
+        // Create Felt from the bytes
+        Felt::from_bytes_be(&bytes)
     }
 
     fn unpack(felt: Felt) -> UFixedPoint123x128 {
@@ -99,14 +230,14 @@ impl std::ops::Div for UFixedPoint123x128 {
     fn div(self, rhs: Self) -> Self::Output {
         // Ensure we're not dividing by zero
         assert!(
-            rhs.value.high() != 0 || rhs.value.low() != 0,
+            rhs.value.high != 0 || rhs.value.low != 0,
             "Division by zero"
         );
 
         // Convert to f64 for the division operation
         // This is a simplification that works for testing but has precision limitations
-        let self_f64 = self.value.high() as f64 + (self.value.low() as f64 / 2f64.powi(128));
-        let rhs_f64 = rhs.value.high() as f64 + (rhs.value.low() as f64 / 2f64.powi(128));
+        let self_f64 = self.value.high as f64 + (self.value.low as f64 / 2f64.powi(128));
+        let rhs_f64 = rhs.value.high as f64 + (rhs.value.low as f64 / 2f64.powi(128));
 
         let result = self_f64 / rhs_f64;
         result.into()
@@ -116,7 +247,6 @@ impl std::ops::Div for UFixedPoint123x128 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    // use starknet::core::types::Felt;
 
     // A helper u256 value.
     fn example_fp() -> UFixedPoint123x128 {
@@ -132,15 +262,14 @@ mod tests {
         let fp = example_fp();
         println!("(5/3)_u256 = {:?}", fp);
         let felt = UFixedPoint123x128::pack(fp.clone());
-        println!("Packed Felt: {:?}", felt.to_bigint());
+        // Cairo packed:    567137278201564105772291012386280352426
+        // Rust packed:     567137278201564130958245587691054825472
+        println!("Packed Felt: {:?}", felt.to_dec_string());
         let unpacked = UFixedPoint123x128::unpack(felt);
-        // rust unpacked:   567137278201564130958245587691054825472
-        // cairo unpacked:  567137278201564105772291012386280352426
-        // This difference is well below the precision limit of 64-bit floating point
-        // (which is about 10^-16)
         println!("Unpacked UFixedPoint123x128: {:?}", unpacked);
         assert_eq!(fp, unpacked);
     }
+
     #[test]
     fn test_conversion_integer() {
         let value = 1.0_f64;
@@ -152,8 +281,8 @@ mod tests {
 
         // For integer 1, high should be 1 and low should be 0
         let fp = UFixedPoint123x128::from(value);
-        assert_eq!(fp.value.high(), 1);
-        assert_eq!(fp.value.low(), 0);
+        assert_eq!(fp.value.high, 1);
+        assert_eq!(fp.value.low, 0);
     }
 
     #[test]
@@ -167,8 +296,8 @@ mod tests {
 
         // For 1.5, high should be 1 and low should be 2^127
         let fp = UFixedPoint123x128::from(value);
-        assert_eq!(fp.value.high(), 1);
-        assert_eq!(fp.value.low(), 1u128 << 127);
+        assert_eq!(fp.value.high, 1);
+        assert_eq!(fp.value.low, 1u128 << 127);
     }
 
     #[test]
@@ -182,14 +311,13 @@ mod tests {
 
         // For π ≈ 3.14159..., high should be 3 and low should be approximately 0.14159... * 2^128
         let fp = UFixedPoint123x128::from(value);
-        assert_eq!(fp.value.high(), 3);
+        assert_eq!(fp.value.high, 3);
 
-        // Allow some small error in the fractional part due to floating-point precision
         // Use a different approach to calculate expected_low to avoid overflow
         let expected_low =
             (0.14159265358979323846 * (1u128 << 64) as f64 * (1u128 << 64) as f64) as u128;
         let tolerance = 1u128 << 120; // Allow some error margin
-        assert!((fp.value.low() as i128 - expected_low as i128).abs() < tolerance as i128);
+        assert!((fp.value.low as i128 - expected_low as i128).abs() < tolerance as i128);
     }
 
     #[test]
@@ -203,11 +331,10 @@ mod tests {
 
         // For 5/3 ≈ 1.6666..., high should be 1 and low should be approximately 0.6666... * 2^128
         let fp = UFixedPoint123x128::from(value);
-        assert_eq!(fp.value.high(), 1);
+        assert_eq!(fp.value.high, 1);
 
         // Get the actual value from the implementation for comparison
-        // Instead of calculating an expected value that might not match
-        let actual_low = fp.value.low();
+        let actual_low = fp.value.low;
 
         // Print the actual value for debugging
         println!("Actual low bits: {}", actual_low);
@@ -218,5 +345,36 @@ mod tests {
 
         assert!(actual_low > lower_bound);
         assert!(actual_low < upper_bound);
+    }
+
+    #[test]
+    fn test_felt_to_dec_string() {
+        // Test zero
+        let zero = Felt::from_bytes_be(&[0; 32]);
+        assert_eq!(zero.to_dec_string(), "0");
+
+        // Test small numbers
+        let one = Felt::from_bytes_be(&{
+            let mut bytes = [0; 32];
+            bytes[31] = 1;
+            bytes
+        });
+        assert_eq!(one.to_dec_string(), "1");
+
+        let ten = Felt::from_bytes_be(&{
+            let mut bytes = [0; 32];
+            bytes[31] = 10;
+            bytes
+        });
+        assert_eq!(ten.to_dec_string(), "10");
+
+        // Test larger number
+        let large = Felt::from_bytes_be(&{
+            let mut bytes = [0; 32];
+            bytes[30] = 0x12;
+            bytes[31] = 0x34;
+            bytes
+        });
+        assert_eq!(large.to_dec_string(), "4660"); // 0x1234 = 4660
     }
 }

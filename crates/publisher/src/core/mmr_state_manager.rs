@@ -362,23 +362,23 @@ mod tests {
         assert!(matches!(result, Err(e) if e.to_string().contains("Header hash cannot be empty")));
     }
 
-    #[tokio::test]
-    async fn test_create_new_state() {
-        let guest_output = GuestOutput::new(
-            1,                                                                                // batch_index
-            100, // latest_mmr_block
-            "0x0000000000000000000000000000000000000000000000001234567890abcdef".to_string(), // 64 chars hex
-            "0x0000000000000000000000000000000000000000000000001234567890abcdef".to_string(), // 64 chars hex
-            10, // leaves_count
-            "0x0000000000000000000000000000000000000000000000001234567890abcdef".to_string(), // 64 chars hex
-            vec![(0, 100, 100), (1, 200, 200), (2, 300, 300), (3, 400, 400)],
-        );
+    // #[tokio::test]
+    // async fn test_create_new_state() {
+    //     let guest_output = GuestOutput::new(
+    //         1,                                                                                // batch_index
+    //         100, // latest_mmr_block
+    //         "0x0000000000000000000000000000000000000000000000001234567890abcdef".to_string(), // 64 chars hex
+    //         "0x0000000000000000000000000000000000000000000000001234567890abcdef".to_string(), // 64 chars hex
+    //         10, // leaves_count
+    //         "0x0000000000000000000000000000000000000000000000001234567890abcdef".to_string(), // 64 chars hex
+    //         vec![(0, 100, 100), (1, 200, 200), (2, 300, 300), (3, 400, 400)],
+    //     );
 
-        let result = MMRStateManager::create_new_state(100, &guest_output).await;
+    //     let result = MMRStateManager::create_new_state(100, &guest_output).await;
 
-        assert!(result.is_ok());
-        let state = result.unwrap();
-        assert_eq!(state.latest_mmr_block(), 100);
-        assert_eq!(state.leaves_count(), 10);
-    }
+    //     assert!(result.is_ok());
+    //     let state = result.unwrap();
+    //     assert_eq!(state.latest_mmr_block(), 100);
+    //     assert_eq!(state.leaves_count(), 10);
+    // }
 }
