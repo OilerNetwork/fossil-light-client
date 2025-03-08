@@ -16,10 +16,21 @@
     - [Manual Prerequisites](#manual-prerequisites)
     - [Setup and Execution](#setup-and-execution)
     - [Block Range Selection for Fee State Proofs](#block-range-selection-for-fee-state-proofs)
+  - [Deploying the smart contracts manually](#deploying-the-smart-contracts-manually)
+    - [Prerequisites](#prerequisites)
+    - [RPC provider](#rpc-provider)
+      - [Ethereum wallet (Metamask)](#ethereum-wallet-metamask)
+      - [Starknet wallet (Starkli)](#starknet-wallet-starkli)
+    - [Deploying the Ethereum Smart Contract](#deploying-the-ethereum-smart-contract)
+    - [Deploying the Starknet Smart Contract](#deploying-the-starknet-smart-contract)
   - [Troubleshooting](#troubleshooting)
     - [Docker Issues](#docker-issues)
     - [Common Issues](#common-issues)
     - [Deploying to Sepolia Network](#deploying-to-sepolia-network)
+      - [1. Configure Environment](#1-configure-environment)
+      - [2. Deploy Ethereum Contract](#2-deploy-ethereum-contract)
+      - [3. Deploy Starknet Contracts](#3-deploy-starknet-contracts)
+      - [4. Run MMR Accumulation](#4-run-mmr-accumulation)
 
 This documentation outlines two deployment approaches for the Fossil Light Client:
 
@@ -110,7 +121,7 @@ This will start a local server and open the documentation in your default browse
 
 ## Docker-Based Deployment
 
-> ⚠️ **Note**: The Docker-based deployment is currently under development and not functional. Please use the [Manual Compilation and Execution](#manual-compilation-and-execution) method instead.
+> ⚠️ **Note**: Docker deployment is only supported on x86 architecture. Users with ARM-based machines (e.g., Apple M1/M2) should use the [Manual Compilation and Execution](#manual-compilation-and-execution) method.
 
 ### Docker Prerequisites
 
@@ -336,6 +347,237 @@ Key validation rules:
 - Queries return weighted average fees based on number of blocks in each hour
 
 Note: While blocks are processed in batches internally, fee queries operate on hour boundaries regardless of batch structure.
+
+
+## Deploying the smart contracts manually
+
+There's multiple contracts that needs to be deployed on Ethereum and Starknet in order for the light client to work, namely:
+
+1. L1 Message Sender (Ethereum)
+2. Fossil Store (Starknet)
+3. L1 Message Proxy (Starknet)
+4. Groth16 Verifier (Starknet)
+5. Fossil Verifier (Starknet)
+
+The deployment instructions above includes the contract deployment steps, however in cases where you want to deploy to different networks the following will be useful.
+
+We will be deploying to sepolia in the following guide, but the steps should be similar for any network you would want to deploy to.
+
+### Prerequisites
+
+Make sure you have the following installed on your machine.
+
+1. foundry (https://book.getfoundry.sh/getting-started/installation)
+2. starkli (https://book.starkli.rs/installation)
+
+You'll need both Ethereum and Starknet wallets for deployment. We'll use MetaMask and Starkli.
+
+
+Create a new and empty `.env.sepolia` file:
+
+```bash
+ETH_RPC_URL=
+STARKNET_RPC_URL=
+
+ACCOUNT_PRIVATE_KEY=
+
+STARKNET_ACCOUNT=
+STARKNET_ACCOUNT_ADDRESS=
+```
+
+We will fill these as we proceed.
+
+
+### RPC provider
+
+In order to deploy our contracts, we'll need a RPC provider. You can use any providers that you might prefer, here we'll be using Alchemy for both Ethereum and Starknet Sepolia. Add the RPC endpoints into your `.env.sepolia` file, which should look like this:
+
+
+```bash
+ETH_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/xxxxxx # replace xxxxxx with your api key
+STARKNET_RPC_URL=https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_7/xxxxxx # replace xxxxxx with your api key
+```
+
+#### Ethereum wallet (Metamask)
+
+For metamask, you'll have to download the metamask web extension at https://metamask.io/download. After downloading, follow all the step to create the wallet, and make sure you save the seed phrase somewhere safe.
+
+You should be able to get the private key from your wallet like so:
+
+First, click the top right corner button, and navigate to account details.
+
+![step1](./docs_imgs/metamask-1.png)
+
+Then, click on show private key. Make sure you are in a safe place when doing this, as private keys allows anyone that have it to get full access to your wallet.
+![step2](./docs_imgs/metamask-2.png)
+
+Finally, you might get a password prompt, and after that you should be able to obtain your private key. You might be told to hold to reveal keys like what is shown below.
+![step3](./docs_imgs/metamask-3.png)
+
+
+Copy your key, and put the value into your `.env.sepolia` file.
+
+
+```bash
+ACCOUNT_PRIVATE_KEY=0x01234456 #replace this with your actual private key.
+```
+
+> Note: The deployment scripts require a bash shell. Windows users should use WSL or a bash emulator.
+
+
+#### Starknet wallet (Starkli)
+
+
+To create a new wallet:
+
+```bash
+starkli account oz init deploy_wallet
+```
+You should see something like:
+
+```bash
+Created new account config file: ~/deploy_wallet
+
+Once deployed, this account will be available at:
+    0x00ecac1256b0f48686dd90819299537d3bd2a8fc192402b926d3eff516307f87
+
+Deploy this account by running:
+    starkli account deploy deploy_wallet
+```
+
+There should be a wallet file called `deploy_wallet` in the directory you are running the command at.
+
+To deploy your wallet:
+
+```bash
+starkli account deploy deploy_wallet
+```
+
+You should see the following:
+
+```bash
+WARNING: you're not specifying a fee token and ETH is automatically used. The default token will change to STRK in the next breaking release.
+WARNING: paying transaction fees in ETH is deprecated and will soon be disabled on Starknet. Consider using STRK for fees instead.
+WARNING: you're using neither --rpc (STARKNET_RPC) nor --network (STARKNET_NETWORK). The `sepolia` network is used by default. See https://book.starkli.rs/providers for more details.
+The estimated account deployment fee is 0.000000017000007390 ETH. However, to avoid failure, fund at least:
+    0.000000025500011085 ETH
+to the following address:
+    0x00ecac1256b0f48686dd90819299537d3bd2a8fc192402b926d3eff516307f87
+Press [ENTER] once you've funded the address.
+```
+
+Now transfer some funds to this address. You can use any available Starknet faucet to transfer the funds to this address. You can also bridge over your Eth from Ethereum Sepolia to Starknet Sepolia. Once you transferred the amount you should press enter, and after a short while you should see the following:
+
+```bash
+Account deployment transaction: 0x0509406df7ec727ac24a5e29a564e3703e2cb32b19910fde3e7067a33462dd80
+Waiting for transaction 0x0509406df7ec727ac24a5e29a564e3703e2cb32b19910fde3e7067a33462dd80 to confirm. If this process is interrupted, you will need to run `starkli account fetch` to update the account file.
+Transaction not confirmed yet...
+Transaction 0x0509406df7ec727ac24a5e29a564e3703e2cb32b19910fde3e7067a33462dd80 confirmed
+```
+
+Now that you have the account setup and deployed, you have to add the following to your `.env.sepolia` file.
+
+```bash
+STARKNET_ACCOUNT=deploy_wallet # replace this with the path to your account file.
+STARKNET_ACCOUNT_ADDRESS=0x00ecac1256b0f48686dd90819299537d3bd2a8fc192402b926d3eff516307f87
+```
+
+> For more detailed information on this step, you should also refer to https://book.starkli.rs/accounts
+
+
+Your `.env.sepolia` file at this point should look like this:
+
+```bash
+ETH_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/xxxxxx # replace xxxxxx with your api key
+STARKNET_RPC_URL=https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_7/xxxxxx # replace xxxxxx with your api key
+
+ACCOUNT_PRIVATE_KEY=0x01234456 #replace this with your actual private key.
+
+STARKNET_ACCOUNT=deploy_wallet # replace this with the path to your account file.
+STARKNET_ACCOUNT_ADDRESS=0x00ecac1256b0f48686dd90819299537d3bd2a8fc192402b926d3eff516307f87
+```
+
+
+### Deploying the Ethereum Smart Contract
+
+Before starting deployment to sepolia, we also have to additionally provide the Starknet messaging contract in the `.env.sepolia` file in order to actually get the L1 messaging contract working as expected.
+
+```bash
+ETH_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/xxxxxx # replace xxxxxx with your api key
+STARKNET_RPC_URL=https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_7/xxxxxx # replace xxxxxx with your api key
+
+ACCOUNT_PRIVATE_KEY=0x01234456 #replace this with your actual private key.
+
+STARKNET_ACCOUNT=deploy_wallet # replace this with the path to your account file.
+STARKNET_ACCOUNT_ADDRESS=0x00ecac1256b0f48686dd90819299537d3bd2a8fc192402b926d3eff516307f87
+
+# Starknet L1 contract
+SN_MESSAGING=0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057 # <--- Add this
+```
+
+With the RPC & Wallet setup, you can now deploy your contract. You can start deployment by doing the following:
+
+```bash
+chmod +x ./scripts/deploy-ethereum.sh
+
+./scripts/deploy-ethereum.sh sepolia
+```
+
+This should run the deployment script, and if nothing goes wrong the contract should deploy successfully and you'll see your `.env.sepolia` gets updated with the following:
+
+```bash
+ETH_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/xxxxxx # replace xxxxxx with your api key
+STARKNET_RPC_URL=https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_7/xxxxxx # replace xxxxxx with your api key
+
+ACCOUNT_PRIVATE_KEY=0x01234456 #replace this with your actual private key.
+
+STARKNET_ACCOUNT=deploy_wallet # replace this with the path to your account file.
+STARKNET_ACCOUNT_ADDRESS=0x00ecac1256b0f48686dd90819299537d3bd2a8fc192402b926d3eff516307f87
+
+# Starknet L1 contract
+SN_MESSAGING=0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057
+
+L1_MESSAGE_SENDER=0xc0951D2b252D68D786465D5f7E87e68E5c0376Aa # <--- this will be different from you
+```
+
+
+### Deploying the Starknet Smart Contract
+
+Make sure you have successfully deployed the Ethereum smart contracts before proceeding, as the following steps will fail without the contract addresses from the previous step.
+
+Deploying the Starknet Smart Contract is also similar.
+
+```bash
+chmod +x ./scripts/deploy-starknet.sh
+
+./scripts/deploy-starknet.sh sepolia
+```
+
+If nothing goes wrong, you should get an updated `.env.sepolia` file with the addresses for the deployed contracts.
+
+```bash
+ETH_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/xxxxxx # replace xxxxxx with your api key
+STARKNET_RPC_URL=https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_7/xxxxxx # replace xxxxxx with your api key
+
+ACCOUNT_PRIVATE_KEY=0x01234456 #replace this with your actual private key.
+
+STARKNET_ACCOUNT=deploy_wallet # replace this with the path to your account file.
+STARKNET_ACCOUNT_ADDRESS=0x00ecac1256b0f48686dd90819299537d3bd2a8fc192402b926d3eff516307f87
+
+# Starknet L1 contract
+SN_MESSAGING=0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057
+
+L1_MESSAGE_SENDER=0xc0951D2b252D68D786465D5f7E87e68E5c0376Aa
+
+# The following should be added, probably with different values
+L2_MSG_PROXY=0x0789ad53a5ebfdfa08d666fdf002fa79125fe52f183826a4ef0389ba3f6f7e07
+FOSSIL_STORE=0x0018e2c4f0f8523ed44aea7808ba837c783999f6260fffad3752d41a7371a298
+STARKNET_VERIFIER=0x059a5236330a7a8e6aa13fd2191107d5afa7980cfe274e36bb1068bbba310eda
+FOSSIL_VERIFIER=0x015efdffa827a7971eab94869249d5bdc291ddc97e1364b74c55462e4f9a5940
+```
+
+Congrats! You now have all the contracts deployed on Sepolia testnet!
+
 
 ## Troubleshooting
 

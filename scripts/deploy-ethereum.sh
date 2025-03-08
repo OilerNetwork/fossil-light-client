@@ -33,6 +33,8 @@ esac
 # Source the primary environment file
 source "${ENV_FILES[0]}"
 export ACCOUNT_PRIVATE_KEY=${ACCOUNT_PRIVATE_KEY}
+export ENV_TYPE=${ENV_TYPE}
+export SN_MESSAGING=${SN_MESSAGING}
 
 # Use relative paths instead of absolute Docker paths
 ETHEREUM_DIR="contracts/ethereum"
