@@ -2845,6 +2845,9 @@ dependencies = [
 [[package]]
 name = "guest-fixed-utils"
 version = "0.1.0"
+dependencies = [
+ "starknet",
+]
 
 [[package]]
 name = "guest-mmr"

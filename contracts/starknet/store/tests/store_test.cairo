@@ -1,7 +1,8 @@
 use fossil_store::{IFossilStoreDispatcher, IFossilStoreDispatcherTrait};
-use fp::{UFixedPoint123x128, UFixedPoint123x128Impl};
+use fp::{UFixedPoint123x128, UFixedPoint123x128Impl, UFixedPoint123x128StorePacking};
 use snforge_std::{ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address};
 use super::fixtures::{test_avg_fees_1, test_avg_fees_2, test_journal};
+
 
 fn verifier_address() -> starknet::ContractAddress {
     starknet::contract_address_const::<'VERIFIER_ADDRESS'>()
@@ -381,4 +382,24 @@ fn test_fixed_point_conversion() {
     println!("(1/100)_u256 = {:?}", one_over_hundred);
     println!("(1/100)_u256_high = {:?}", one_over_hundred.get_integer());
     println!("(1/100)_u256_low = {:?}", one_over_hundred.get_fractional());
+}
+
+#[test]
+fn test_fixed_point_pack_unpack() {
+    // Create a fixed point value 1.0
+    let five: UFixedPoint123x128 = 5_u64.into();
+    // Create a fixed point value 100.0
+    let three: UFixedPoint123x128 = 3_u64.into();
+    // Calculate a fixed point value 0.01
+    let five_thirds = five / three;
+
+    println!("(5/3)_u256 = {:?}", five_thirds);
+    println!("(5/3)_u256_high = {:?}", five_thirds.get_integer());
+    println!("(5/3)_u256_low = {:?}", five_thirds.get_fractional());
+
+    let packed = UFixedPoint123x128StorePacking::pack(five_thirds);
+    println!("packed = {:?}", packed);
+    let unpacked = UFixedPoint123x128StorePacking::unpack(packed);
+    println!("unpacked = {:?}", unpacked);
+    assert_eq!(five_thirds, unpacked);
 }
