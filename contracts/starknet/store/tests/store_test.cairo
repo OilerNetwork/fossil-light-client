@@ -368,3 +368,17 @@ fn test_get_avg_fee_with_fixed_point_arithmetic() {
     println!("integer_part: {:?}", expected_avg_fee.get_integer());
     println!("fractional_part: {:?}", expected_avg_fee.get_fractional());
 }
+
+#[test]
+fn test_fixed_point_conversion() {
+    // Create a fixed point value 1.0
+    let one: UFixedPoint123x128 = 5_u64.into();
+    // Create a fixed point value 100.0
+    let hundred: UFixedPoint123x128 = 3_u64.into();
+    // Calculate a fixed point value 0.01
+    let one_over_hundred = one / hundred;
+    // OR
+    println!("(1/100)_u256 = {:?}", one_over_hundred);
+    println!("(1/100)_u256_high = {:?}", one_over_hundred.get_integer());
+    println!("(1/100)_u256_low = {:?}", one_over_hundred.get_fractional());
+}

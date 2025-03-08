@@ -4,7 +4,7 @@ members = ["l1_message_proxy", "store", "verifier"]
 [workspace.dependencies]
 starknet = "2.9.4"
 assert_macros = "2.9.4"
-snforge_std = "0.38.0"
+snforge_std = "0.37.0"
 cairo_test = "2.9.4"
 openzeppelin_upgrades = "0.20.0"
 openzeppelin_access = "0.20.0"
