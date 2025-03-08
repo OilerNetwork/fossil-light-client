@@ -11,13 +11,23 @@ contract LocalSetup is Script {
     function setUp() public {}
 
     function run() public{
+        string memory envType = vm.envString("ENV_TYPE");
+
         uint256 deployerPrivateKey = vm.envUint("ACCOUNT_PRIVATE_KEY");
         
         string memory json = "local_testing";
 
         vm.startBroadcast(deployerPrivateKey);
 
-        address snLocalAddress = address(new StarknetMessagingLocal());
+        address snLocalAddress;
+
+        if (keccak256(bytes(envType)) == keccak256(bytes("docker")) || keccak256(bytes(envType)) == keccak256(bytes("local"))) {
+            snLocalAddress = address(new StarknetMessagingLocal());
+        } else {
+            snLocalAddress = vm.envAddress("SN_MESSAGING");
+        }
+
+
         vm.serializeString(json, "snMessaging_address", vm.toString(snLocalAddress));
 
         address l1MessageSenderAddress = address(new L1MessageSender(snLocalAddress));
