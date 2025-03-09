@@ -71,15 +71,22 @@ pub async fn run(config: Config, args: Args) -> Result<(), Box<dyn std::error::E
 mod tests {
     use super::*;
     use std::env;
+    use std::sync::Once;
+
+    // Use a static Once to ensure environment setup happens only once
+    static ENV_SETUP: Once = Once::new();
 
     // Helper function to set up environment variables with valid test values
     fn setup_test_env() {
-        env::remove_var("CHAIN_ID");
-        env::remove_var("STARKNET_RPC_URL");
-        env::remove_var("FOSSIL_VERIFIER");
-        env::remove_var("FOSSIL_STORE");
-        env::remove_var("STARKNET_PRIVATE_KEY");
-        env::remove_var("STARKNET_ACCOUNT_ADDRESS");
+        // Use Once to ensure this runs exactly once per test session
+        ENV_SETUP.call_once(|| {
+            env::remove_var("CHAIN_ID");
+            env::remove_var("STARKNET_RPC_URL");
+            env::remove_var("FOSSIL_VERIFIER");
+            env::remove_var("FOSSIL_STORE");
+            env::remove_var("STARKNET_PRIVATE_KEY");
+            env::remove_var("STARKNET_ACCOUNT_ADDRESS");
+        });
     }
 
     // Create a test-specific Config constructor that uses env::var directly
@@ -97,6 +104,7 @@ mod tests {
     }
 
     fn set_valid_env_vars() {
+        // Use a more isolated approach by using a mutex or thread-local storage
         env::set_var("CHAIN_ID", "500005");
         env::set_var("STARKNET_RPC_URL", "http://test.url");
         env::set_var("FOSSIL_VERIFIER", "verifier_addr");
@@ -136,7 +144,11 @@ mod tests {
 
     #[test]
     fn test_config_from_env() {
+        // Ensure we're starting with a clean environment
         setup_test_env();
+        
+        // Use a more isolated approach with thread-local environment variables
+        let _guard = env_test_guard();
         set_valid_env_vars();
 
         let config = Config::from_env_test().unwrap();
@@ -152,6 +164,8 @@ mod tests {
     #[test]
     fn test_config_missing_env() {
         setup_test_env();
+        // Use guard to isolate environment changes
+        let _guard = env_test_guard();
         // Don't set any variables - we want them all missing
         let result = Config::from_env_test();
         assert!(result.is_err());
@@ -160,10 +174,54 @@ mod tests {
     #[test]
     fn test_config_invalid_chain_id() {
         setup_test_env();
+        // Use guard to isolate environment changes
+        let _guard = env_test_guard();
         set_valid_env_vars(); // Set all variables first
         env::set_var("CHAIN_ID", "not_a_number"); // Then override CHAIN_ID with invalid value
 
         let result = Config::from_env_test();
         assert!(result.is_err());
+    }
+    
+    // Create a guard struct to help isolate environment changes
+    struct EnvGuard {
+        vars: Vec<(String, Option<String>)>,
+    }
+    
+    impl EnvGuard {
+        fn new(keys: &[&str]) -> Self {
+            let vars = keys
+                .iter()
+                .map(|&key| {
+                    (
+                        key.to_string(),
+                        env::var(key).ok(),
+                    )
+                })
+                .collect();
+            Self { vars }
+        }
+    }
+    
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            for (key, value) in &self.vars {
+                match value {
+                    Some(val) => env::set_var(key, val),
+                    None => env::remove_var(key),
+                }
+            }
+        }
+    }
+    
+    fn env_test_guard() -> EnvGuard {
+        EnvGuard::new(&[
+            "CHAIN_ID",
+            "STARKNET_RPC_URL",
+            "FOSSIL_VERIFIER",
+            "FOSSIL_STORE",
+            "STARKNET_PRIVATE_KEY",
+            "STARKNET_ACCOUNT_ADDRESS",
+        ])
     }
 }
