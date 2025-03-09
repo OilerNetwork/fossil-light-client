@@ -12,6 +12,13 @@ use starknet::{
     },
     providers::{jsonrpc::HttpTransport, JsonRpcClient, Url},
 };
+
+#[derive(Clone, Debug)]
+pub struct LatestRelayBlock {
+    pub block_number: u64,
+    pub block_hash: String,
+}
+
 use starknet_crypto::Felt;
 #[derive(Debug)]
 pub struct StarknetProvider {
@@ -118,7 +125,10 @@ impl StarknetProvider {
     }
 
     #[instrument(skip(self), level = "debug")]
-    pub async fn get_latest_relayed_block(&self, l2_store_address: &str) -> Result<u64> {
+    pub async fn get_latest_relayed_block(
+        &self,
+        l2_store_address: &str,
+    ) -> Result<LatestRelayBlock> {
         debug!("Fetching latest relayed block");
 
         let entry_point_selector = selector!("get_latest_blockhash_from_l1");
@@ -137,9 +147,13 @@ impl StarknetProvider {
 
         let block_number =
             u64::from_str_radix(data[0].to_hex_string().trim_start_matches("0x"), 16)?;
+        let block_hash = data[1].to_hex_string();
         info!(block_number, "Retrieved latest relayed block");
 
-        Ok(block_number)
+        Ok(LatestRelayBlock {
+            block_number,
+            block_hash,
+        })
     }
 }
 

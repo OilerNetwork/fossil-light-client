@@ -1,4 +1,7 @@
-use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
+use starknet_handler::{
+    account::StarknetAccount,
+    provider::{LatestRelayBlock, StarknetProvider},
+};
 
 use crate::core::{AccumulatorBuilder, BatchProcessor, MMRStateManager, ProofGenerator};
 use eyre::Result;
@@ -13,7 +16,7 @@ pub async fn prove_mmr_update(
     account_address: &String,
     batch_size: u64,
     start_block: u64,
-    end_block: u64,
+    latest_relayed_block_and_hash: LatestRelayBlock,
 ) -> Result<()> {
     let starknet_provider = StarknetProvider::new(rpc_url)?;
     let starknet_account = StarknetAccount::new(
@@ -44,7 +47,7 @@ pub async fn prove_mmr_update(
     tracing::info!("Starting MMR update and proof generation");
 
     builder
-        .update_mmr_with_new_headers(start_block, end_block, false)
+        .update_mmr_with_new_headers(start_block, latest_relayed_block_and_hash, false)
         .await
         .map_err(|e| {
             tracing::error!(error = %e, "Failed to update MMR with new headers");
@@ -65,7 +68,7 @@ pub async fn update_mmr(
     account_address: &String,
     batch_size: u64,
     start_block: u64,
-    end_block: u64,
+    latest_relayed_block_and_hash: LatestRelayBlock,
 ) -> Result<()> {
     let starknet_provider = StarknetProvider::new(rpc_url)?;
     let starknet_account = StarknetAccount::new(
@@ -92,7 +95,7 @@ pub async fn update_mmr(
 
     // Always generate and verify proofs (false = don't skip proof verification)
     builder
-        .update_mmr_with_new_headers(start_block, end_block, false)
+        .update_mmr_with_new_headers(start_block, latest_relayed_block_and_hash, false)
         .await?;
 
     Ok(())

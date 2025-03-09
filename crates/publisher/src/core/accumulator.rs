@@ -2,7 +2,7 @@ use crate::utils::BatchResult;
 use ethereum::get_finalized_block_hash;
 use eyre::{eyre, Result};
 use starknet_crypto::Felt;
-use starknet_handler::provider::StarknetProvider;
+use starknet_handler::provider::{LatestRelayBlock, StarknetProvider};
 use tracing::{debug, error, info, warn};
 
 use super::BatchProcessor;
@@ -78,7 +78,7 @@ impl<'a> AccumulatorBuilder<'a> {
             );
             let result = self
                 .batch_processor
-                .process_batch(self.chain_id, start_block, current_end)
+                .process_batch(self.chain_id, start_block, current_end, None)
                 .await
                 .map_err(|e| {
                     error!(
@@ -121,7 +121,7 @@ impl<'a> AccumulatorBuilder<'a> {
             let start_block = self.batch_processor.calculate_start_block(current_end)?;
             let batch_result = self
                 .batch_processor
-                .process_batch(self.chain_id, start_block, current_end)
+                .process_batch(self.chain_id, start_block, current_end, None)
                 .await?;
 
             if let Some(result) = batch_result {
@@ -137,25 +137,28 @@ impl<'a> AccumulatorBuilder<'a> {
     pub async fn update_mmr_with_new_headers(
         &mut self,
         start_block: u64,
-        end_block: u64,
+        latest_relayed_block_and_hash: LatestRelayBlock,
         is_build: bool,
     ) -> Result<()> {
-        if end_block < start_block {
+        if latest_relayed_block_and_hash.block_number < start_block {
             return Err(eyre!(
                 "End block cannot be less than start block: {} < {}",
-                end_block,
+                latest_relayed_block_and_hash.block_number,
                 start_block
             ));
         }
 
         info!(
-            total_blocks = end_block - start_block + 1,
-            start_block, end_block, "Starting MMR update with new headers"
+            total_blocks = latest_relayed_block_and_hash.block_number - start_block + 1,
+            start_block,
+            latest_relayed_block_and_hash.block_number,
+            "Starting MMR update with new headers"
         );
 
         // Calculate batch indices for start and end blocks
         let start_batch_index = start_block / self.batch_processor.batch_size();
-        let end_batch_index = end_block / self.batch_processor.batch_size();
+        let end_batch_index =
+            latest_relayed_block_and_hash.block_number / self.batch_processor.batch_size();
         let total_batches = end_batch_index - start_batch_index + 1;
 
         info!(
@@ -170,7 +173,8 @@ impl<'a> AccumulatorBuilder<'a> {
 
             // Calculate effective start and end for this batch
             let effective_start = std::cmp::max(start_block, batch_start);
-            let effective_end = std::cmp::min(end_block, batch_end);
+            let effective_end =
+                std::cmp::min(latest_relayed_block_and_hash.block_number, batch_end);
 
             debug!(
                 batch_index,
@@ -180,7 +184,17 @@ impl<'a> AccumulatorBuilder<'a> {
             // Process the batch and ensure we get a result
             let batch_result = self
                 .batch_processor
-                .process_batch(self.chain_id, effective_start, effective_end)
+                .process_batch(
+                    self.chain_id,
+                    effective_start,
+                    effective_end,
+                    // Only pass the block hash for the last batch
+                    if batch_index == end_batch_index {
+                        Some(latest_relayed_block_and_hash.block_hash.clone())
+                    } else {
+                        None
+                    },
+                )
                 .await?
                 .ok_or_else(|| {
                     eyre!(
@@ -202,7 +216,7 @@ impl<'a> AccumulatorBuilder<'a> {
 
         info!(
             "MMR update completed successfully for all blocks {}-{}",
-            start_block, end_block
+            start_block, latest_relayed_block_and_hash.block_number
         );
 
         Ok(())
@@ -283,7 +297,7 @@ impl<'a> AccumulatorBuilder<'a> {
             let start = self.batch_processor.calculate_start_block(current_end)?;
             let batch_result = self
                 .batch_processor
-                .process_batch(self.chain_id, start, current_end)
+                .process_batch(self.chain_id, start, current_end, None)
                 .await?;
 
             if let Some(result) = batch_result {
@@ -336,7 +350,7 @@ impl<'a> AccumulatorBuilder<'a> {
 
             let result = self
                 .batch_processor
-                .process_batch(self.chain_id, start, current_end)
+                .process_batch(self.chain_id, start, current_end, None)
                 .await
                 .map_err(|e| {
                     error!(
@@ -548,7 +562,16 @@ mod tests {
                 .await
                 .unwrap();
 
-        let result = builder.update_mmr_with_new_headers(100, 50, false).await;
+        let result = builder
+            .update_mmr_with_new_headers(
+                100,
+                LatestRelayBlock {
+                    block_number: 50,
+                    block_hash: "0x123".to_string(),
+                },
+                false,
+            )
+            .await;
         assert!(
             matches!(result, Err(e) if e.to_string().contains("End block cannot be less than start block"))
         );

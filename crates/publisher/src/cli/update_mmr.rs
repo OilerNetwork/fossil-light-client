@@ -1,7 +1,6 @@
-use crate::api::operations::prove_mmr_update;
+// use crate::api::operations::prove_mmr_update;
 use clap::Parser;
 use common::get_env_var;
-use tracing::info;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -45,27 +44,27 @@ impl Config {
     }
 }
 
-pub async fn run(config: Config, args: Args) -> Result<(), Box<dyn std::error::Error>> {
-    info!("Starting Publisher...");
+// pub async fn run(config: Config, args: Args) -> Result<(), Box<dyn std::error::Error>> {
+//     info!("Starting Publisher...");
 
-    prove_mmr_update(
-        &config.rpc_url,
-        config.chain_id,
-        &config.verifier_address,
-        &config.store_address,
-        &config.private_key,
-        &config.account_address,
-        args.batch_size,
-        args.start,
-        args.end,
-    )
-    .await?;
+//     prove_mmr_update(
+//         &config.rpc_url,
+//         config.chain_id,
+//         &config.verifier_address,
+//         &config.store_address,
+//         &config.private_key,
+//         &config.account_address,
+//         args.batch_size,
+//         args.start,
+//         args.end,
+//     )
+//     .await?;
 
-    info!("MMR building completed");
-    info!("Host finished");
+//     info!("MMR building completed");
+//     info!("Host finished");
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 #[cfg(test)]
 mod tests {
@@ -146,7 +145,7 @@ mod tests {
     fn test_config_from_env() {
         // Ensure we're starting with a clean environment
         setup_test_env();
-        
+
         // Use a more isolated approach with thread-local environment variables
         let _guard = env_test_guard();
         set_valid_env_vars();
@@ -182,27 +181,22 @@ mod tests {
         let result = Config::from_env_test();
         assert!(result.is_err());
     }
-    
+
     // Create a guard struct to help isolate environment changes
     struct EnvGuard {
         vars: Vec<(String, Option<String>)>,
     }
-    
+
     impl EnvGuard {
         fn new(keys: &[&str]) -> Self {
             let vars = keys
                 .iter()
-                .map(|&key| {
-                    (
-                        key.to_string(),
-                        env::var(key).ok(),
-                    )
-                })
+                .map(|&key| (key.to_string(), env::var(key).ok()))
                 .collect();
             Self { vars }
         }
     }
-    
+
     impl Drop for EnvGuard {
         fn drop(&mut self) {
             for (key, value) in &self.vars {
@@ -213,7 +207,7 @@ mod tests {
             }
         }
     }
-    
+
     fn env_test_guard() -> EnvGuard {
         EnvGuard::new(&[
             "CHAIN_ID",

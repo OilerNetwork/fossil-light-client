@@ -5,7 +5,7 @@ use starknet::{
     macros::selector,
     providers::Provider as EventProvider,
 };
-use starknet_handler::provider::StarknetProvider;
+use starknet_handler::provider::{LatestRelayBlock, StarknetProvider};
 use tokio::time::Duration;
 use tracing::{debug, error, info, instrument};
 
@@ -196,15 +196,17 @@ impl LightClient {
     pub async fn update_mmr(
         &mut self,
         latest_mmr_block: u64,
-        latest_relayed_block: u64,
+        latest_relayed_block_and_hash: LatestRelayBlock,
     ) -> Result<()> {
         info!(
+            "Starting MMR update: latest_mmr_block={}, latest_relayed_block_and_hash=({}, {})",
             latest_mmr_block,
-            latest_relayed_block, "Starting MMR update"
+            latest_relayed_block_and_hash.block_number,
+            latest_relayed_block_and_hash.block_hash,
         );
 
         let start_block = latest_mmr_block + 1;
-        let end_block = latest_relayed_block;
+        let end_block = latest_relayed_block_and_hash.block_number;
 
         if start_block > end_block {
             debug!("No new blocks to process for MMR update");
@@ -222,7 +224,7 @@ impl LightClient {
             &self.starknet_account_address,
             self.batch_size,
             start_block,
-            end_block,
+            latest_relayed_block_and_hash,
         )
         .await
         .map_err(|e| eyre!("Failed to update MMR: {}", e))?;

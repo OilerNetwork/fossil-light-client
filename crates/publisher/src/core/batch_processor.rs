@@ -61,6 +61,7 @@ impl<'a> BatchProcessor<'a> {
         chain_id: u64,
         start_block: u64,
         end_block: u64,
+        latest_relayed_block_and_hash: Option<String>,
     ) -> Result<Option<BatchResult>> {
         if end_block < start_block {
             return Err(eyre!(
@@ -204,6 +205,25 @@ impl<'a> BatchProcessor<'a> {
                 start_block,
                 adjusted_end_block
             ));
+        }
+
+        // Validate the latest block hash if provided
+        if let Some(expected_hash) = &latest_relayed_block_and_hash {
+            let last_header = headers.last().unwrap();
+            info!(
+                "Validating latest block hash: expected={}, actual={}",
+                expected_hash, last_header.block_hash
+            );
+
+            if last_header.block_hash != *expected_hash {
+                return Err(eyre!(
+                    "Latest block hash mismatch: expected {}, got {}",
+                    expected_hash,
+                    last_header.block_hash
+                ));
+            } else {
+                info!("Latest block hash validation successful");
+            }
         }
 
         let new_headers: Vec<String> = headers.iter().map(|h| h.block_hash.clone()).collect();
@@ -600,7 +620,7 @@ mod tests {
         let mmr_state_manager = MMRStateManager::mock();
         let proof_generator = ProofGenerator::mock_for_tests();
         let processor = BatchProcessor::new(100, proof_generator, mmr_state_manager).unwrap();
-        let result = processor.process_batch(1, 200, 100).await;
+        let result = processor.process_batch(1, 200, 100, None).await;
         assert!(
             matches!(result, Err(e) if e.to_string().contains("End block cannot be less than start block"))
         );
