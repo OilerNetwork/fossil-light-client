@@ -1,0 +1,24 @@
+# Mark generated files as linguist-generated=true to exclude them from language statistics
+target/** linguist-generated=true
+Cargo.lock linguist-generated=true
+profile.pb linguist-generated=true
+**/Scarb.lock linguist-generated=true
+
+# Exclude documentation from language statistics
+docs/** linguist-documentation=true
+docs_imgs/** linguist-documentation=true
+*.md linguist-documentation=true
+
+# Exclude configuration files from language statistics
+*.yml linguist-detectable=false
+*.yaml linguist-detectable=false
+.env* linguist-detectable=false
+.tool-versions linguist-detectable=false
+.dockerignore linguist-detectable=false
+
+# Exclude vendored code
+contracts/starknet/target/** linguist-vendored=true
+
+# Specify language overrides for specific file types if needed
+# *.cairo linguist-language=Cairo
+# *.sol linguist-language=Solidity 

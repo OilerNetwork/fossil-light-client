@@ -1,8 +1,56 @@
 # Fossil Light Client - Technical Documentation
 
+<div align="center">
+
+<h1>🦴 Fossil Light Client</h1>
+
+<!-- CI Status Badges -->
+[![Cairo Workflow](https://github.com/OilerNetwork/fossil-light-client/actions/workflows/cairo.yml/badge.svg?branch=sepolia-deployment)](https://github.com/OilerNetwork/fossil-light-client/actions/workflows/cairo.yml)
+[![Rust Workflow](https://github.com/OilerNetwork/fossil-light-client/actions/workflows/rust.yml/badge.svg?branch=sepolia-deployment)](https://github.com/OilerNetwork/fossil-light-client/actions/workflows/rust.yml)
+
+<!-- Project Information Badges -->
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)
+[![Ethereum](https://img.shields.io/badge/Ethereum-3C3C3D?style=flat&logo=ethereum&logoColor=white)](https://ethereum.org/)
+[![Starknet](https://img.shields.io/badge/Starknet-Powered-purple?style=flat)](https://starknet.io/)
+[![RISC Zero](https://img.shields.io/badge/RISC_Zero-ZK_Proofs-orange?style=flat)](https://www.risczero.com/)
+
+**A lightweight Ethereum client for Starknet with ZK-powered fee state proofs**
+
+</div>
+
+<hr />
+
+## ✨ Key Features
+
+- 🔗 **Cross-Chain Communication**: Securely relay Ethereum block headers to Starknet
+- 🔒 **ZK-Powered Verification**: Use zero-knowledge proofs for efficient verification
+- 📊 **Fee State Proofs**: Generate and verify cryptographic proofs of Ethereum gas fees
+- 🚀 **Scalable Architecture**: Process Ethereum blocks in batches with MMR accumulation
+- 🛠️ **Flexible Deployment**: Run via Docker or compile manually for development
+
+## 🚀 Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/OilerNetwork/fossil-light-client.git
+cd fossil-light-client
+
+# Initialize submodules
+git submodule update --init --recursive
+
+# Start with Docker (recommended)
+cp config/.env.example .env
+cp config/.env.docker.example .env.docker
+docker-compose up -d
+```
+
+<hr />
+
 ## 📑 Index
 
 - [Fossil Light Client - Technical Documentation](#fossil-light-client---technical-documentation)
+  - [✨ Key Features](#-key-features)
+  - [🚀 Quick Start](#-quick-start)
   - [📑 Index](#-index)
   - [Prerequisites for All Users](#prerequisites-for-all-users)
   - [Documentation Setup](#documentation-setup)
@@ -28,9 +76,6 @@
     - [Common Issues](#common-issues)
     - [Deploying to Sepolia Network](#deploying-to-sepolia-network)
       - [1. Configure Environment](#1-configure-environment)
-      - [2. Deploy Ethereum Contract](#2-deploy-ethereum-contract)
-      - [3. Deploy Starknet Contracts](#3-deploy-starknet-contracts)
-      - [4. Run MMR Accumulation](#4-run-mmr-accumulation)
 
 This documentation outlines two deployment approaches for the Fossil Light Client:
 
@@ -624,49 +669,3 @@ Ensure these variables are properly set in your `.env.sepolia` file:
 - `ETH_RPC_URL`: Your Sepolia Ethereum RPC endpoint
 - `ACCOUNT_PRIVATE_KEY`: Private key for deployment
 - `SN_MESSAGING`: Starknet core messaging contract address
-- `ETHERSCAN_API_KEY`: For contract verification
-- `STARKNET_RPC_URL`: Your Sepolia Starknet RPC endpoint
-
-#### 2. Deploy Ethereum Contract
-
-Deploy the L1MessageSender contract to Sepolia:
-
-```bash
-cd contracts/ethereum
-source ../../.env.sepolia && forge create --broadcast \
-  --rpc-url $ETH_RPC_URL \
-  --private-key $ACCOUNT_PRIVATE_KEY \
-  src/L1MessageSender.sol:L1MessageSender \
-  --etherscan-api-key $ETHERSCAN_API_KEY \
-  --verify \
-  --constructor-args $SN_MESSAGING
-```
-
-#### 3. Deploy Starknet Contracts
-
-Deploy the Starknet contracts using the provided script:
-
-```bash
-./scripts/deploy-starknet.sh sepolia
-```
-
-This script will:
-
-- Build and deploy all required Starknet contracts
-
-#### 4. Run MMR Accumulation
-
-Start the MMR accumulation process to build the initial state:
-
-```bash
-# Run in detached mode (-d flag)
-ENV_FILE=.env.sepolia NUM_BATCHES=700 docker-compose -f docker-compose.accumulation.yml up -d
-
-# To monitor the logs
-docker logs -f fossil-build-mmr
-```
-
-Parameters explained:
-
-- `ENV_FILE=.env.sepolia`: Environment file for Sepolia
-- `NUM_BATCHES=700`: Number of batches to process (each batch = 1024 blocks)
