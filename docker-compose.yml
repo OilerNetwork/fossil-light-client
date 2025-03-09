@@ -7,6 +7,8 @@ services:
       - "8545:8545"
     env_file:
       - ${ENV_FILE:-.env.docker}
+    environment:
+      - FORK_BLOCK_NUMBER=${FORK_BLOCK_NUMBER:-}
     healthcheck:
       test: ["CMD", "cast", "block-number"]
       interval: 5s

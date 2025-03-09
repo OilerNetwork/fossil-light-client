@@ -22,11 +22,21 @@ RUN forge --version
 
 # Create entrypoint script
 RUN echo '#!/bin/bash\n\
-    if [ -z "$ETH_RPC_URL" ]; then\n\
-    echo "Error: ETH_RPC_URL environment variable is not set"\n\
-    exit 1\n\
+    if [ -z "$FORK_URL" ]; then\n\
+        echo "Error: FORK_URL environment variable is not set"\n\
+        exit 1\n\
     fi\n\
-    anvil --fork-url "$FORK_URL" --block-time 12 --host 0.0.0.0\n\
+    \n\
+    # Build anvil command\n\
+    ANVIL_CMD="anvil --fork-url \"$FORK_URL\" --block-time 12 --host 0.0.0.0"\n\
+    \n\
+    # Add fork block number if provided\n\
+    if [ ! -z "$FORK_BLOCK_NUMBER" ]; then\n\
+        ANVIL_CMD="$ANVIL_CMD --fork-block-number $FORK_BLOCK_NUMBER"\n\
+    fi\n\
+    \n\
+    # Execute the anvil command\n\
+    eval $ANVIL_CMD\n\
     ' > /entrypoint.sh && chmod +x /entrypoint.sh
 
 # Default command to run Anvil
