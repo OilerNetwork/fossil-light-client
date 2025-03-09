@@ -4,8 +4,11 @@
 
 <h1>🦴 Fossil Light Client</h1>
 
+<!-- CI Status Badges -->
 [![Cairo Workflow](https://github.com/OilerNetwork/fossil-light-client/actions/workflows/cairo.yml/badge.svg?branch=sepolia-deployment)](https://github.com/OilerNetwork/fossil-light-client/actions/workflows/cairo.yml)
 [![Rust Workflow](https://github.com/OilerNetwork/fossil-light-client/actions/workflows/rust.yml/badge.svg?branch=sepolia-deployment)](https://github.com/OilerNetwork/fossil-light-client/actions/workflows/rust.yml)
+
+<!-- Project Information Badges -->
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0)
 [![Ethereum](https://img.shields.io/badge/Ethereum-3C3C3D?style=flat&logo=ethereum&logoColor=white)](https://ethereum.org/)
 [![Starknet](https://img.shields.io/badge/Starknet-Powered-purple?style=flat)](https://starknet.io/)
@@ -666,4 +669,3 @@ Ensure these variables are properly set in your `.env.sepolia` file:
 - `ETH_RPC_URL`: Your Sepolia Ethereum RPC endpoint
 - `ACCOUNT_PRIVATE_KEY`: Private key for deployment
 - `SN_MESSAGING`: Starknet core messaging contract address
-- `
