@@ -1,4 +1,4 @@
-name: Cairo fmt - build - test
+name: Cairo
 
 on:
   push:

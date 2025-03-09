@@ -1,8 +1,53 @@
 # Fossil Light Client - Technical Documentation
 
+<div align="center">
+
+<h1>🦴 Fossil Light Client</h1>
+
+[![Cairo Workflow](https://github.com/OilerNetwork/fossil-light-client/actions/workflows/cairo.yml/badge.svg?branch=sepolia-deployment)](https://github.com/OilerNetwork/fossil-light-client/actions/workflows/cairo.yml)
+[![Rust Workflow](https://github.com/OilerNetwork/fossil-light-client/actions/workflows/rust.yml/badge.svg?branch=sepolia-deployment)](https://github.com/OilerNetwork/fossil-light-client/actions/workflows/rust.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Ethereum](https://img.shields.io/badge/Ethereum-3C3C3D?style=flat&logo=ethereum&logoColor=white)](https://ethereum.org/)
+[![Starknet](https://img.shields.io/badge/Starknet-Powered-purple?style=flat)](https://starknet.io/)
+[![RISC Zero](https://img.shields.io/badge/RISC_Zero-ZK_Proofs-orange?style=flat)](https://www.risczero.com/)
+
+**A lightweight Ethereum client for Starknet with ZK-powered fee state proofs**
+
+</div>
+
+<hr />
+
+## ✨ Key Features
+
+- 🔗 **Cross-Chain Communication**: Securely relay Ethereum block headers to Starknet
+- 🔒 **ZK-Powered Verification**: Use zero-knowledge proofs for efficient verification
+- 📊 **Fee State Proofs**: Generate and verify cryptographic proofs of Ethereum gas fees
+- 🚀 **Scalable Architecture**: Process Ethereum blocks in batches with MMR accumulation
+- 🛠️ **Flexible Deployment**: Run via Docker or compile manually for development
+
+## 🚀 Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/OilerNetwork/fossil-light-client.git
+cd fossil-light-client
+
+# Initialize submodules
+git submodule update --init --recursive
+
+# Start with Docker (recommended)
+cp config/.env.example .env
+cp config/.env.docker.example .env.docker
+docker-compose up -d
+```
+
+<hr />
+
 ## 📑 Index
 
 - [Fossil Light Client - Technical Documentation](#fossil-light-client---technical-documentation)
+  - [✨ Key Features](#-key-features)
+  - [🚀 Quick Start](#-quick-start)
   - [📑 Index](#-index)
   - [Prerequisites for All Users](#prerequisites-for-all-users)
   - [Documentation Setup](#documentation-setup)
