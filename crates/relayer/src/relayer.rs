@@ -45,7 +45,7 @@ impl Relayer {
         let l2_recipient_addr = U256::from_str_radix(&addr_str[2..], 16)
             .map_err(|e| eyre!("L2_MSG_PROXY: Invalid hex characters in address: {}", e))?;
 
-        info!("Using L2 recipient address: {:?}", l2_recipient_addr);
+        info!("Using L2 recipient address: {:#x}", l2_recipient_addr);
 
         Ok(Self {
             wallet,
@@ -68,7 +68,7 @@ impl Relayer {
 
         let contract = L1MessagesSender::new(address, &provider);
         info!(
-            "Initialized L1MessagesSender contract at address {}",
+            "Initialized L1MessagesSender contract at address {:#x}",
             address
         );
 
@@ -78,7 +78,7 @@ impl Relayer {
             .value(U256::from(30000));
         info!("Prepared transaction to send block hash with value: 30000 Wei");
         info!(
-            "Sending transaction to L2 address: {:?}",
+            "Sending transaction to L2 address: {:#x}",
             self.l2_recipient_addr
         );
 

@@ -1,3 +1,5 @@
+use num_traits::ToPrimitive;
+use starknet::core::types::U256;
 use starknet::providers::Provider;
 use std::sync::Arc;
 use tracing::{debug, info, instrument, warn};
@@ -147,7 +149,15 @@ impl StarknetProvider {
 
         let block_number =
             u64::from_str_radix(data[0].to_hex_string().trim_start_matches("0x"), 16)?;
-        let block_hash = data[1].to_hex_string();
+        let block_hash_u256 = U256::from_words(
+            data[1]
+                .to_u128()
+                .ok_or_else(|| eyre::eyre!("Failed to convert Felt to u128"))?,
+            data[2]
+                .to_u128()
+                .ok_or_else(|| eyre::eyre!("Failed to convert Felt to u128"))?,
+        );
+        let block_hash = format!("{:#x}", block_hash_u256);
         info!(block_number, "Retrieved latest relayed block");
 
         Ok(LatestRelayBlock {

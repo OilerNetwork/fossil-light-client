@@ -6058,6 +6058,7 @@ dependencies = [
  "crypto-bigint",
  "eyre",
  "mockall",
+ "num-traits",
  "starknet",
  "starknet-crypto 0.7.4 (git+https://github.com/xJonathanLEI/starknet-rs.git?branch=master)",
  "tokio",
