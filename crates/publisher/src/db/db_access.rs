@@ -93,7 +93,8 @@ impl DbConnection {
                    base_fee_per_gas, parent_hash, miner, logs_bloom, 
                    difficulty, totaldifficulty, sha3_uncles, timestamp, 
                    extra_data, mix_hash, withdrawals_root, 
-                   blob_gas_used, excess_blob_gas, parent_beacon_block_root
+                   blob_gas_used, excess_blob_gas, parent_beacon_block_root,
+                   requests_hash
             FROM public.blockheaders
             WHERE number BETWEEN $1 AND $2
             ORDER BY number ASC
@@ -135,6 +136,7 @@ struct TempBlockHeader {
     pub blob_gas_used: Option<String>,    // character varying(78), nullable
     pub excess_blob_gas: Option<String>,  // character varying(78), nullable
     pub parent_beacon_block_root: Option<String>, // character varying(66), nullable
+    pub requests_hash: Option<String>, // character varying(66), nullable
 }
 
 fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
@@ -173,7 +175,7 @@ fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
         blob_gas_used: temp.blob_gas_used,
         excess_blob_gas: temp.excess_blob_gas,
         parent_beacon_block_root: temp.parent_beacon_block_root,
-        request_hash: None,
+        request_hash: temp.requests_hash,
     }
 }
 
