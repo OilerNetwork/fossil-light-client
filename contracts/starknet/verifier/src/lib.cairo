@@ -27,15 +27,16 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
     // Parse batch_index
     let mut batch_index: u64 = 0;
     let mut byte_idx = 0;
+
     while byte_idx < 8 {
         let current_byte: u64 = (*journal_bytes.at(byte_offset + byte_idx)).into();
         let shifted_byte: u64 = BitShift::shl(current_byte, 8 * byte_idx.into());
         batch_index += shifted_byte;
         byte_idx += 1;
     };
+    byte_offset += 8;
 
     // Parse latest_mmr_block
-    byte_offset += 8;
     let mut latest_mmr_block: u64 = 0;
     let mut byte_idx = 0;
     while byte_idx < 8 {
@@ -44,7 +45,6 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         latest_mmr_block += shifted_byte;
         byte_idx += 1;
     };
-
     // Parse latest_mmr_block_hash
     byte_offset += 8; // Skip to start of hash length
     byte_offset += 4; // Skip length indicator (66, 0, 0, 0)
@@ -68,7 +68,6 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         latest_mmr_block_hash = shifted_hash + hex_byte - hex_base;
         hex_idx += 1;
     };
-
     // Parse root_hash
     byte_offset += 66; // Skip past latest_mmr_block_hash (64 hex chars + "0x")
     byte_offset += 4; // Skip length indicator (66, 0, 0, 0)
@@ -92,7 +91,6 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         root_hash = shifted_hash + hex_byte - hex_base;
         hex_idx += 1;
     };
-
     // Parse leaves_count
     byte_offset += 66;
     let mut leaves_count: u64 = 0;
@@ -103,7 +101,6 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         leaves_count += shifted_byte;
         byte_idx += 1;
     };
-
     // Parse first_block_parent_hash
     byte_offset += 8;
     byte_offset += 4; // Skip length indicator (66, 0, 0, 0)
@@ -127,7 +124,6 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         first_block_parent_hash = shifted_hash + hex_byte - hex_base;
         hex_idx += 1;
     };
-
     // Parse avg_fees
     byte_offset += 66;
 
@@ -141,7 +137,6 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         byte_idx += 1;
     };
     byte_offset += 4;
-
     // Create array to hold fee data
     let mut avg_fees: Array<AvgFees> = array![];
 
@@ -159,7 +154,6 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
             byte_idx += 1;
         };
         byte_offset += 8;
-
         // Read data_points (8 bytes)
         let mut data_points: u64 = 0;
         let mut byte_idx = 0;
@@ -196,6 +190,8 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
             char_idx += 1;
         };
         byte_offset += string_len;
+        // String null terminator
+        byte_offset += 2;
 
         avg_fees.append(AvgFees { timestamp, data_points, avg_fee });
         entry_idx += 1;
@@ -281,7 +277,7 @@ mod tests {
 
     #[test]
     fn decode_journal_test() {
-        let journal_bytes = get_journal_bytes();
+        let journal_bytes = get_journal_bytes_2();
 
         let (journal, avg_fees) = decode_journal(journal_bytes);
 
@@ -320,6 +316,400 @@ mod tests {
         assert_eq!(*avg_fees[4].timestamp, 1730602800);
         assert_eq!(*avg_fees[4].data_points, 87);
         assert_eq!(*avg_fees[4].avg_fee, 2278501099249657563423332593325301706948060643328);
+    }
+
+    fn get_journal_bytes_2() -> Span<u8> {
+        array![
+            7,
+            30,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            104,
+            28,
+            120,
+            0,
+            0,
+            0,
+            0,
+            0,
+            66,
+            0,
+            0,
+            0,
+            48,
+            120,
+            53,
+            101,
+            50,
+            51,
+            52,
+            55,
+            102,
+            99,
+            51,
+            57,
+            48,
+            54,
+            55,
+            49,
+            101,
+            99,
+            57,
+            51,
+            51,
+            50,
+            99,
+            52,
+            56,
+            54,
+            48,
+            49,
+            102,
+            97,
+            99,
+            99,
+            57,
+            102,
+            99,
+            101,
+            102,
+            48,
+            51,
+            56,
+            54,
+            48,
+            54,
+            57,
+            56,
+            57,
+            54,
+            55,
+            53,
+            101,
+            52,
+            102,
+            102,
+            99,
+            52,
+            100,
+            57,
+            101,
+            51,
+            55,
+            51,
+            102,
+            53,
+            98,
+            55,
+            50,
+            0,
+            0,
+            66,
+            0,
+            0,
+            0,
+            48,
+            120,
+            52,
+            52,
+            55,
+            51,
+            57,
+            55,
+            102,
+            50,
+            49,
+            52,
+            52,
+            57,
+            50,
+            55,
+            97,
+            52,
+            56,
+            55,
+            49,
+            49,
+            97,
+            56,
+            56,
+            48,
+            97,
+            54,
+            57,
+            49,
+            53,
+            56,
+            52,
+            48,
+            57,
+            101,
+            98,
+            52,
+            102,
+            53,
+            48,
+            97,
+            98,
+            52,
+            97,
+            100,
+            97,
+            98,
+            50,
+            97,
+            49,
+            48,
+            99,
+            99,
+            55,
+            48,
+            56,
+            52,
+            97,
+            100,
+            56,
+            50,
+            52,
+            54,
+            98,
+            54,
+            0,
+            0,
+            105,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            66,
+            0,
+            0,
+            0,
+            48,
+            120,
+            49,
+            53,
+            53,
+            51,
+            102,
+            98,
+            99,
+            55,
+            57,
+            53,
+            56,
+            102,
+            102,
+            55,
+            102,
+            101,
+            51,
+            101,
+            49,
+            97,
+            97,
+            53,
+            54,
+            55,
+            100,
+            48,
+            100,
+            102,
+            55,
+            54,
+            55,
+            100,
+            50,
+            52,
+            49,
+            100,
+            57,
+            50,
+            101,
+            48,
+            99,
+            55,
+            53,
+            101,
+            49,
+            51,
+            55,
+            101,
+            48,
+            56,
+            50,
+            50,
+            51,
+            102,
+            102,
+            100,
+            97,
+            53,
+            97,
+            50,
+            49,
+            99,
+            97,
+            101,
+            0,
+            0,
+            2,
+            0,
+            0,
+            0,
+            208,
+            113,
+            206,
+            103,
+            0,
+            0,
+            0,
+            0,
+            11,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            50,
+            0,
+            0,
+            0,
+            54,
+            53,
+            49,
+            54,
+            50,
+            55,
+            49,
+            50,
+            55,
+            48,
+            48,
+            48,
+            52,
+            57,
+            50,
+            54,
+            48,
+            54,
+            52,
+            57,
+            54,
+            49,
+            53,
+            50,
+            48,
+            53,
+            55,
+            52,
+            52,
+            48,
+            49,
+            56,
+            49,
+            57,
+            57,
+            56,
+            52,
+            53,
+            55,
+            50,
+            48,
+            51,
+            55,
+            55,
+            50,
+            54,
+            50,
+            48,
+            56,
+            48,
+            0,
+            0,
+            224,
+            127,
+            206,
+            103,
+            0,
+            0,
+            0,
+            0,
+            94,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            50,
+            0,
+            0,
+            0,
+            54,
+            48,
+            48,
+            48,
+            57,
+            48,
+            48,
+            51,
+            56,
+            57,
+            53,
+            50,
+            56,
+            55,
+            51,
+            57,
+            56,
+            57,
+            56,
+            50,
+            49,
+            51,
+            52,
+            57,
+            56,
+            48,
+            57,
+            49,
+            56,
+            50,
+            55,
+            52,
+            48,
+            49,
+            57,
+            53,
+            54,
+            50,
+            53,
+            55,
+            54,
+            52,
+            48,
+            48,
+            48,
+            56,
+            57,
+            48,
+            56,
+            56,
+            0,
+            0,
+        ]
+            .span()
     }
 
     fn get_journal_bytes() -> Span<u8> {
