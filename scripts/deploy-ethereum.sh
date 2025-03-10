@@ -35,6 +35,7 @@ source "${ENV_FILES[0]}"
 export ACCOUNT_PRIVATE_KEY=${ACCOUNT_PRIVATE_KEY}
 export ENV_TYPE=${ENV_TYPE}
 export SN_MESSAGING=${SN_MESSAGING}
+echo "SN_MESSAGING: $SN_MESSAGING"
 
 # Use relative paths instead of absolute Docker paths
 ETHEREUM_DIR="contracts/ethereum"
@@ -128,29 +129,28 @@ echo -e "${YELLOW}Looking for file: logs/local_setup.json${NC}"
 
 # Read values from the JSON file and update env vars
 if [ -f "logs/local_setup.json" ]; then
-    echo -e "${YELLOW}Found local_setup.json${NC}"
-    
+  echo -e "${YELLOW}Found local_setup.json${NC}"
+  
+  if [ "$ENV_TYPE" = "local" ] || [ "$ENV_TYPE" = "docker" ]; then
     SN_MESSAGING=$(jq -r '.snMessaging_address' logs/local_setup.json)
-    L1_MESSAGE_SENDER=$(jq -r '.l1MessageSender_address' logs/local_setup.json)
-    
-    echo -e "${YELLOW}Read values:${NC}"
-    echo -e "${YELLOW}SN_MESSAGING: $SN_MESSAGING${NC}"
-    echo -e "${YELLOW}L1_MESSAGE_SENDER: $L1_MESSAGE_SENDER${NC}"
-    
-    # Update the environment variables - use full paths
+    echo -e "${YELLOW}Updated SN_MESSAGING: $SN_MESSAGING${NC}"
     for env_file in "${ENV_FILES[@]}"; do
-        update_env_var "${ROOT_DIR}/${env_file}" "SN_MESSAGING" "$SN_MESSAGING"
-        update_env_var "${ROOT_DIR}/${env_file}" "L1_MESSAGE_SENDER" "$L1_MESSAGE_SENDER"
-        
-        # Verify the updates
-        echo -e "${YELLOW}Checking updated ${env_file}:${NC}"
-        grep "SN_MESSAGING" "${ROOT_DIR}/${env_file}"
-        grep "L1_MESSAGE_SENDER" "${ROOT_DIR}/${env_file}"
+      update_env_var "${ROOT_DIR}/${env_file}" "SN_MESSAGING" "$SN_MESSAGING"
     done
+  else
+    echo -e "${YELLOW}Environment is $ENV_TYPE. Using fixed SN_MESSAGING: $SN_MESSAGING${NC}"
+  fi
+
+  L1_MESSAGE_SENDER=$(jq -r '.l1MessageSender_address' logs/local_setup.json)
+  echo -e "${YELLOW}Updated L1_MESSAGE_SENDER: $L1_MESSAGE_SENDER${NC}"
+  for env_file in "${ENV_FILES[@]}"; do
+    update_env_var "${ROOT_DIR}/${env_file}" "L1_MESSAGE_SENDER" "$L1_MESSAGE_SENDER"
+  done
 else
-    echo -e "${RED}Could not find logs/local_setup.json${NC}"
-    exit 1
+  echo -e "${RED}Could not find logs/local_setup.json${NC}"
+  exit 1
 fi
+
 
 # Get the fork block number from cast if in docker mode
 if [ "$ENV_TYPE" = "docker" ]; then
