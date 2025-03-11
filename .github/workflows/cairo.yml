@@ -21,6 +21,6 @@ jobs:
         with:
           scarb-lock: contracts/starknet/Scarb.lock
 
-      - run: cd contracts/starknet && scarb fmt --check
-      - run: cd contracts/starknet && scarb build
-      - run: cd contracts/starknet && snforge test
+      - run: scarb fmt --check
+      - run: scarb build
+      - run: snforge test
