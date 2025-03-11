@@ -22,36 +22,45 @@ pub struct AvgFees {
 }
 
 pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
+    // Constants for byte sizes and offsets
+    const U64_SIZE: usize = 8;
+    const U32_SIZE: usize = 4;
+    const HEX_PREFIX_SIZE: usize = 2; // "0x"
+    const HEX_HASH_SIZE: usize = 64; // 32 bytes as hex
+    const HEX_HASH_WITH_PREFIX_SIZE: usize = 66; // "0x" + 64 hex chars
+    const ASCII_0: u256 = 48;
+    const ASCII_A_OFFSET: u256 = 87; // 'a' - 10 = 97 - 10 = 87
+
     let mut byte_offset = 0; // Current position in the byte array
 
     // Parse batch_index
     let mut batch_index: u64 = 0;
     let mut byte_idx = 0;
 
-    while byte_idx < 8 {
+    while byte_idx < U64_SIZE {
         let current_byte: u64 = (*journal_bytes.at(byte_offset + byte_idx)).into();
         let shifted_byte: u64 = BitShift::shl(current_byte, 8 * byte_idx.into());
         batch_index += shifted_byte;
         byte_idx += 1;
     };
-    byte_offset += 8;
+    byte_offset += U64_SIZE;
 
     // Parse latest_mmr_block
     let mut latest_mmr_block: u64 = 0;
     let mut byte_idx = 0;
-    while byte_idx < 8 {
+    while byte_idx < U64_SIZE {
         let current_byte: u64 = (*journal_bytes.at(byte_offset + byte_idx)).into();
         let shifted_byte: u64 = BitShift::shl(current_byte, 8 * byte_idx.into());
         latest_mmr_block += shifted_byte;
         byte_idx += 1;
     };
     // Parse latest_mmr_block_hash
-    byte_offset += 8; // Skip to start of hash length
-    byte_offset += 4; // Skip length indicator (66, 0, 0, 0)
-    byte_offset += 2; // Skip "0x" prefix
+    byte_offset += U64_SIZE; // Skip to start of hash length
+    byte_offset += U32_SIZE; // Skip length indicator (66, 0, 0, 0)
+    byte_offset += HEX_PREFIX_SIZE; // Skip "0x" prefix
     let mut latest_mmr_block_hash: u256 = 0;
     let mut hex_idx = byte_offset;
-    let hex_end = byte_offset + 64; // 64 hex characters for 32 bytes
+    let hex_end = byte_offset + HEX_HASH_SIZE; // 64 hex characters for 32 bytes
 
     loop {
         if hex_idx >= hex_end {
@@ -61,20 +70,21 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         let shifted_hash: u256 = BitShift::shl(latest_mmr_block_hash, 4);
         let hex_byte: u256 = (*journal_bytes.at(hex_idx)).into();
         let hex_base: u256 = if hex_byte < 58 { // '0'-'9' vs 'a'-'f'
-            48 // ASCII '0'
+            ASCII_0 // ASCII '0'
         } else {
-            87 // ASCII 'a' - 10
+            ASCII_A_OFFSET // ASCII 'a' - 10
         };
         latest_mmr_block_hash = shifted_hash + hex_byte - hex_base;
         hex_idx += 1;
     };
     // Parse root_hash
-    byte_offset += 66; // Skip past latest_mmr_block_hash (64 hex chars + "0x")
-    byte_offset += 4; // Skip length indicator (66, 0, 0, 0)
-    byte_offset += 2; // Skip "0x" prefix
+    byte_offset +=
+        HEX_HASH_WITH_PREFIX_SIZE; // Skip past latest_mmr_block_hash (64 hex chars + "0x")
+    byte_offset += U32_SIZE; // Skip length indicator (66, 0, 0, 0)
+    byte_offset += HEX_PREFIX_SIZE; // Skip "0x" prefix
     let mut root_hash: u256 = 0;
     let mut hex_idx = byte_offset;
-    let hex_end = byte_offset + 64; // 64 hex characters for 32 bytes
+    let hex_end = byte_offset + HEX_HASH_SIZE; // 64 hex characters for 32 bytes
 
     loop {
         if hex_idx >= hex_end {
@@ -84,30 +94,30 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         let shifted_hash: u256 = BitShift::shl(root_hash, 4);
         let hex_byte: u256 = (*journal_bytes.at(hex_idx)).into();
         let hex_base: u256 = if hex_byte < 58 { // '0'-'9' vs 'a'-'f'
-            48 // ASCII '0'
+            ASCII_0 // ASCII '0'
         } else {
-            87 // ASCII 'a' - 10
+            ASCII_A_OFFSET // ASCII 'a' - 10
         };
         root_hash = shifted_hash + hex_byte - hex_base;
         hex_idx += 1;
     };
     // Parse leaves_count
-    byte_offset += 66;
+    byte_offset += HEX_HASH_WITH_PREFIX_SIZE;
     let mut leaves_count: u64 = 0;
     let mut byte_idx = 0;
-    while byte_idx < 8 {
+    while byte_idx < U64_SIZE {
         let current_byte: u64 = (*journal_bytes.at(byte_offset + byte_idx)).into();
         let shifted_byte: u64 = BitShift::shl(current_byte, 8 * byte_idx.into());
         leaves_count += shifted_byte;
         byte_idx += 1;
     };
     // Parse first_block_parent_hash
-    byte_offset += 8;
-    byte_offset += 4; // Skip length indicator (66, 0, 0, 0)
-    byte_offset += 2; // Skip "0x" prefix
+    byte_offset += U64_SIZE;
+    byte_offset += U32_SIZE; // Skip length indicator (66, 0, 0, 0)
+    byte_offset += HEX_PREFIX_SIZE; // Skip "0x" prefix
     let mut first_block_parent_hash: u256 = 0;
     let mut hex_idx = byte_offset;
-    let hex_end = byte_offset + 64;
+    let hex_end = byte_offset + HEX_HASH_SIZE;
 
     loop {
         if hex_idx >= hex_end {
@@ -117,27 +127,27 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         let shifted_hash: u256 = BitShift::shl(first_block_parent_hash, 4);
         let hex_byte: u256 = (*journal_bytes.at(hex_idx)).into();
         let hex_base: u256 = if hex_byte < 58 { // '0'-'9' vs 'a'-'f'
-            48 // ASCII '0'
+            ASCII_0 // ASCII '0'
         } else {
-            87 // ASCII 'a' - 10
+            ASCII_A_OFFSET // ASCII 'a' - 10
         };
         first_block_parent_hash = shifted_hash + hex_byte - hex_base;
         hex_idx += 1;
     };
     // Parse avg_fees
-    byte_offset += 66;
+    byte_offset += HEX_HASH_WITH_PREFIX_SIZE;
 
     // Read the number of fee entries
     let mut avg_fees_len: usize = 0;
     let mut byte_idx = 0;
-    while byte_idx < 4 {
+    while byte_idx < U32_SIZE {
         let current_byte: u32 = (*journal_bytes.at(byte_offset + byte_idx)).into();
         let shifted_byte: u32 = BitShift::shl(current_byte, 8 * byte_idx.into());
         avg_fees_len += shifted_byte;
         byte_idx += 1;
     };
 
-    byte_offset += 4;
+    byte_offset += U32_SIZE;
     // Create array to hold fee data
     let mut avg_fees: Array<AvgFees> = array![];
 
@@ -147,32 +157,32 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         // Read timestamp (8 bytes)
         let mut timestamp: u64 = 0;
         let mut byte_idx = 0;
-        while byte_idx < 8 {
+        while byte_idx < U64_SIZE {
             let current_byte: u64 = (*journal_bytes.at(byte_offset + byte_idx)).into();
             let shift_amount: u64 = byte_idx.into() * 8;
             let shifted_byte = BitShift::shl(current_byte, shift_amount);
             timestamp = timestamp | shifted_byte;
             byte_idx += 1;
         };
-        byte_offset += 8;
+        byte_offset += U64_SIZE;
         // Read data_points (8 bytes)
         let mut data_points: u64 = 0;
         let mut byte_idx = 0;
-        while byte_idx < 8 {
+        while byte_idx < U64_SIZE {
             let current_byte: u64 = (*journal_bytes.at(byte_offset + byte_idx)).into();
             let shift_amount: u64 = byte_idx.into() * 8;
             let shifted_byte = BitShift::shl(current_byte, shift_amount);
             data_points = data_points | shifted_byte;
             byte_idx += 1;
         };
-        byte_offset += 8;
+        byte_offset += U64_SIZE;
 
         // Read the decimal string and convert to felt252
-        byte_offset += 4; // Skip length indicator (66, 0, 0, 0)
-        byte_offset += 2; // Skip "0x" prefix
+        byte_offset += U32_SIZE; // Skip length indicator (66, 0, 0, 0)
+        byte_offset += HEX_PREFIX_SIZE; // Skip "0x" prefix
         let mut avg_fee: u256 = 0;
         let mut hex_idx = byte_offset;
-        let hex_end = byte_offset + 64;
+        let hex_end = byte_offset + HEX_HASH_SIZE;
         loop {
             if hex_idx >= hex_end {
                 break;
@@ -181,14 +191,14 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
             let shifted_hash: u256 = BitShift::shl(avg_fee, 4);
             let hex_byte: u256 = (*journal_bytes.at(hex_idx)).into();
             let hex_base: u256 = if hex_byte < 58 { // '0'-'9' vs 'a'-'f'
-                48 // ASCII '0'
+                ASCII_0 // ASCII '0'
             } else {
-                87 // ASCII 'a' - 10
+                ASCII_A_OFFSET // ASCII 'a' - 10
             };
             avg_fee = shifted_hash + hex_byte - hex_base;
             hex_idx += 1;
         };
-        byte_offset += 66;
+        byte_offset += HEX_HASH_WITH_PREFIX_SIZE;
         avg_fees.append(AvgFees { timestamp, data_points, avg_fee: avg_fee.try_into().unwrap() });
         entry_idx += 1;
     };
