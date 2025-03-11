@@ -1,7 +1,7 @@
 mod accumulator;
 mod batch_processor;
 mod mmr_state_manager;
-mod proof_generator;
+pub(crate) mod proof_generator;
 
 pub use accumulator::*;
 pub use batch_processor::*;

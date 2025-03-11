@@ -1,11 +1,14 @@
+use risc0_zkvm::Receipt;
 use starknet_handler::{
     account::StarknetAccount,
     provider::{LatestRelayBlock, StarknetProvider},
 };
 
 use crate::core::{AccumulatorBuilder, BatchProcessor, MMRStateManager, ProofGenerator};
+use crate::db::DbConnection;
 use eyre::Result;
-use methods::{MMR_BUILD_ELF, MMR_BUILD_ID};
+use guest_types::WorldCoinInput;
+use methods::{MMR_BUILD_ELF, MMR_BUILD_ID, WORLD_COIN_ELF, WORLD_COIN_ID};
 
 pub async fn prove_mmr_update(
     rpc_url: &String,
@@ -99,4 +102,41 @@ pub async fn update_mmr(
         .await?;
 
     Ok(())
+}
+
+/// Verifies a single block header and returns its number, hash, and state root
+///
+/// This function:
+/// 1. Fetches the block header from the database
+/// 2. Verifies its validity using the zkVM with a STARK proof
+/// 3. Returns the block number, hash, and state root along with the STARK proof
+pub async fn verify_single_block_header(block_number: u64, chain_id: u64) -> Result<Receipt> {
+    // Connect to the database
+    let db_connection = DbConnection::new().await?;
+
+    // Fetch the block header
+    let header = db_connection
+        .get_block_header_by_number(block_number)
+        .await?;
+
+    tracing::info!("Verifying block header for block {}", block_number);
+
+    // Create the zkVM input
+    let input = WorldCoinInput::new(header, chain_id);
+
+    // Create the proof generator with WORLD_COIN_ID
+    let proof_generator = ProofGenerator::new(WORLD_COIN_ELF, WORLD_COIN_ID)?;
+
+    // Generate a STARK proof
+    let stark_proof = proof_generator.generate_stark_proof(input).await?;
+
+    let receipt = stark_proof.receipt();
+
+    tracing::info!(
+        "Successfully verified block header: number={}, chain_id={}",
+        block_number,
+        chain_id
+    );
+
+    Ok(receipt)
 }

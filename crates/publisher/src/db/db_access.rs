@@ -110,6 +110,30 @@ impl DbConnection {
 
         Ok(headers)
     }
+
+    /// Fetches a single block header by block number
+    pub async fn get_block_header_by_number(&self, block_number: u64) -> Result<BlockHeader> {
+        let temp_header = sqlx::query_as!(
+            TempBlockHeader,
+            r#"
+            SELECT block_hash, number, gas_limit, gas_used, nonce, 
+                   transaction_root, receipts_root, state_root, 
+                   base_fee_per_gas, parent_hash, miner, logs_bloom, 
+                   difficulty, totaldifficulty, sha3_uncles, timestamp, 
+                   extra_data, mix_hash, withdrawals_root, 
+                   blob_gas_used, excess_blob_gas, parent_beacon_block_root,
+                   requests_hash
+            FROM public.blockheaders
+            WHERE number = $1
+            "#,
+            block_number as i64
+        )
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| eyre!("Block header not found for block number: {}", block_number))?;
+
+        Ok(temp_to_block_header(temp_header))
+    }
 }
 
 #[derive(Debug, sqlx::FromRow)]
