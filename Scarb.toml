@@ -1,5 +1,9 @@
 [workspace]
-members = ["l1_message_proxy", "store", "verifier"]
+members = [
+    "contracts/starknet/l1_message_proxy",
+    "contracts/starknet/store",
+    "contracts/starknet/verifier",
+]
 
 [workspace.dependencies]
 starknet = "2.9.4"
