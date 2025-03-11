@@ -136,7 +136,7 @@ struct TempBlockHeader {
     pub blob_gas_used: Option<String>,    // character varying(78), nullable
     pub excess_blob_gas: Option<String>,  // character varying(78), nullable
     pub parent_beacon_block_root: Option<String>, // character varying(66), nullable
-    pub requests_hash: Option<String>, // character varying(66), nullable
+    pub requests_hash: Option<String>,    // character varying(66), nullable
 }
 
 fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {

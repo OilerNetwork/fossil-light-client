@@ -122,7 +122,7 @@ fn main() {
         };
 
         // Pack the fixed-point value into a Felt
-        let avg_fee_felt = UFixedPoint123x128::pack(avg_fee_fixed).to_dec_string();
+        let avg_fee_felt = UFixedPoint123x128::pack(avg_fee_fixed).to_hex_string();
 
         avg_fees.push((*claimed_timestamp as usize, valid_fee_count, avg_fee_felt));
     }

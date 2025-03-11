@@ -71,6 +71,23 @@ impl Felt {
         // Reverse the string since we built it in reverse order
         result.chars().rev().collect()
     }
+
+    /// Converts the Felt to a hexadecimal string representation with 0x prefix
+    /// Returns a fixed-length string with 0x followed by 64 hex characters (32 bytes)
+    pub fn to_hex_string(&self) -> String {
+        let bytes = self.to_bytes_be();
+
+        // Create a fixed-length hex string with 0x prefix (total 66 characters)
+        let mut result = String::with_capacity(66); // 2 for "0x" + 64 for the hex digits
+        result.push_str("0x");
+
+        // Always include all bytes, including leading zeros
+        for &byte in &bytes {
+            result.push_str(&format!("{:02x}", byte));
+        }
+
+        result
+    }
 }
 
 /// Helper function to divide a U256 by another U256 and return quotient and remainder
@@ -376,5 +393,38 @@ mod tests {
             bytes
         });
         assert_eq!(large.to_dec_string(), "4660"); // 0x1234 = 4660
+    }
+
+    #[test]
+    fn test_felt_to_hex_string() {
+        // Test zero
+        let zero = Felt::from_bytes_be(&[0; 32]);
+        assert_eq!(
+            zero.to_hex_string(),
+            "0x0000000000000000000000000000000000000000000000000000000000000000"
+        );
+
+        // Test small number
+        let one = Felt::from_bytes_be(&{
+            let mut bytes = [0; 32];
+            bytes[31] = 1;
+            bytes
+        });
+        assert_eq!(
+            one.to_hex_string(),
+            "0x0000000000000000000000000000000000000000000000000000000000000001"
+        );
+
+        // Test larger number
+        let large = Felt::from_bytes_be(&{
+            let mut bytes = [0; 32];
+            bytes[30] = 0x12;
+            bytes[31] = 0x34;
+            bytes
+        });
+        assert_eq!(
+            large.to_hex_string(),
+            "0x0000000000000000000000000000000000000000000000000000000000001234"
+        );
     }
 }
