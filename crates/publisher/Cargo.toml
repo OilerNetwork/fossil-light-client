@@ -7,9 +7,9 @@ edition = "2021"
 default = []
 mmr-benchmark = []
 
-# [[bin]]
-# name = "update-mmr"
-# path = "bin/update_mmr.rs"
+[[bin]]
+name = "world-coin-example"
+path = "bin/world_coin_example.rs"
 
 [[bin]]
 name = "build-mmr"

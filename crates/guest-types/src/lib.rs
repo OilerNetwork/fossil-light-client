@@ -290,6 +290,55 @@ impl BlocksValidityInput {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+pub struct WorldCoinInput {
+    pub header: BlockHeader,
+    pub chain_id: u64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub struct WorldCoinOutput {
+    block_number: u64,
+    block_hash: String,
+    state_root: String,
+}
+
+impl WorldCoinInput {
+    pub const fn new(header: BlockHeader, chain_id: u64) -> Self {
+        Self { header, chain_id }
+    }
+
+    pub const fn header(&self) -> &BlockHeader {
+        &self.header
+    }
+
+    pub const fn chain_id(&self) -> u64 {
+        self.chain_id
+    }
+}
+
+impl WorldCoinOutput {
+    pub const fn new(block_number: u64, block_hash: String, state_root: String) -> Self {
+        Self {
+            block_number,
+            block_hash,
+            state_root,
+        }
+    }
+
+    pub const fn block_number(&self) -> u64 {
+        self.block_number
+    }
+
+    pub const fn block_hash(&self) -> &String {
+        &self.block_hash
+    }
+
+    pub const fn state_root(&self) -> &String {
+        &self.state_root
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use guest_fixed_utils::{StorePacking, UFixedPoint123x128};

@@ -51,7 +51,7 @@ where
             return Err(eyre!("Input cannot be empty"));
         }
 
-        info!("Generating STARK proof for intermediate batch");
+        info!("Generating STARK proof...");
         debug!("Input size: {} bytes", input_size);
 
         let proof = task::spawn_blocking({
