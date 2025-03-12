@@ -1,41 +1,21 @@
-# Determine platform-specific base image
-ARG TARGETPLATFORM
-FROM --platform=${TARGETPLATFORM:-linux/amd64} debian:trixie
-
-# Avoid prompts from apt
+# Builder stage
+FROM debian:trixie AS builder
 ENV DEBIAN_FRONTEND=noninteractive
-
-# Install basic dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    git \
-    ca-certificates \
-    build-essential \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Rust
+RUN apt-get update && apt-get install -y curl git ca-certificates build-essential pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-
-# Install Dojo
 ENV DOJO_PATH=/root/.dojo
 ENV PATH="${DOJO_PATH}/bin:${PATH}"
+RUN curl -L https://install.dojoengine.org | bash && mkdir -p ${DOJO_PATH}/bin && dojoup
+# Copy config from the host into the builder stage
+COPY config /app/config
+RUN ls -la /root/.dojo/bin
+RUN /root/.dojo/bin/katana --version
 
-RUN curl -L https://install.dojoengine.org | bash && \
-    mkdir -p ${DOJO_PATH}/bin && \
-    . ~/.bashrc && \
-    dojoup
-
-# Create config directory
-RUN mkdir -p /app/config
-
-# Verify installation
-RUN katana --version
-
-# Expose default Katana port
+# Final runtime stage
+FROM debian:trixie-slim
+COPY --from=builder /root/.dojo /root/.dojo
+COPY --from=builder /app/config /app/config
+ENV PATH="/root/.dojo/bin:${PATH}"
 EXPOSE 5050
-
-# Default command to run Katana
-CMD ["katana", "--messaging", "/app/config/anvil.messaging.docker.json", "--dev", "--dev.no-fee", "--dev.no-account-validation", "--http.addr", "0.0.0.0"] 
+CMD ["katana", "--messaging", "/app/config/anvil.messaging.docker.json", "--dev", "--dev.no-fee", "--dev.no-account-validation", "--http.addr", "0.0.0.0"]

@@ -13,16 +13,6 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-# # Detect platform
-# PLATFORM="linux/amd64"
-# if [[ "$(uname -m)" == "arm64" && "$(uname -s)" == "Darwin" ]]; then
-#     echo -e "${BLUE}Detected Apple Silicon (M1/M2) - Using platform flag${NC}"
-#     PLATFORM_FLAG="--platform linux/amd64"
-# else
-#     echo -e "${BLUE}Detected Linux/AMD64 - Using default platform${NC}"
-#     PLATFORM_FLAG=""
-# fi
-
 # Ensure we're using buildx
 docker buildx create --use --name fossil-builder || true
 

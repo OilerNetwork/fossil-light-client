@@ -1,39 +1,28 @@
-# Determine platform-specific base image
-ARG TARGETPLATFORM
-FROM --platform=${TARGETPLATFORM:-linux/amd64} rust:slim-bookworm
-
-# Avoid prompts from apt
+FROM rust:slim-bookworm AS builder
 ENV DEBIAN_FRONTEND=noninteractive
-
-# Install basic dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    git \
-    ca-certificates \
-    pkg-config \
-    libssl-dev \
-    jq \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Foundry
+RUN apt-get update && apt-get install -y curl git ca-certificates pkg-config libssl-dev jq && rm -rf /var/lib/apt/lists/*
+ENV CARGO_HOME=/usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup
+RUN rustup default stable
 RUN curl -L https://foundry.paradigm.xyz | bash
-ENV PATH="/root/.foundry/bin:${PATH}"
+ENV PATH="/root/.foundry/bin:$CARGO_HOME/bin:$PATH"
 RUN foundryup
-
-# Set up directories and PATH for Scarb
 RUN mkdir -p /root/.local/bin
-ENV PATH="/root/.local/bin:${PATH}"
-
-# Install Scarb
+ENV PATH="/root/.local/bin:$CARGO_HOME/bin:/root/.foundry/bin:$PATH"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh -s -- -v 2.9.4
+RUN curl https://get.starkli.sh | sh && /root/.starkli/bin/starkliup 
+ENV PATH="/root/.foundry/bin:/root/.local/bin:/root/.starkli/bin:$CARGO_HOME/bin:$PATH"
 
-# Install Starkli
-RUN curl https://get.starkli.sh | sh && \
-    /root/.starkli/bin/starkliup 
-ENV PATH="/root/.starkli/bin:${PATH}"
-
-# Create Starkli directory structure
-RUN mkdir -p /root/.starkli/accounts /root/.starkli/keystores
-
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates jq git build-essential && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /usr/local/cargo /usr/local/cargo
+COPY --from=builder /usr/local/rustup /usr/local/rustup
+COPY --from=builder /root/.foundry /root/.foundry
+COPY --from=builder /root/.local /root/.local
+COPY --from=builder /root/.starkli /root/.starkli
+ENV CARGO_HOME=/usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV PATH="$CARGO_HOME/bin:/root/.foundry/bin:/root/.local/bin:/root/.starkli/bin:$PATH"
 WORKDIR /app
-CMD ["bash"] 
+CMD ["bash"]
+

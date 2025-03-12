@@ -1,6 +1,6 @@
 services:
   anvil:
-    image: fossil-anvil:latest
+    image: ametelnethermind/fossil-anvil:latest
     networks:
       - fossil
     ports:
@@ -16,7 +16,7 @@ services:
       retries: 5
 
   deploy-ethereum:
-    image: fossil-deploy:latest
+    image: ametelnethermind/fossil-deploy:latest
     networks:
       - fossil
     env_file:
@@ -32,7 +32,7 @@ services:
     command: ["./scripts/deploy-ethereum.sh", "docker"]
 
   katana:
-    image: fossil-katana:latest
+    image: ametelnethermind/fossil-katana:latest
     networks:
       - fossil
     ports:
@@ -62,7 +62,7 @@ services:
       retries: 5
 
   deploy-starknet:
-    image: fossil-deploy:latest
+    image: ametelnethermind/fossil-deploy:latest
     networks:
       - fossil
     env_file:

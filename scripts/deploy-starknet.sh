@@ -104,9 +104,6 @@ NC='\033[0m' # No Color
 BOLD='\033[1m'
 RED='\033[0;31m'
 
-# Now deploy Starknet contracts
-cd "$STARKNET_DIR"
-
 # Conditionally build the contracts
 if [ "$BUILD" = true ]; then
     echo -e "\n${BLUE}${BOLD}Building Starknet contracts...${NC}"
@@ -114,6 +111,9 @@ if [ "$BUILD" = true ]; then
 else
     echo -e "\n${BLUE}${BOLD}Skipping build step as --no-build flag was provided...${NC}"
 fi
+
+# Now deploy Starknet contracts
+cd "$STARKNET_DIR"
 
 echo -e "\n${BLUE}${BOLD}Deploying Starknet contracts...${NC}"
 # Declare and deploy Fossil Store contract
