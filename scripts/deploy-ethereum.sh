@@ -34,7 +34,7 @@ esac
 source "${ENV_FILES[0]}"
 export ACCOUNT_PRIVATE_KEY=${ACCOUNT_PRIVATE_KEY}
 export ENV_TYPE=${ENV_TYPE}
-if [ "$ENV_TYPE" in "sepolia" | "mainnet" ]; then
+if [[ "$ENV_TYPE" == "sepolia" || "$ENV_TYPE" == "mainnet" ]]; then
     export SN_MESSAGING=${SN_MESSAGING}
     echo "SN_MESSAGING: $SN_MESSAGING"
 fi
@@ -95,14 +95,16 @@ update_json_config() {
 
 # Function to deploy with retries
 deploy_contracts() {
+    local script_path=$1
+    local output_file=$2
     local max_attempts=3
     local attempt=1
     local wait_time=10
 
     while [ $attempt -le $max_attempts ]; do
-        echo -e "${BLUE}${BOLD}Deploying Ethereum contracts (Attempt $attempt/$max_attempts)...${NC}"
+        echo -e "${BLUE}${BOLD}Deploying Ethereum contracts using $script_path (Attempt $attempt/$max_attempts)...${NC}"
         
-        if forge script script/LocalTesting.s.sol:LocalSetup --broadcast --rpc-url $ETH_RPC_URL; then
+        if forge script $script_path --broadcast --rpc-url $ETH_RPC_URL; then
             return 0
         fi
         
@@ -123,18 +125,30 @@ ROOT_DIR=$(pwd)
 
 # Deploy Ethereum contracts
 cd "$ETHEREUM_DIR"
-deploy_contracts || exit 1
+
+# Choose the appropriate script based on environment
+if [[ "$ENV_TYPE" == "local" || "$ENV_TYPE" == "docker" ]]; then
+    SCRIPT_PATH="script/LocalTesting.s.sol:LocalSetup"
+    OUTPUT_FILE="logs/local_setup.json"
+    echo -e "${YELLOW}Using LocalTesting.s.sol for local/docker environment${NC}"
+else
+    SCRIPT_PATH="script/ExternalMessaging.s.sol:ExternalMessagingSetup"
+    OUTPUT_FILE="logs/external_setup.json"
+    echo -e "${YELLOW}Using ExternalMessaging.s.sol for $ENV_TYPE environment${NC}"
+fi
+
+deploy_contracts "$SCRIPT_PATH" "$OUTPUT_FILE" || exit 1
 
 # Add debug logging
 echo -e "${YELLOW}Current directory: $(pwd)${NC}"
-echo -e "${YELLOW}Looking for file: logs/local_setup.json${NC}"
+echo -e "${YELLOW}Looking for file: $OUTPUT_FILE${NC}"
 
 # Read values from the JSON file and update env vars
-if [ -f "logs/local_setup.json" ]; then
-  echo -e "${YELLOW}Found local_setup.json${NC}"
+if [ -f "$OUTPUT_FILE" ]; then
+  echo -e "${YELLOW}Found $OUTPUT_FILE${NC}"
   
-  if [ "$ENV_TYPE" = "local" ] || [ "$ENV_TYPE" = "docker" ]; then
-    SN_MESSAGING=$(jq -r '.snMessaging_address' logs/local_setup.json)
+  if [[ "$ENV_TYPE" == "local" || "$ENV_TYPE" == "docker" ]]; then
+    SN_MESSAGING=$(jq -r '.snMessaging_address' "$OUTPUT_FILE")
     echo -e "${YELLOW}Updated SN_MESSAGING: $SN_MESSAGING${NC}"
     for env_file in "${ENV_FILES[@]}"; do
       update_env_var "${ROOT_DIR}/${env_file}" "SN_MESSAGING" "$SN_MESSAGING"
@@ -143,16 +157,15 @@ if [ -f "logs/local_setup.json" ]; then
     echo -e "${YELLOW}Environment is $ENV_TYPE. Using fixed SN_MESSAGING: $SN_MESSAGING${NC}"
   fi
 
-  L1_MESSAGE_SENDER=$(jq -r '.l1MessageSender_address' logs/local_setup.json)
+  L1_MESSAGE_SENDER=$(jq -r '.l1MessageSender_address' "$OUTPUT_FILE")
   echo -e "${YELLOW}Updated L1_MESSAGE_SENDER: $L1_MESSAGE_SENDER${NC}"
   for env_file in "${ENV_FILES[@]}"; do
     update_env_var "${ROOT_DIR}/${env_file}" "L1_MESSAGE_SENDER" "$L1_MESSAGE_SENDER"
   done
 else
-  echo -e "${RED}Could not find logs/local_setup.json${NC}"
+  echo -e "${RED}Could not find $OUTPUT_FILE${NC}"
   exit 1
 fi
-
 
 # Get the fork block number from cast if in docker mode
 if [ "$ENV_TYPE" = "docker" ]; then
