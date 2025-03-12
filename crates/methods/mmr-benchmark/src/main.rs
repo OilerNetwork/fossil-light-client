@@ -107,8 +107,8 @@ fn main() {
                     // Convert fee to fixed-point and add to total
                     let fee_fixed = UFixedPoint123x128::from(fee as f64);
                     total_fees = UFixedPoint123x128::from(
-                        (total_fees.value.high as f64 + fee_fixed.value.high as f64) +
-                        ((total_fees.value.low as f64 + fee_fixed.value.low as f64) / 2f64.powi(128))
+                        (total_fees.get_integer() as f64 + fee_fixed.get_integer() as f64) +
+                        ((total_fees.get_fractional() as f64 + fee_fixed.get_fractional() as f64) / 2f64.powi(128))
                     );
                     valid_fee_count += 1;
                 }
