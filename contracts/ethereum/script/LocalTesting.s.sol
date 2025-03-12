@@ -15,26 +15,30 @@ contract LocalSetup is Script {
         console.log("ENV_TYPE: %s", envType);
 
         uint256 deployerPrivateKey = vm.envUint("ACCOUNT_PRIVATE_KEY");
-        
-        string memory json = "local_testing";
 
         vm.startBroadcast(deployerPrivateKey);
 
-        address snMessagingAddress = vm.envAddress("SN_MESSAGING");
-
-        if (keccak256(bytes(envType)) == keccak256(bytes("docker")) || keccak256(bytes(envType)) == keccak256(bytes("local"))) {
-            snMessagingAddress = address(new StarknetMessagingLocal());
-        } else {
-            snMessagingAddress = vm.envAddress("SN_MESSAGING");
-        }
-
+        // Deploy StarknetMessagingLocal contract
+        address snMessagingAddress = address(new StarknetMessagingLocal());
+        
         console.log("SN_MESSAGING: %s", snMessagingAddress);
 
+        // Save the address to the JSON file
+        vm.writeJson(
+            vm.toString(snMessagingAddress),
+            string.concat("logs/", "local_setup.json"),
+            ".snMessaging_address"
+        );
 
-        vm.serializeString(json, "snMessaging_address", vm.toString(snMessagingAddress));
-
+        // Deploy L1MessageSender contract
         address l1MessageSenderAddress = address(new L1MessageSender(snMessagingAddress));
-        vm.serializeString(json, "l1MessageSender_address", vm.toString(l1MessageSenderAddress));
+        
+        // Save the address to the JSON file
+        vm.writeJson(
+            vm.toString(l1MessageSenderAddress),
+            string.concat("logs/", "local_setup.json"),
+            ".l1MessageSender_address"
+        );
 
         vm.stopBroadcast();
     }

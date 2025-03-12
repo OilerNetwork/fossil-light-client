@@ -2,7 +2,6 @@ services:
   build-mmr:
     image: ametelnethermind/fossil-build-mmr:latest
     # image: fossil-build-mmr
-    pull_policy: always
     container_name: fossil-build-mmr
     volumes:
       - ./:/app

@@ -2,7 +2,6 @@ services:
   build-mmr:
     image: ametelnethermind/fossil-client:latest
     # image: fossil-client:latest
-    pull_policy: always
     container_name: fossil-client
     volumes:
       - ./:/app

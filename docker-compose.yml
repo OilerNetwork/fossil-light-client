@@ -1,6 +1,8 @@
 services:
   anvil:
     image: ametelnethermind/fossil-anvil:latest
+    # image: fossil-anvil:latest
+    platform: linux/amd64
     networks:
       - fossil
     ports:
@@ -17,6 +19,8 @@ services:
 
   deploy-ethereum:
     image: ametelnethermind/fossil-deploy:latest
+    # image: fossil-deploy:latest
+    platform: linux/amd64
     networks:
       - fossil
     env_file:
@@ -33,6 +37,8 @@ services:
 
   katana:
     image: ametelnethermind/fossil-katana:latest
+    # image: fossil-katana:latest
+    platform: linux/amd64
     networks:
       - fossil
     ports:
@@ -63,6 +69,8 @@ services:
 
   deploy-starknet:
     image: ametelnethermind/fossil-deploy:latest
+    # image: fossil-deploy:latest
+    platform: linux/amd64
     networks:
       - fossil
     env_file:

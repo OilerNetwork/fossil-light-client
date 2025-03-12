@@ -34,8 +34,10 @@ esac
 source "${ENV_FILES[0]}"
 export ACCOUNT_PRIVATE_KEY=${ACCOUNT_PRIVATE_KEY}
 export ENV_TYPE=${ENV_TYPE}
-export SN_MESSAGING=${SN_MESSAGING}
-echo "SN_MESSAGING: $SN_MESSAGING"
+if [ "$ENV_TYPE" in "sepolia" | "mainnet" ]; then
+    export SN_MESSAGING=${SN_MESSAGING}
+    echo "SN_MESSAGING: $SN_MESSAGING"
+fi
 
 # Use relative paths instead of absolute Docker paths
 ETHEREUM_DIR="contracts/ethereum"

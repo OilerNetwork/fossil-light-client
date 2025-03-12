@@ -94,12 +94,14 @@ ENV_FILE=.env.docker RELAY_TIME_MINUTES=5 docker-compose -f docker-compose.relay
 For all deployment methods, you'll need:
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/OilerNetwork/fossil-light-client.git
    cd fossil-light-client
    ```
 
 2. Initialize repository:
+
    ```bash
    git submodule update --init --recursive
    ```
@@ -117,13 +119,16 @@ To run the documentation locally:
 
 1. Install Yarn:
    - **For macOS:**
+
      ```bash
      # Using Homebrew
      brew install yarn
      # Using npm
      npm install --global yarn
      ```
+
    - **For Linux:**
+
      ```bash
      # Using npm
      npm install --global yarn
@@ -133,7 +138,9 @@ To run the documentation locally:
      sudo apt update
      sudo apt install yarn
      ```
+
    - **For Windows:**
+
      ```bash
      # Using npm
      npm install --global yarn
@@ -144,6 +151,7 @@ To run the documentation locally:
      ```
 
 2. Start the documentation server:
+
    ```bash
    cd docs/
    yarn
@@ -158,6 +166,7 @@ This will start a local server and open the documentation in your default browse
 
 1. Install [Docker Desktop](https://www.docker.com/products/docker-desktop/) (includes Docker Engine and Compose)
 2. For Linux only: Install Docker Buildx
+
    ```bash
    mkdir -p ~/.docker/cli-plugins/
    curl -L https://github.com/docker/buildx/releases/download/v0.12.1/buildx-v0.12.1.linux-amd64 -o ~/.docker/cli-plugins/docker-buildx
@@ -171,18 +180,21 @@ This will start a local server and open the documentation in your default browse
 This approach builds a local Ethereum and Starknet network for development and testing:
 
 1. Set up configuration:
+
    ```bash
    cp config/.env.example .env
    cp config/.env.docker.example .env.docker
    ```
 
 2. Start core network infrastructure:
+
    ```bash
    docker-compose up -d
    docker-compose logs -f  # Monitor until initialization complete
    ```
 
 3. Run MMR accumulation:
+
    ```bash
    # Run with default settings (build all batches until block #0)
    ENV_FILE=.env.docker docker-compose -f docker-compose.accumulation.yml up
@@ -192,12 +204,14 @@ This approach builds a local Ethereum and Starknet network for development and t
    ```
 
 4. Run The Light Client:
+
    ```bash
    # Run with default settings
    ENV_FILE=.env.docker docker-compose -f docker-compose.client.yml up
    ```
 
 5. Run The Relayer:
+
    ```bash
    # Run with default settings (default: relays block hashes every 60 minutes)
    ENV_FILE=.env.docker docker-compose -f docker-compose.relayer.yml up
@@ -211,6 +225,7 @@ This approach builds a local Ethereum and Starknet network for development and t
 This approach connects to existing Ethereum and Starknet networks:
 
 1. Set up configuration:
+
    ```bash
    # For testnet (Sepolia)
    cp config/.env.local.example .env.sepolia
@@ -226,6 +241,7 @@ This approach connects to existing Ethereum and Starknet networks:
    - API keys and other required credentials
 
 3. Run MMR accumulation:
+
    ```bash
    # For testnet (Sepolia)
    ENV_FILE=.env.sepolia docker-compose -f docker-compose.accumulation.yml up
@@ -238,12 +254,14 @@ This approach connects to existing Ethereum and Starknet networks:
    ```
 
 4. Run The Light Client:
+
    ```bash
    # Run with default settings
    ENV_FILE=.env.sepolia docker-compose -f docker-compose.client.yml up
    ```
 
 5. Run The Relayer:
+
    ```bash
    # Run with default settings (default: relays block hashes every 60 minutes)
    ENV_FILE=.env.sepolia docker-compose -f docker-compose.relayer.yml up
@@ -273,11 +291,13 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
 ### Manual Prerequisites
 
 1. Install Rust:
+
    ```bash
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
    ```
 
 2. Install Starknet Development Toolchain:
+
    ```bash
    curl --proto '=https' --tlsv1.2 -sSf https://sh.starkup.dev | sh
 
@@ -289,6 +309,7 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    ```
 
 3. Install Risc0:
+
    ```bash
    curl -L https://risczero.com/install | bash && rzup
    ```
@@ -299,6 +320,7 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
 
 5. Platform-specific requirements:
    - **For macOS users:**
+
      ```bash
      # Install Python toolchain and gettext
      brew install python
@@ -307,28 +329,33 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
      # Add to ~/.zshrc or ~/.bash_profile:
      export PATH="/usr/local/opt/python/libexec/bin:$PATH"
      ```
+
    - **For Linux users:** No additional requirements
 
 ### Setup and Execution
 
 1. Configure environment:
+
    ```bash
    cp config/.env.local.example .env.local
    ```
 
 2. Start networks and deploy contracts:
+
    ```bash
    chmod +x scripts/build-network.sh
    ./scripts/build-network.sh
    ```
 
    **Option 1: Standard deployment (with container build)**
+
    ```bash
    docker-compose up
    ```
 
    **Option 2: Faster deployment (build locally first)**
    To save time during network container bootup, you can build the Starknet contracts locally before running docker-compose:
+
    ```bash
    # Build Starknet contracts locally
    scarb build
@@ -341,27 +368,32 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    Wait for the `deploy-starknet` container to complete the deployment of all StarkNet contracts. The deployment is finished when you see a log message indicating environment variables have been updated. (it might take a few minutes)
 
 3. Build the project:
+
    ```bash
    cargo build
    ```
 
 4. Build MMR and generate proofs:
+
    ```bash
    cargo run --bin build-mmr -- --num-batches 2 --env-file .env.local
    ```
 
 5. Start the client:
+
    ```bash
    cargo run --bin client -- --env-file .env.local
    ```
 
 6. Start the relayer:
+
    ```bash
    chmod +x scripts/run_relayer_local.sh
    ./scripts/run_relayer_local.sh
    ```
 
 7. Test Fee Proof Fetching:
+
    ```bash
    starkli call <fossil_store_contract_address> get_avg_fees_in_range <start_timestamp> <end_timestamp> --rpc http://localhost:5050
    ```
@@ -377,6 +409,7 @@ For example, if blocks from timestamp 1704067200 (Jan 1, 2024 00:00:00 UTC) to 1
 - Or any subset of hours within these bounds
 
 Key validation rules:
+
 - All timestamps must be hour-aligned (multiples of 3600 seconds)
 - For range queries, start timestamp must be ≤ end timestamp
 - Queries return weighted average fees based on number of blocks in each hour
@@ -387,14 +420,14 @@ Note: While blocks are processed in batches internally, fee queries operate on h
 
 ### Building Docker Containers Locally
 
-To build the docker containers locally:
+To build the docker containers locally (currently only supported on Linux machines):
 
 ```bash
 chmod +x scripts/build-all.sh
 ./scripts/build-all.sh
 ```
 
-This process might take a while depending on your machine.
+This process might take a while depending on your machine. Note that building images locally is currently only supported on Linux due to platform-specific binary compatibility requirements. macOS and Windows users should use the pre-built images from DockerHub instead.
 
 ### Manual Contract Deployment
 
@@ -406,16 +439,17 @@ There are multiple contracts that need to be deployed on Ethereum and Starknet:
 4. Groth16 Verifier (Starknet)
 5. Fossil Verifier (Starknet)
 
-#### Prerequisites
+#### Manual Deployment Prerequisites
 
 Make sure you have the following installed:
 
-1. Foundry (https://book.getfoundry.sh/getting-started/installation)
-2. Starkli (https://book.starkli.rs/installation)
+1. Foundry (<https://book.getfoundry.sh/getting-started/installation>)
+2. Starkli (<https://book.starkli.rs/installation>)
 
 You'll need both Ethereum and Starknet wallets for deployment:
 
 1. Create a new `.env.sepolia` file:
+
    ```bash
    ETH_RPC_URL=
    STARKNET_RPC_URL=
@@ -425,32 +459,37 @@ You'll need both Ethereum and Starknet wallets for deployment:
    ```
 
 2. Set up RPC providers:
+
    ```bash
    ETH_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/xxxxxx # replace with your API key
    STARKNET_RPC_URL=https://starknet-sepolia.g.alchemy.com/starknet/version/rpc/v0_7/xxxxxx # replace with your API key
    ```
 
 3. Set up Ethereum wallet (Metamask):
-   - Download Metamask from https://metamask.io/download
+   - Download Metamask from <https://metamask.io/download>
    - Create a wallet and save the seed phrase
    - Get your private key and add it to `.env.sepolia`:
+
      ```bash
      ACCOUNT_PRIVATE_KEY=0x01234456 # replace with your actual private key
      ```
 
 4. Set up Starknet wallet (Starkli):
+
    ```bash
    starkli account oz init deploy_wallet
    starkli account deploy deploy_wallet
    ```
-   
+
    Add to `.env.sepolia`:
+
    ```bash
    STARKNET_ACCOUNT=deploy_wallet # path to your account file
    STARKNET_ACCOUNT_ADDRESS=0x00ecac1256b0f48686dd90819299537d3bd2a8fc192402b926d3eff516307f87 # your address
    ```
 
 5. Add Starknet messaging contract:
+
    ```bash
    SN_MESSAGING=0xE2Bb56ee936fd6433DC0F6e7e3b8365C906AA057
    ```
@@ -472,6 +511,7 @@ chmod +x ./scripts/deploy-starknet.sh
 ```
 
 This will update your `.env.sepolia` with addresses for:
+
 - L2_MSG_PROXY
 - FOSSIL_STORE
 - STARKNET_VERIFIER
@@ -482,6 +522,7 @@ This will update your `.env.sepolia` with addresses for:
 To deploy to Sepolia testnet:
 
 1. Configure Environment:
+
    ```bash
    cp config/.env.local.example .env.sepolia
    nano .env.sepolia
@@ -497,6 +538,7 @@ To deploy to Sepolia testnet:
 ### Docker Issues
 
 - Reset deployment:
+
   ```bash
   docker-compose down
   docker-compose -f docker-compose.accumulation.yml down
@@ -504,6 +546,7 @@ To deploy to Sepolia testnet:
   ```
 
 - Remove orphaned containers:
+
   ```bash
   docker-compose up -d --remove-orphans
   ```
