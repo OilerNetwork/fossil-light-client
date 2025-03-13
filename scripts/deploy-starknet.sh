@@ -14,7 +14,7 @@ update_env_var() {
     local env_file=$1
     local var_name=$2
     local var_value=$3
-    
+
     if grep -q "^$var_name=" "$env_file"; then
         echo -e "${BLUE}$var_name already exists, replacing in $env_file...${NC}"
         sed -i "s|^$var_name=.*|$var_name=$var_value|" "$env_file"
@@ -27,20 +27,20 @@ update_env_var() {
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --no-build)
-            BUILD=false
-            shift
-            ;;
-        local|sepolia|mainnet|docker)
-            ENV_TYPE="$1"
-            shift
-            ;;
-        *)
-            echo "Unknown option: $1"
-            echo "Usage: $0 [--no-build] <environment>"
-            echo "Available environments: local, sepolia, mainnet, docker"
-            exit 1
-            ;;
+    --no-build)
+        BUILD=false
+        shift
+        ;;
+    local | sepolia | mainnet | docker)
+        ENV_TYPE="$1"
+        shift
+        ;;
+    *)
+        echo "Unknown option: $1"
+        echo "Usage: $0 [--no-build] <environment>"
+        echo "Available environments: local, sepolia, mainnet, docker"
+        exit 1
+        ;;
     esac
 done
 
@@ -53,34 +53,34 @@ fi
 
 # Validate environment argument
 case "$ENV_TYPE" in
-    "local" | "sepolia" | "mainnet")
-        ENV_FILES=("$ORIGINAL_DIR/.env.$ENV_TYPE")
-        echo "Using environment: $ENV_TYPE (${ENV_FILES[0]})"
+"local" | "sepolia" | "mainnet")
+    ENV_FILES=("$ORIGINAL_DIR/.env.$ENV_TYPE")
+    echo "Using environment: $ENV_TYPE (${ENV_FILES[0]})"
     ;;
-    "docker")
-        # Update docker env first, then copy values to local env
-        ENV_FILES=("$ORIGINAL_DIR/.env.docker")
-        SECONDARY_ENV="$ORIGINAL_DIR/.env.local"
-        echo "Using environment: $ENV_TYPE (updating ${ENV_FILES[0]} and will sync to $SECONDARY_ENV)"
+"docker")
+    # Update docker env first, then copy values to local env
+    ENV_FILES=("$ORIGINAL_DIR/.env.docker")
+    SECONDARY_ENV="$ORIGINAL_DIR/.env.local"
+    echo "Using environment: $ENV_TYPE (updating ${ENV_FILES[0]} and will sync to $SECONDARY_ENV)"
     ;;
-    *)
-        echo "Invalid environment. Must be one of: local, sepolia, mainnet, docker"
-        exit 1
+*)
+    echo "Invalid environment. Must be one of: local, sepolia, mainnet, docker"
+    exit 1
     ;;
 esac
 
 # Set update interval based on environment
 case "$ENV_TYPE" in
-    "local" | "docker")
-        UPDATE_INTERVAL=0
-        ;;
-    "sepolia" | "mainnet")
-        UPDATE_INTERVAL=900
-        ;;
-    *)
-        echo "Invalid environment. Must be one of: local, sepolia, mainnet, docker"
-        exit 1
-        ;;
+"local" | "docker")
+    UPDATE_INTERVAL=0
+    ;;
+"sepolia" | "mainnet")
+    UPDATE_INTERVAL=900
+    ;;
+*)
+    echo "Invalid environment. Must be one of: local, sepolia, mainnet, docker"
+    exit 1
+    ;;
 esac
 
 # Check if environment files exist
@@ -123,7 +123,7 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$FOSSILSTORE_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Fossil Store contract...${NC}"
-FOSSILSTORE_ADDRESS=$(starkli deploy $FOSSILSTORE_HASH $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL  -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+FOSSILSTORE_ADDRESS=$(starkli deploy $FOSSILSTORE_HASH $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract address: ${BOLD}$FOSSILSTORE_ADDRESS${NC}"
 echo
 
@@ -134,7 +134,7 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$L1MESSAGEPROXY_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Fossil L1MessageProxy contract...${NC}"
-L1MESSAGEPROXY_ADDRESS=$(starkli deploy $L1MESSAGEPROXY_HASH $L1_MESSAGE_SENDER $FOSSILSTORE_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL  -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+L1MESSAGEPROXY_ADDRESS=$(starkli deploy $L1MESSAGEPROXY_HASH $L1_MESSAGE_SENDER $FOSSILSTORE_ADDRESS $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract address: ${BOLD}$L1MESSAGEPROXY_ADDRESS${NC}"
 echo
 
@@ -151,7 +151,7 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$VERIFIER_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Groth16 Verifier contract...${NC}"
-VERIFIER_ADDRESS=$(starkli deploy $VERIFIER_HASH $ECIP_HASH --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL  | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+VERIFIER_ADDRESS=$(starkli deploy $VERIFIER_HASH $ECIP_HASH --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract deployed at: ${BOLD}$VERIFIER_ADDRESS${NC}"
 echo
 
@@ -161,10 +161,10 @@ echo -e "${GREEN}Class hash declared: ${BOLD}$FOSSIL_VERIFIER_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Fossil Verifier contract...${NC}"
-FOSSIL_VERIFIER_ADDRESS=$(starkli deploy $FOSSIL_VERIFIER_HASH $VERIFIER_ADDRESS $FOSSILSTORE_ADDRESS $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL  -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+FOSSIL_VERIFIER_ADDRESS=$(starkli deploy $FOSSIL_VERIFIER_HASH $VERIFIER_ADDRESS $FOSSILSTORE_ADDRESS $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract deployed at: ${BOLD}$FOSSIL_VERIFIER_ADDRESS${NC}"
 echo
-
+#
 # Only initialize Fossil Store for local and docker environments
 if [ "$ENV_TYPE" = "local" ] || [ "$ENV_TYPE" = "docker" ]; then
     echo -e "${YELLOW}Initializing Fossil Store contract...${NC}"

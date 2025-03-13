@@ -28,6 +28,8 @@ name = "l1_message_proxy"
 version = "0.1.0"
 dependencies = [
  "fossil_store",
+ "openzeppelin_access",
+ "openzeppelin_upgrades",
  "snforge_std",
 ]
 
