@@ -1,5 +1,5 @@
 services:
-  build-mmr:
+  fossil-client:
     image: ametelnethermind/fossil-client:latest
     # image: fossil-client:latest
     container_name: fossil-client
