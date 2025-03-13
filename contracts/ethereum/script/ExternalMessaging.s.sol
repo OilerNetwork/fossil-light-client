@@ -23,17 +23,17 @@ contract ExternalMessagingSetup is Script {
         address l1MessageSenderAddress = address(new L1MessageSender(snMessagingAddress));
         console.log("L1MessageSender deployed at: %s", l1MessageSenderAddress);
         
-        // Save the addresses to the JSON file
-        vm.writeJson(
-            vm.toString(snMessagingAddress),
-            string.concat("logs/", "external_setup.json"),
-            ".snMessaging_address"
-        );
+        // Create a JSON object in memory first
+        string memory jsonObj = '{"snMessaging_address":"';
+        jsonObj = string.concat(jsonObj, vm.toString(snMessagingAddress));
+        jsonObj = string.concat(jsonObj, '","l1MessageSender_address":"');
+        jsonObj = string.concat(jsonObj, vm.toString(l1MessageSenderAddress));
+        jsonObj = string.concat(jsonObj, '"}');
         
-        vm.writeJson(
-            vm.toString(l1MessageSenderAddress),
+        // Write the entire JSON object at once
+        vm.writeFile(
             string.concat("logs/", "external_setup.json"),
-            ".l1MessageSender_address"
+            jsonObj
         );
 
         vm.stopBroadcast();

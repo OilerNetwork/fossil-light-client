@@ -179,8 +179,12 @@ if [ "$ENV_TYPE" = "docker" ]; then
         echo -e "${RED}Could not get block number using cast${NC}"
         update_json_config "${ROOT_DIR}/${CONFIG_DIR}/anvil.messaging.docker.json" "$SN_MESSAGING" "0"
     fi
-else
+elif [ "$ENV_TYPE" = "local" ]; then
+    # Only update anvil.messaging.json for local environment
     update_json_config "${ROOT_DIR}/${CONFIG_DIR}/anvil.messaging.json" "$SN_MESSAGING" "0"
+else
+    # For sepolia and mainnet, skip anvil config updates
+    echo -e "${BLUE}Skipping anvil config updates for $ENV_TYPE environment${NC}"
 fi
 
 # Source the updated environment variables - use full path
