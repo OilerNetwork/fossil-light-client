@@ -19,6 +19,7 @@ pub trait IFossilStore<TContractState> {
     fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
     fn get_latest_mmr_block(self: @TContractState) -> u64;
     fn get_min_mmr_block(self: @TContractState) -> u64;
+    fn get_total_batches(self: @TContractState) -> u64;
     fn get_batch_last_block_link(self: @TContractState, batch_index: u64) -> u256;
     fn get_batch_first_block_parent_hash(self: @TContractState, batch_index: u64) -> u256;
     fn get_avg_fee(self: @TContractState, timestamp: u64) -> felt252;
@@ -50,6 +51,7 @@ pub mod Store {
 
     const HOUR_IN_SECONDS: u64 = 3600;
     const MIN_FEES_DATA_POINTS: u64 = 200;
+    const BATCH_SIZE: u64 = 1024;
 
     #[starknet::storage_node]
     pub(crate) struct MMRBatch {
@@ -323,6 +325,10 @@ pub mod Store {
 
         fn get_min_mmr_block(self: @ContractState) -> u64 {
             self.min_mmr_block.read()
+        }
+
+        fn get_total_batches(self: @ContractState) -> u64 {
+            (self.latest_mmr_block.read() - self.min_mmr_block.read()) / BATCH_SIZE
         }
 
         fn get_batch_last_block_link(self: @ContractState, batch_index: u64) -> u256 {
