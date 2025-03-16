@@ -19,14 +19,15 @@ pub trait IFossilStore<TContractState> {
     fn get_mmr_state(self: @TContractState, batch_index: u64) -> Store::MMRSnapshot;
     fn get_latest_mmr_block(self: @TContractState) -> u64;
     fn get_min_mmr_block(self: @TContractState) -> u64;
+    fn get_total_batches(self: @TContractState) -> u64;
     fn get_batch_last_block_link(self: @TContractState, batch_index: u64) -> u256;
     fn get_batch_first_block_parent_hash(self: @TContractState, batch_index: u64) -> u256;
     fn get_avg_fee(self: @TContractState, timestamp: u64) -> felt252;
+    fn get_data_points_and_avg_fee(self: @TContractState, timestamp: u64) -> (u64, felt252);
     fn get_avg_fees_in_range(
         self: @TContractState, start_timestamp: u64, end_timestamp: u64,
     ) -> Array<felt252>;
     fn upgrade(ref self: TContractState, new_class_hash: starknet::ClassHash);
-    fn restore(ref self: TContractState, block_number: u64);
 }
 
 #[starknet::contract]
@@ -49,6 +50,8 @@ pub mod Store {
     impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
 
     const HOUR_IN_SECONDS: u64 = 3600;
+    const MIN_FEES_DATA_POINTS: u64 = 200;
+    const BATCH_SIZE: u64 = 1024;
 
     #[starknet::storage_node]
     pub(crate) struct MMRBatch {
@@ -324,6 +327,10 @@ pub mod Store {
             self.min_mmr_block.read()
         }
 
+        fn get_total_batches(self: @ContractState) -> u64 {
+            (self.latest_mmr_block.read() - self.min_mmr_block.read()) / BATCH_SIZE
+        }
+
         fn get_batch_last_block_link(self: @ContractState, batch_index: u64) -> u256 {
             let curr_state = self.mmr_batches.entry(batch_index + 1);
             curr_state.first_block_parent_hash.read()
@@ -340,9 +347,21 @@ pub mod Store {
         fn get_avg_fee(self: @ContractState, timestamp: u64) -> felt252 {
             assert!(timestamp % HOUR_IN_SECONDS == 0, "Timestamp must be a multiple of 3600");
             let curr_state = self.avg_fees.entry(timestamp);
+            let data_points = curr_state.data_points.read();
 
+            // If there are less than MIN_FEES_DATA_POINTS, return 0.
+            if data_points < MIN_FEES_DATA_POINTS {
+                return 0;
+            }
             // Return the packed value directly - the caller will unpack it
             curr_state.avg_fee.read()
+        }
+
+        fn get_data_points_and_avg_fee(self: @ContractState, timestamp: u64) -> (u64, felt252) {
+            let curr_state = self.avg_fees.entry(timestamp);
+            let data_points = curr_state.data_points.read();
+            let avg_fee = curr_state.avg_fee.read();
+            (data_points, avg_fee)
         }
 
         fn get_avg_fees_in_range(
@@ -364,7 +383,10 @@ pub mod Store {
 
             let mut i = start_timestamp;
             while i <= end_timestamp {
-                fees.append(self.get_avg_fee(i));
+                let (data_points, avg_fee) = self.get_data_points_and_avg_fee(i);
+                if data_points >= MIN_FEES_DATA_POINTS && avg_fee != 0 {
+                    fees.append(avg_fee);
+                }
                 i += HOUR_IN_SECONDS;
             };
             fees
@@ -373,10 +395,6 @@ pub mod Store {
         fn upgrade(ref self: ContractState, new_class_hash: starknet::ClassHash) {
             self.ownable.assert_only_owner();
             self.upgradeable.upgrade(new_class_hash);
-        }
-
-        fn restore(ref self: ContractState, block_number: u64) {
-            self.latest_mmr_block.write(block_number);
         }
     }
 }
