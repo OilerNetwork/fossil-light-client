@@ -8,7 +8,7 @@ services:
     entrypoint: []
     command: >
       /bin/sh -c "
-      client --env-file ${ENV_FILE:-/app/.env.docker} --start-block ${START_BLOCK:-0}
+      client --env-file ${ENV_FILE:-/app/.env.docker} --start-block ${START_BLOCK:-0} --polling-interval ${POLLING_INTERVAL:-60}
       "
     environment:
       - ETHEREUM_RPC_URL=http://anvil:8545
