@@ -15,6 +15,10 @@ members = [
     "crates/guest-fixed-utils",
 ]
 
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
 # Add this section to exclude methods from clippy checks
 [workspace.metadata]
 exclude-clippy = ["methods"]

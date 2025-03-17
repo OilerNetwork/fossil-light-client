@@ -293,6 +293,20 @@ impl From<f64> for UFixedPoint123x128 {
     }
 }
 
+impl From<UFixedPoint123x128> for f64 {
+    fn from(fp: UFixedPoint123x128) -> Self {
+        // Extract integer and fractional parts
+        let integer_part = fp.value.high as f64;
+
+        // Convert fixed-point fractional part back to float
+        // Divide by 2^128 to get the fractional value
+        let fractional_part = fp.value.low as f64 / 2f64.powi(64) / 2f64.powi(64);
+
+        // Combine the parts
+        integer_part + fractional_part
+    }
+}
+
 pub trait StorePacking<T, F> {
     fn pack(value: T) -> F;
     fn unpack(f: F) -> T;
@@ -504,5 +518,26 @@ mod tests {
 
         assert!(actual_low > lower_bound);
         assert!(actual_low < upper_bound);
+    }
+
+    #[test]
+    fn test_conversion_to_f64() {
+        // Test converting several values from f64 to UFixedPoint123x128 and back to f64
+        let test_values = [0.0, 1.0, 1.5, std::f64::consts::PI, 5.0 / 3.0, 123.456];
+        
+        for original in test_values.iter() {
+            // Convert to fixed point
+            let fixed = UFixedPoint123x128::from(*original);
+            
+            // Convert back to f64
+            let converted: f64 = fixed.into();
+            
+            println!("Original: {}, Converted: {}, Diff: {}", 
+                     original, converted, (original - converted).abs());
+            
+            // Verify the conversion maintains reasonable precision
+            // Allow small error due to floating point precision limitations
+            assert!((original - converted).abs() < 1e-10);
+        }
     }
 }

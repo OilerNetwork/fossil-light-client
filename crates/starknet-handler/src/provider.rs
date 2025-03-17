@@ -165,6 +165,29 @@ impl StarknetProvider {
             block_hash,
         })
     }
+
+    pub async fn get_avg_fees_in_range(
+        &self,
+        l2_store_address: &str,
+        start_timestamp: u64,
+        end_timestamp: u64,
+    ) -> Result<Vec<Felt>> {
+        let entry_point_selector = selector!("get_avg_fees_in_range");
+
+        let data = self
+            .provider
+            .call(
+                FunctionCall {
+                    contract_address: Felt::from_hex(l2_store_address)?,
+                    entry_point_selector,
+                    calldata: vec![Felt::from(start_timestamp), Felt::from(end_timestamp)],
+                },
+                BlockId::Tag(BlockTag::Latest),
+            )
+            .await?;
+
+        Ok(data)
+    }
 }
 
 #[cfg(test)]
