@@ -15,7 +15,6 @@ openzeppelin_access.workspace = true
 [dev-dependencies]
 snforge_std.workspace = true
 assert_macros.workspace = true
-# cairo_test.workspace = true
 
 [tool]
 fmt.workspace = true
