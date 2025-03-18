@@ -129,8 +129,13 @@ impl LightClient {
                     warn!(
                         error = %e,
                         retry_in = ?backoff,
-                        "Failed to get latest block number, retrying..."
+                        "Failed to get latest block number, recreating provider and retrying..."
                     );
+
+                    // Recreate the provider on each retry
+                    let rpc_url = self.starknet_provider.rpc_url().to_string();
+                    self.starknet_provider = StarknetProvider::new(&rpc_url)
+                        .wrap_err("Failed to recreate Starknet provider")?;
 
                     tokio::time::sleep(backoff).await;
                     attempt += 1;
