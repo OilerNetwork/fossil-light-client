@@ -144,6 +144,29 @@ impl LightClient {
         };
         info!("latest_block: {}", latest_block);
 
+        // Get the latest relayed block and MMR block to check for reprocessing
+        let latest_relayed_block = self
+            .starknet_provider
+            .get_latest_relayed_block(&self.l2_store_addr)
+            .await
+            .wrap_err("Failed to get latest relayed block from Starknet")?;
+
+        let latest_mmr_block = self
+            .starknet_provider
+            .get_latest_mmr_block(&self.l2_store_addr)
+            .await
+            .wrap_err("Failed to get latest MMR block from Starknet")?;
+
+        // Skip processing if the latest relayed block has already been processed in MMR
+        if latest_relayed_block.block_number <= latest_mmr_block {
+            debug!(
+                latest_relayed_block = latest_relayed_block.block_number,
+                latest_mmr_block,
+                "Skipping processing as block has already been processed in MMR"
+            );
+            return Ok(());
+        }
+
         // Don't process if we're already caught up with events
         if self.latest_processed_events_block >= latest_block {
             return Ok(());
