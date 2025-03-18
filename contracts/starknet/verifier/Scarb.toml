@@ -13,7 +13,7 @@ openzeppelin_upgrades.workspace = true
 openzeppelin_access.workspace = true
 
 [dev-dependencies]
-snforge_std.workspace = true
+snforge_std = "0.37.0"
 assert_macros.workspace = true
 
 [tool]

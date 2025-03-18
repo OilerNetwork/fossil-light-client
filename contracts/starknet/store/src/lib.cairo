@@ -26,7 +26,7 @@ pub trait IFossilStore<TContractState> {
     fn get_data_points_and_avg_fee(self: @TContractState, timestamp: u64) -> (u64, felt252);
     fn get_avg_fees_in_range(
         self: @TContractState, start_timestamp: u64, end_timestamp: u64,
-    ) -> Array<felt252>;
+    ) -> (u64, u64, Array<felt252>);
     fn upgrade(ref self: TContractState, new_class_hash: starknet::ClassHash);
 }
 
@@ -366,7 +366,7 @@ pub mod Store {
 
         fn get_avg_fees_in_range(
             self: @ContractState, start_timestamp: u64, end_timestamp: u64,
-        ) -> Array<felt252> {
+        ) -> (u64, u64, Array<felt252>) {
             assert!(
                 start_timestamp <= end_timestamp,
                 "Start timestamp must be less than or equal to end timestamp",
@@ -380,16 +380,27 @@ pub mod Store {
             );
 
             let mut fees: Array<felt252> = array![];
+            let mut first_timestamp: u64 = 0;
+            let mut last_timestamp: u64 = 0;
 
             let mut i = start_timestamp;
             while i <= end_timestamp {
                 let (data_points, avg_fee) = self.get_data_points_and_avg_fee(i);
                 if data_points >= MIN_FEES_DATA_POINTS && avg_fee != 0 {
                     fees.append(avg_fee);
+
+                    // If this is the first valid fee we've found, set first_timestamp
+                    if first_timestamp == 0 {
+                        first_timestamp = i;
+                    }
+
+                    // Always update last_timestamp when we find a valid fee
+                    last_timestamp = i;
                 }
                 i += HOUR_IN_SECONDS;
             };
-            fees
+
+            (first_timestamp, last_timestamp, fees)
         }
 
         fn upgrade(ref self: ContractState, new_class_hash: starknet::ClassHash) {
