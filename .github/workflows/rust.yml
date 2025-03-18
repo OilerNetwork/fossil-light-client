@@ -55,8 +55,11 @@ jobs:
       - name: Install RISC Zero toolchain
         run: |
           curl -L https://risczero.com/install | bash
-          export PATH="$HOME/.risc0/bin:$PATH"  
+          export PATH="$HOME/.risc0/bin:$PATH"
           rzup install
+
+      - name: Override Rust toolchain
+        run: rustup override set stable
 
       - name: Build
         run: cargo build --verbose
@@ -75,8 +78,11 @@ jobs:
       - name: Install RISC Zero toolchain
         run: |
           curl -L https://risczero.com/install | bash
-          export PATH="$HOME/.risc0/bin:$PATH"  
+          export PATH="$HOME/.risc0/bin:$PATH"
           rzup install
+
+      - name: Override Rust toolchain
+        run: rustup override set stable
 
       - name: Run tests
         env:
