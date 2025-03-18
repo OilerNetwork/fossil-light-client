@@ -215,7 +215,18 @@ impl<'a> BatchProcessor<'a> {
                 expected_hash, last_header.block_hash
             );
 
-            if last_header.block_hash != *expected_hash {
+            // Normalize both hashes by stripping '0x' prefix and leading zeros
+            let normalized_expected = expected_hash
+                .strip_prefix("0x")
+                .unwrap_or(expected_hash)
+                .trim_start_matches('0');
+            let normalized_actual = last_header
+                .block_hash
+                .strip_prefix("0x")
+                .unwrap_or(&last_header.block_hash)
+                .trim_start_matches('0');
+
+            if normalized_actual != normalized_expected {
                 return Err(eyre!(
                     "Latest block hash mismatch: expected {}, got {}",
                     expected_hash,
