@@ -7,7 +7,7 @@ use starknet::{
 };
 use starknet_handler::provider::{LatestRelayBlock, StarknetProvider};
 use tokio::time::Duration;
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, error, info, instrument, warn};
 
 #[cfg(test)]
 use mockall::automock;
@@ -104,12 +104,39 @@ impl LightClient {
     /// Processes new events from the Starknet store contract.
     pub async fn process_new_events(&mut self) -> Result<()> {
         // Get the latest block number
-        let latest_block = self
-            .starknet_provider
-            .provider()
-            .block_number()
-            .await
-            .wrap_err("Failed to get latest block number from Starknet")?;
+        const MAX_RETRIES: u32 = 3;
+        const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
+        let mut attempt = 0;
+
+        let latest_block = loop {
+            debug!(
+                attempt = attempt + 1,
+                "Fetching latest block number from Starknet"
+            );
+
+            match self.starknet_provider.provider().block_number().await {
+                Ok(block) => break block,
+                Err(e) => {
+                    if attempt >= MAX_RETRIES {
+                        return Err(eyre!(
+                            "Failed to get latest block number from Starknet after {} attempts: {}",
+                            MAX_RETRIES,
+                            e
+                        ));
+                    }
+
+                    let backoff = INITIAL_BACKOFF * 2u32.pow(attempt);
+                    warn!(
+                        error = %e,
+                        retry_in = ?backoff,
+                        "Failed to get latest block number, retrying..."
+                    );
+
+                    tokio::time::sleep(backoff).await;
+                    attempt += 1;
+                }
+            }
+        };
         info!("latest_block: {}", latest_block);
 
         // Don't process if we're already caught up with events
