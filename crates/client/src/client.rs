@@ -104,7 +104,7 @@ impl LightClient {
     /// Processes new events from the Starknet store contract.
     pub async fn process_new_events(&mut self) -> Result<()> {
         let latest_block = self.get_latest_block_with_retry().await?;
-        info!("latest_block: {}", latest_block);
+        info!("Block {}", latest_block);
 
         if self.should_skip_processing(latest_block).await? {
             return Ok(());
@@ -114,7 +114,7 @@ impl LightClient {
         let events = self.fetch_events(from_block, to_block).await?;
 
         if !events.events.is_empty() {
-            info!(event_count = events.events.len(), "Processing new events");
+            info!("Found {} events", events.events.len());
             self.handle_events().await?;
         }
 
@@ -279,10 +279,8 @@ impl LightClient {
         latest_relayed_block_and_hash: LatestRelayBlock,
     ) -> Result<()> {
         info!(
-            "Starting MMR update: latest_mmr_block={}, latest_relayed_block_and_hash=({}, {})",
-            latest_mmr_block,
-            latest_relayed_block_and_hash.block_number,
-            latest_relayed_block_and_hash.block_hash,
+            "MMR update: {} -> {}",
+            latest_mmr_block, latest_relayed_block_and_hash.block_number,
         );
 
         let start_block = latest_mmr_block + 1;
@@ -314,7 +312,7 @@ impl LightClient {
 
     pub async fn run(&mut self) -> Result<()> {
         info!(
-            "Listening for events from block {} with polling interval {} seconds",
+            "Starting from block {} (poll: {}s)",
             self.latest_processed_events_block + 1,
             self.polling_interval.as_secs()
         );
