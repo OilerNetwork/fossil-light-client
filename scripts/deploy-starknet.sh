@@ -113,7 +113,9 @@ else
 fi
 
 # Now deploy Starknet contracts
-cd "$STARKNET_DIR"
+# cd "$STARKNET_DIR"
+
+echo current directory: $(pwd)
 
 echo -e "\n${BLUE}${BOLD}Deploying Starknet contracts...${NC}"
 # Declare and deploy Fossil Store contract

@@ -104,7 +104,7 @@ impl LightClient {
     /// Processes new events from the Starknet store contract.
     pub async fn process_new_events(&mut self) -> Result<()> {
         let latest_block = self.get_latest_block_with_retry().await?;
-        info!("Block {}", latest_block);
+        debug!("Block {}", latest_block);
 
         if self.should_skip_processing(latest_block).await? {
             return Ok(());
@@ -114,7 +114,7 @@ impl LightClient {
         let events = self.fetch_events(from_block, to_block).await?;
 
         if !events.events.is_empty() {
-            info!("Found {} events", events.events.len());
+            info!("Processing {} events", events.events.len());
             self.handle_events().await?;
         }
 
@@ -131,17 +131,14 @@ impl LightClient {
         let mut attempt = 0;
 
         loop {
-            debug!(
-                attempt = attempt + 1,
-                "Fetching latest block number from Starknet"
-            );
+            debug!(attempt = attempt + 1, "Fetching block number");
 
             match self.starknet_provider.provider().block_number().await {
                 Ok(block) => break Ok(block),
                 Err(e) => {
                     if attempt >= MAX_RETRIES {
                         break Err(eyre!(
-                            "Failed to get latest block number from Starknet after {} attempts: {}",
+                            "Failed to get block number after {} attempts: {}",
                             MAX_RETRIES,
                             e
                         ));
@@ -151,7 +148,7 @@ impl LightClient {
                     warn!(
                         error = %e,
                         retry_in = ?backoff,
-                        "Failed to get latest block number, recreating provider and retrying..."
+                        "Retrying block number fetch..."
                     );
 
                     // Recreate the provider on each retry
@@ -184,8 +181,8 @@ impl LightClient {
         // Skip processing if the latest relayed block has already been processed in MMR
         if latest_relayed_block.block_number <= latest_mmr_block {
             debug!(
-                latest_relayed_block = latest_relayed_block.block_number,
-                latest_mmr_block, "Skipping processing as block has already been processed in MMR"
+                "Block {} already processed",
+                latest_relayed_block.block_number
             );
             return Ok(true);
         }
@@ -278,18 +275,15 @@ impl LightClient {
         latest_mmr_block: u64,
         latest_relayed_block_and_hash: LatestRelayBlock,
     ) -> Result<()> {
-        info!(
-            "MMR update: {} -> {}",
-            latest_mmr_block, latest_relayed_block_and_hash.block_number,
-        );
-
         let start_block = latest_mmr_block + 1;
         let end_block = latest_relayed_block_and_hash.block_number;
 
         if start_block > end_block {
-            debug!("No new blocks to process for MMR update");
+            debug!("No new blocks to process");
             return Ok(());
         }
+
+        info!("Updating MMR: {} -> {}", start_block, end_block);
 
         // Call the publisher function directly with all required parameters
         let _result = publisher::api::operations::update_mmr(
