@@ -101,6 +101,31 @@ impl LightClient {
         })
     }
 
+    /// Gets the latest relayed block number from L1
+    pub async fn get_latest_relayed_block_number(&self) -> Result<u64> {
+        let latest_relayed_block = self
+            .starknet_provider
+            .get_latest_relayed_block(&self.l2_store_addr)
+            .await
+            .wrap_err("Failed to get latest relayed block from Starknet")?;
+
+        Ok(latest_relayed_block.block_number)
+    }
+
+    /// Creates a new instance of the light client with default start block
+    pub async fn new_with_default_start(
+        polling_interval: u64,
+        batch_size: u64,
+        blocks_per_run: u64,
+    ) -> Result<Self> {
+        // Create a temporary client to get the latest block
+        let temp_client = Self::new(polling_interval, batch_size, 0, blocks_per_run).await?;
+        let start_block = temp_client.get_latest_relayed_block_number().await? + 1;
+
+        // Create the actual client with the correct start block
+        Self::new(polling_interval, batch_size, start_block, blocks_per_run).await
+    }
+
     /// Processes new events from the Starknet store contract.
     pub async fn process_new_events(&mut self) -> Result<()> {
         let latest_block = self.get_latest_block_with_retry().await?;
