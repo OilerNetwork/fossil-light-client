@@ -1,9 +1,10 @@
+use std::sync::Arc;
+
 use common::get_env_var;
 use eth_rlp_types::BlockHeader;
 use eyre::{eyre, Result};
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
-use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{error, info};
 

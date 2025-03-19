@@ -1,14 +1,15 @@
+use std::{sync::Arc, time::Duration};
+
 use common::felt;
 use eyre::Result;
-use starknet::macros::selector;
 use starknet::{
     accounts::{Account, ExecutionEncoding, SingleOwnerAccount},
     core::{chain_id, codec::Encode, types::ByteArray},
+    macros::selector,
     providers::{jsonrpc::HttpTransport, JsonRpcClient},
     signers::{LocalWallet, SigningKey},
 };
 use starknet_crypto::Felt;
-use std::{sync::Arc, time::Duration};
 use tracing::{debug, info, instrument, warn};
 
 pub struct StarknetAccount {
@@ -118,8 +119,9 @@ impl StarknetAccount {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::str::FromStr;
+
+    use super::*;
 
     // Helper function to create a test provider
     fn create_test_provider() -> Arc<JsonRpcClient<HttpTransport>> {

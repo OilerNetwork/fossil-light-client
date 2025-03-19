@@ -1,9 +1,9 @@
-use num_bigint::BigInt;
-use num_traits::Num;
-use sha2::{Digest, Sha256};
 use std::str::FromStr;
 
 use eyre::{eyre, Result};
+use num_bigint::BigInt;
+use num_traits::Num;
+use sha2::{Digest, Sha256};
 
 pub fn find_peaks(mut elements_count: usize) -> Vec<usize> {
     let mut mountain_elements_count = (1 << bit_length(elements_count)) - 1;

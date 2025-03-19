@@ -1,14 +1,16 @@
+use eyre::Result;
+use guest_types::WorldCoinInput;
+use methods::{MMR_BUILD_ELF, MMR_BUILD_ID, WORLD_COIN_ELF, WORLD_COIN_ID};
 use risc0_zkvm::Receipt;
 use starknet_handler::{
     account::StarknetAccount,
     provider::{LatestRelayBlock, StarknetProvider},
 };
 
-use crate::core::{AccumulatorBuilder, BatchProcessor, MMRStateManager, ProofGenerator};
-use crate::db::DbConnection;
-use eyre::Result;
-use guest_types::WorldCoinInput;
-use methods::{MMR_BUILD_ELF, MMR_BUILD_ID, WORLD_COIN_ELF, WORLD_COIN_ID};
+use crate::{
+    core::{AccumulatorBuilder, BatchProcessor, MMRStateManager, ProofGenerator},
+    db::DbConnection,
+};
 
 pub async fn prove_mmr_update(
     rpc_url: &String,

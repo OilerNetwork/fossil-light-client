@@ -1,7 +1,7 @@
 // use mmr::MMR;
+use std::{fs, path::PathBuf};
+
 use mmr_utils::initialize_mmr;
-use std::fs;
-use std::path::PathBuf;
 
 #[tokio::test]
 async fn test_mmr_proofs() {

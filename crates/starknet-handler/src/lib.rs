@@ -4,8 +4,10 @@ use crypto_bigint::U256 as CryptoBigIntU256;
 pub mod account;
 pub mod provider;
 use eyre::{eyre, Result};
-use starknet::core::codec::{Decode, Encode};
-use starknet::core::types::{ByteArray, U256};
+use starknet::core::{
+    codec::{Decode, Encode},
+    types::{ByteArray, U256},
+};
 use tracing::{debug, instrument};
 
 #[derive(Clone, Debug, Encode, Decode)]

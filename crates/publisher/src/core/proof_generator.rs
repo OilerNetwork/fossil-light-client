@@ -1,3 +1,4 @@
+use eyre::{eyre, Result};
 use garaga_rs::{
     calldata::full_proof_with_hints::groth16::{
         get_groth16_calldata_felt, risc0_utils::get_risc0_vk, Groth16Proof,
@@ -7,12 +8,13 @@ use garaga_rs::{
 use risc0_ethereum_contracts::encode_seal;
 use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, VerifierContext};
 use serde::Deserialize;
-use tokio::task;
-use tokio::time::{sleep, Duration};
+use tokio::{
+    task,
+    time::{sleep, Duration},
+};
 use tracing::{debug, info};
 
 use crate::utils::{Groth16, Stark};
-use eyre::{eyre, Result};
 
 const MAX_RETRIES: u32 = 3;
 const INITIAL_RETRY_DELAY_MS: u64 = 1000;
@@ -210,8 +212,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use serde::{Deserialize, Serialize};
+
+    use super::*;
 
     // Mock data structure for testing
     #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -261,36 +264,34 @@ mod tests {
     // of the RISC Zero prover and related components. Here's a sketch of how that
     // might look with proper mocking:
 
-    /*
-    #[tokio::test]
-    async fn test_generate_stark_proof_success() {
-        // Would need to mock:
-        // - ExecutorEnv
-        // - default_prover
-        // - compute_image_id
-
-        let generator = ProofGenerator::<TestInput>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
-        let input = TestInput { value: 42 };
-        let result = generator.generate_stark_proof(input).await;
-        assert!(result.is_ok());
-    }
-
-    #[tokio::test]
-    async fn test_generate_groth16_proof_success() {
-        // Would need to mock:
-        // - ExecutorEnv
-        // - default_prover
-        // - compute_image_id
-        // - encode_seal
-        // - Groth16Proof conversion
-        // - get_groth16_calldata_felt
-
-        let generator = ProofGenerator::<TestInput>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
-        let input = TestInput { value: 42 };
-        let result = generator.generate_groth16_proof(input).await;
-        assert!(result.is_ok());
-    }
-    */
+    // #[tokio::test]
+    // async fn test_generate_stark_proof_success() {
+    // Would need to mock:
+    // - ExecutorEnv
+    // - default_prover
+    // - compute_image_id
+    //
+    // let generator = ProofGenerator::<TestInput>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
+    // let input = TestInput { value: 42 };
+    // let result = generator.generate_stark_proof(input).await;
+    // assert!(result.is_ok());
+    // }
+    //
+    // #[tokio::test]
+    // async fn test_generate_groth16_proof_success() {
+    // Would need to mock:
+    // - ExecutorEnv
+    // - default_prover
+    // - compute_image_id
+    // - encode_seal
+    // - Groth16Proof conversion
+    // - get_groth16_calldata_felt
+    //
+    // let generator = ProofGenerator::<TestInput>::new(TEST_METHOD_ELF, TEST_METHOD_ID).unwrap();
+    // let input = TestInput { value: 42 };
+    // let result = generator.generate_groth16_proof(input).await;
+    // assert!(result.is_ok());
+    // }
 
     #[test]
     fn test_decode_journal() {

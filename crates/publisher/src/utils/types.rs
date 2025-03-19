@@ -1,9 +1,8 @@
+use eyre::{eyre, Result};
 use risc0_zkvm::{Journal, Receipt};
 use serde::{Deserialize, Serialize};
 use starknet_crypto::Felt;
 use starknet_handler::MmrState;
-
-use eyre::{eyre, Result};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Groth16 {

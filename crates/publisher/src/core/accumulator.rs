@@ -1,4 +1,3 @@
-use crate::utils::BatchResult;
 use ethereum::get_finalized_block_hash;
 use eyre::{eyre, Result};
 use starknet_crypto::Felt;
@@ -6,6 +5,7 @@ use starknet_handler::provider::{LatestRelayBlock, StarknetProvider};
 use tracing::{debug, error, info, warn};
 
 use super::BatchProcessor;
+use crate::utils::BatchResult;
 
 pub struct AccumulatorBuilder<'a> {
     starknet_rpc_url: &'a String,
@@ -426,17 +426,14 @@ impl<'a> AccumulatorBuilder<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::core::{MMRStateManager, ProofGenerator};
+    use std::{env, sync::Arc};
+
+    use mockall::{mock, predicate::*};
+    use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient, Url};
+    use starknet_handler::account::StarknetAccount;
 
     use super::*;
-    use mockall::mock;
-    use mockall::predicate::*;
-    use starknet::providers::jsonrpc::HttpTransport;
-    use starknet::providers::JsonRpcClient;
-    use starknet::providers::Url;
-    use starknet_handler::account::StarknetAccount;
-    use std::env;
-    use std::sync::Arc;
+    use crate::core::{MMRStateManager, ProofGenerator};
 
     // Setup test environment variables
     fn setup_test_env() {

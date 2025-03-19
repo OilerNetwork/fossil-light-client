@@ -9,5 +9,4 @@ pub mod core;
 pub mod db;
 pub mod utils;
 
-pub use api::operations::prove_mmr_update;
-pub use api::operations::verify_single_block_header;
+pub use api::operations::{prove_mmr_update, verify_single_block_header};

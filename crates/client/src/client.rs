@@ -1,5 +1,7 @@
 use common::get_env_var;
 use eyre::{eyre, Result, WrapErr};
+#[cfg(test)]
+use mockall::automock;
 use starknet::{
     core::types::{BlockId, EventFilter, Felt},
     macros::selector,
@@ -8,9 +10,6 @@ use starknet::{
 use starknet_handler::provider::{LatestRelayBlock, StarknetProvider};
 use tokio::time::Duration;
 use tracing::{debug, error, info, instrument, warn};
-
-#[cfg(test)]
-use mockall::automock;
 
 #[cfg(test)]
 #[automock]
@@ -417,8 +416,9 @@ impl LightClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::tempdir;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_lightclient_new_valid_inputs() {

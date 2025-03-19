@@ -1,19 +1,18 @@
-use num_traits::ToPrimitive;
-use starknet::core::types::U256;
-use starknet::providers::Provider;
 use std::sync::Arc;
-use tracing::{debug, info, instrument, warn};
 
-use crate::MmrSnapshot;
 use eyre::Result;
-use starknet::macros::selector;
+use num_traits::ToPrimitive;
 use starknet::{
     core::{
         codec::Decode,
-        types::{BlockId, BlockTag, FunctionCall},
+        types::{BlockId, BlockTag, FunctionCall, U256},
     },
-    providers::{jsonrpc::HttpTransport, JsonRpcClient, Url},
+    macros::selector,
+    providers::{jsonrpc::HttpTransport, JsonRpcClient, Provider, Url},
 };
+use tracing::{debug, info, instrument, warn};
+
+use crate::MmrSnapshot;
 
 #[derive(Clone, Debug)]
 pub struct LatestRelayBlock {
@@ -192,10 +191,9 @@ impl StarknetProvider {
 
 #[cfg(test)]
 mod tests {
+    use mockall::{mock, predicate, predicate::*};
+
     use super::*;
-    use mockall::mock;
-    use mockall::predicate;
-    use mockall::predicate::*;
     // use std::str::FromStr;
 
     #[test]

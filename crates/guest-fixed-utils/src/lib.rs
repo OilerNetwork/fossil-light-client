@@ -4,6 +4,7 @@
 pub mod avg_fees_rounding_analysis;
 
 use core::convert::TryFrom;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
