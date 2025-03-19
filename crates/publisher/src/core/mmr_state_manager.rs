@@ -1,4 +1,3 @@
-use crate::utils::validate_u256_hex;
 use eyre::{eyre, Result};
 use guest_types::GuestOutput;
 use mmr::MMR;
@@ -6,6 +5,8 @@ use mmr_utils::StoreManager;
 use starknet_handler::{account::StarknetAccount, u256_from_hex, MmrState};
 use store::SqlitePool;
 use tracing::{debug, error, info};
+
+use crate::utils::validate_u256_hex;
 pub struct MMRStateManager<'a> {
     account: StarknetAccount,
     store_address: &'a str,
@@ -237,8 +238,9 @@ impl<'a> MMRStateManager<'a> {
 
     #[cfg(test)]
     pub fn mock() -> Self {
-        use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient, Url};
         use std::sync::Arc;
+
+        use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient, Url};
 
         let provider = Arc::new(JsonRpcClient::new(HttpTransport::new(
             Url::parse("http://localhost:5050").expect("Invalid URL"),
@@ -258,12 +260,14 @@ impl<'a> MMRStateManager<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::sync::Arc;
+
     use mmr_utils::StoreManager;
     use starknet::providers::{jsonrpc::HttpTransport, JsonRpcClient, Url};
     use starknet_handler::account::StarknetAccount;
-    use std::sync::Arc;
     use store::memory::InMemoryStore;
+
+    use super::*;
 
     // Helper function to create test dependencies
     async fn setup_test() -> (MMRStateManager<'static>, StoreManager, MMR, SqlitePool) {

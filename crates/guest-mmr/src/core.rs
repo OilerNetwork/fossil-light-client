@@ -1,11 +1,14 @@
-use eyre::{eyre, Result};
-use guest_types::{AppendResult, GuestProof};
 use std::collections::{HashMap, VecDeque};
 
-use crate::formatting::ProofOptions;
-use crate::helper::{
-    element_index_to_leaf_index, find_peaks, find_siblings, get_peak_info, hasher,
-    leaf_count_to_append_no_merges, leaf_count_to_peaks_count, mmr_size_to_leaf_count,
+use eyre::{eyre, Result};
+use guest_types::{AppendResult, GuestProof};
+
+use crate::{
+    formatting::ProofOptions,
+    helper::{
+        element_index_to_leaf_index, find_peaks, find_siblings, get_peak_info, hasher,
+        leaf_count_to_append_no_merges, leaf_count_to_peaks_count, mmr_size_to_leaf_count,
+    },
 };
 
 #[derive(Debug)]

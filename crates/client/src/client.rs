@@ -1,5 +1,7 @@
 use common::get_env_var;
 use eyre::{eyre, Result, WrapErr};
+#[cfg(test)]
+use mockall::automock;
 use starknet::{
     core::types::{BlockId, EventFilter, Felt},
     macros::selector,
@@ -7,10 +9,7 @@ use starknet::{
 };
 use starknet_handler::provider::{LatestRelayBlock, StarknetProvider};
 use tokio::time::Duration;
-use tracing::{debug, error, info, instrument};
-
-#[cfg(test)]
-use mockall::automock;
+use tracing::{debug, error, info, instrument, warn};
 
 #[cfg(test)]
 #[automock]
@@ -101,23 +100,128 @@ impl LightClient {
         })
     }
 
+    /// Gets the latest relayed block number from L1
+    pub async fn get_latest_relayed_block_number(&self) -> Result<u64> {
+        let latest_relayed_block = self
+            .starknet_provider
+            .get_latest_relayed_block(&self.l2_store_addr)
+            .await
+            .wrap_err("Failed to get latest relayed block from Starknet")?;
+
+        Ok(latest_relayed_block.block_number)
+    }
+
+    /// Creates a new instance of the light client with default start block
+    pub async fn new_with_default_start(
+        polling_interval: u64,
+        batch_size: u64,
+        blocks_per_run: u64,
+    ) -> Result<Self> {
+        // Create a temporary client to get the latest block
+        let temp_client = Self::new(polling_interval, batch_size, 0, blocks_per_run).await?;
+        let start_block = temp_client.get_latest_relayed_block_number().await? + 1;
+
+        // Create the actual client with the correct start block
+        Self::new(polling_interval, batch_size, start_block, blocks_per_run).await
+    }
+
     /// Processes new events from the Starknet store contract.
     pub async fn process_new_events(&mut self) -> Result<()> {
-        // Get the latest block number
-        let latest_block = self
-            .starknet_provider
-            .provider()
-            .block_number()
-            .await
-            .wrap_err("Failed to get latest block number from Starknet")?;
-        info!("latest_block: {}", latest_block);
+        let latest_block = self.get_latest_block_with_retry().await?;
+        debug!("Block {}", latest_block);
 
-        // Don't process if we're already caught up with events
-        if self.latest_processed_events_block >= latest_block {
+        if self.should_skip_processing(latest_block).await? {
             return Ok(());
         }
 
-        // Calculate the to_block based on blocks_per_run
+        let (from_block, to_block) = self.calculate_block_range(latest_block)?;
+        let events = self.fetch_events(from_block, to_block).await?;
+
+        if !events.events.is_empty() {
+            info!("Processing {} events", events.events.len());
+            self.handle_events().await?;
+        }
+
+        // Update the latest processed events block
+        self.latest_processed_events_block = to_block;
+
+        Ok(())
+    }
+
+    /// Gets the latest block number with retry logic
+    async fn get_latest_block_with_retry(&mut self) -> Result<u64> {
+        const MAX_RETRIES: u32 = 3;
+        const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
+        let mut attempt = 0;
+
+        loop {
+            debug!(attempt = attempt + 1, "Fetching block number");
+
+            match self.starknet_provider.provider().block_number().await {
+                Ok(block) => break Ok(block),
+                Err(e) => {
+                    if attempt >= MAX_RETRIES {
+                        break Err(eyre!(
+                            "Failed to get block number after {} attempts: {}",
+                            MAX_RETRIES,
+                            e
+                        ));
+                    }
+
+                    let backoff = INITIAL_BACKOFF * 2u32.pow(attempt);
+                    warn!(
+                        error = %e,
+                        retry_in = ?backoff,
+                        "Retrying block number fetch..."
+                    );
+
+                    // Recreate the provider on each retry
+                    let rpc_url = self.starknet_provider.rpc_url().to_string();
+                    self.starknet_provider = StarknetProvider::new(&rpc_url)
+                        .wrap_err("Failed to recreate Starknet provider")?;
+
+                    tokio::time::sleep(backoff).await;
+                    attempt += 1;
+                }
+            }
+        }
+    }
+
+    /// Checks if processing should be skipped based on block numbers
+    async fn should_skip_processing(&self, latest_block: u64) -> Result<bool> {
+        // Get the latest relayed block and MMR block to check for reprocessing
+        let latest_relayed_block = self
+            .starknet_provider
+            .get_latest_relayed_block(&self.l2_store_addr)
+            .await
+            .wrap_err("Failed to get latest relayed block from Starknet")?;
+
+        let latest_mmr_block = self
+            .starknet_provider
+            .get_latest_mmr_block(&self.l2_store_addr)
+            .await
+            .wrap_err("Failed to get latest MMR block from Starknet")?;
+
+        // Skip processing if the latest relayed block has already been processed in MMR
+        if latest_relayed_block.block_number <= latest_mmr_block {
+            debug!(
+                "Block {} already processed",
+                latest_relayed_block.block_number
+            );
+            return Ok(true);
+        }
+
+        // Don't process if we're already caught up with events
+        if self.latest_processed_events_block >= latest_block {
+            return Ok(true);
+        }
+
+        Ok(false)
+    }
+
+    /// Calculates the block range for event fetching
+    fn calculate_block_range(&self, latest_block: u64) -> Result<(u64, u64)> {
+        let from_block = self.latest_processed_events_block + 1;
         let to_block = if self.blocks_per_run > 0 {
             std::cmp::min(
                 self.latest_processed_events_block + self.blocks_per_run,
@@ -127,17 +231,26 @@ impl LightClient {
             latest_block
         };
 
-        let from_block = self.latest_processed_events_block + 1;
-
         // Add validation to prevent block number regression
         if from_block > to_block {
             error!(
                 from_block,
                 to_block, "Invalid block range: from_block is greater than to_block"
             );
-            return Ok(());
+            return Err(eyre!(
+                "Invalid block range: from_block is greater than to_block"
+            ));
         }
 
+        Ok((from_block, to_block))
+    }
+
+    /// Fetches events from Starknet for the given block range
+    async fn fetch_events(
+        &self,
+        from_block: u64,
+        to_block: u64,
+    ) -> Result<starknet::core::types::EventsPage> {
         let event_filter = EventFilter {
             from_block: Some(BlockId::Number(from_block)),
             to_block: Some(BlockId::Number(to_block)),
@@ -148,23 +261,11 @@ impl LightClient {
             keys: Some(vec![vec![selector!("LatestBlockhashFromL1Stored")]]),
         };
 
-        let events = self
-            .starknet_provider
+        self.starknet_provider
             .provider()
             .get_events(event_filter, None, 1)
             .await
-            .wrap_err("Failed to get events from Starknet provider")?;
-
-        // Update the latest processed events block
-        self.latest_processed_events_block = to_block;
-
-        if !events.events.is_empty() {
-            info!(event_count = events.events.len(), "Processing new events");
-            // Process the events and update MMR
-            self.handle_events().await?;
-        }
-
-        Ok(())
+            .wrap_err("Failed to get events from Starknet provider")
     }
 
     /// Handles the events by updating the MMR and verifying proofs.
@@ -198,20 +299,15 @@ impl LightClient {
         latest_mmr_block: u64,
         latest_relayed_block_and_hash: LatestRelayBlock,
     ) -> Result<()> {
-        info!(
-            "Starting MMR update: latest_mmr_block={}, latest_relayed_block_and_hash=({}, {})",
-            latest_mmr_block,
-            latest_relayed_block_and_hash.block_number,
-            latest_relayed_block_and_hash.block_hash,
-        );
-
         let start_block = latest_mmr_block + 1;
         let end_block = latest_relayed_block_and_hash.block_number;
 
         if start_block > end_block {
-            debug!("No new blocks to process for MMR update");
+            debug!("No new blocks to process");
             return Ok(());
         }
+
+        info!("Updating MMR: {} -> {}", start_block, end_block);
 
         // Call the publisher function directly with all required parameters
         let _result = publisher::api::operations::update_mmr(
@@ -234,7 +330,7 @@ impl LightClient {
 
     pub async fn run(&mut self) -> Result<()> {
         info!(
-            "Listening for events from block {} with polling interval {} seconds",
+            "Starting from block {} (poll: {}s)",
             self.latest_processed_events_block + 1,
             self.polling_interval.as_secs()
         );
@@ -320,8 +416,9 @@ impl LightClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use tempfile::tempdir;
+
+    use super::*;
 
     #[tokio::test]
     async fn test_lightclient_new_valid_inputs() {

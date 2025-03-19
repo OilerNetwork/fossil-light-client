@@ -19,7 +19,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.85.0
           override: true
           components: rustfmt
 
@@ -34,7 +34,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.85.0
           override: true
           components: clippy
 
@@ -49,14 +49,17 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.85.0
           override: true
 
       - name: Install RISC Zero toolchain
         run: |
           curl -L https://risczero.com/install | bash
-          export PATH="$HOME/.risc0/bin:$PATH"  
+          export PATH="$HOME/.risc0/bin:$PATH"
           rzup install
+
+      - name: Override Rust toolchain
+        run: rustup override set 1.85.0
 
       - name: Build
         run: cargo build --verbose
@@ -69,13 +72,13 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.85.0
           override: true
 
       - name: Install RISC Zero toolchain
         run: |
           curl -L https://risczero.com/install | bash
-          export PATH="$HOME/.risc0/bin:$PATH"  
+          export PATH="$HOME/.risc0/bin:$PATH"
           rzup install
 
       - name: Run tests

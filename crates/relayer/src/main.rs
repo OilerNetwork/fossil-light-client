@@ -2,13 +2,15 @@
 
 mod relayer;
 
-use crate::relayer::Relayer;
+use std::time::Duration;
+
 use clap::Parser;
 use common::initialize_logger;
 use eyre::Result;
-use std::time::Duration;
 use tokio::time;
 use tracing::info;
+
+use crate::relayer::Relayer;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]

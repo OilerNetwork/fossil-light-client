@@ -1,6 +1,7 @@
 .DS_Store
-Cargo.lock
-methods/guest/Cargo.lock
+# Removing the Cargo.lock line since we now want to track all lock files
+# Cargo.lock
+# methods/guest/Cargo.lock
 target/
 .env
 

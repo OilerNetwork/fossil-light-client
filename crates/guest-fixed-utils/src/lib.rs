@@ -4,6 +4,7 @@
 pub mod avg_fees_rounding_analysis;
 
 use core::convert::TryFrom;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -524,17 +525,21 @@ mod tests {
     fn test_conversion_to_f64() {
         // Test converting several values from f64 to UFixedPoint123x128 and back to f64
         let test_values = [0.0, 1.0, 1.5, std::f64::consts::PI, 5.0 / 3.0, 123.456];
-        
+
         for original in test_values.iter() {
             // Convert to fixed point
             let fixed = UFixedPoint123x128::from(*original);
-            
+
             // Convert back to f64
             let converted: f64 = fixed.into();
-            
-            println!("Original: {}, Converted: {}, Diff: {}", 
-                     original, converted, (original - converted).abs());
-            
+
+            println!(
+                "Original: {}, Converted: {}, Diff: {}",
+                original,
+                converted,
+                (original - converted).abs()
+            );
+
             // Verify the conversion maintains reasonable precision
             // Allow small error due to floating point precision limitations
             assert!((original - converted).abs() < 1e-10);

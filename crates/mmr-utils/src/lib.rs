@@ -1,9 +1,5 @@
 #![deny(unused_crate_dependencies)]
 
-use eyre::{eyre, Result};
-use hasher::sha2::Sha2Hasher;
-use mmr::MMR;
-use sqlx::{Row, SqlitePool};
 use std::{
     collections::HashMap,
     env,
@@ -11,6 +7,11 @@ use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
+
+use eyre::{eyre, Result};
+use hasher::sha2::Sha2Hasher;
+use mmr::MMR;
+use sqlx::{Row, SqlitePool};
 use store::sqlite::SQLiteStore;
 
 #[allow(dead_code)]

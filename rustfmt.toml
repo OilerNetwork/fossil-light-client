@@ -1,0 +1,32 @@
+# Rustfmt configuration for Fossil Light Client
+# See https://rust-lang.github.io/rustfmt/ for available options
+
+# Basic formatting options
+max_width = 100
+tab_spaces = 4
+hard_tabs = false
+edition = "2021"
+
+# Structure and alignment options
+newline_style = "Unix"
+use_small_heuristics = "Default"
+indent_style = "Block"
+reorder_imports = true
+reorder_modules = true
+imports_granularity = "Crate"
+
+# Code block options
+empty_item_single_line = true
+fn_single_line = false
+where_single_line = false
+struct_lit_single_line = true
+match_block_trailing_comma = false
+
+# Specific code style options
+merge_derives = true
+use_field_init_shorthand = true
+use_try_shorthand = true
+normalize_comments = true
+normalize_doc_attributes = true
+remove_nested_parens = true
+group_imports = "StdExternalCrate" 

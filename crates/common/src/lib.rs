@@ -1,12 +1,13 @@
 #![deny(unused_crate_dependencies)]
 
-use eyre::{eyre, Result};
-use starknet_crypto::Felt;
 use std::{
     fs::{self, OpenOptions},
     path::PathBuf,
     str::FromStr,
 };
+
+use eyre::{eyre, Result};
+use starknet_crypto::Felt;
 
 /// Retrieves an environment variable or returns an error if not set.
 pub fn get_env_var(key: &str) -> Result<String> {
@@ -99,8 +100,9 @@ pub fn get_or_create_db_path(db_name: &str) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::env;
+
+    use super::*;
 
     #[test]
     fn test_get_env_var() {

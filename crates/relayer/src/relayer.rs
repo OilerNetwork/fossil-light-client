@@ -1,10 +1,11 @@
+use std::time::Duration;
+
 use alloy::{
     network::EthereumWallet, primitives::U256, providers::ProviderBuilder,
     signers::local::PrivateKeySigner, sol_types::sol,
 };
 use common::{get_env_var, get_var};
 use eyre::{eyre, Result};
-use std::time::Duration;
 use tracing::info;
 
 sol!(
@@ -99,8 +100,9 @@ use std::env;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use alloy::primitives::U256;
+
+    use super::*;
     // use std::str::FromStr;
 
     fn setup_test_env() {
@@ -413,7 +415,7 @@ mod tests {
 
         // Test invalid hex strings (missing 0x prefix, odd length, invalid characters)
         let test_cases = vec![
-            "0xg234567890123456789012345678901234567890123456789012345678901234", // invalid hex char
+            "0xg234567890123456789012345678901234567890123456789012345678901234", /* invalid hex char */
             "0x12345",                                                            // odd length
             "0x",               // empty hex string
             "not_a_hex_string", // completely invalid
@@ -456,11 +458,11 @@ mod tests {
         // Set up environment with valid private key
         env::set_var(
             "ACCOUNT_PRIVATE_KEY",
-            "0x1234567890123456789012345678901234567890123456789012345678901234", // valid private key
+            "0x1234567890123456789012345678901234567890123456789012345678901234", /* valid private key */
         );
         env::set_var(
             "L2_MSG_PROXY",
-            "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81", // valid Starknet address
+            "0x07187e87432788d2baf02fa2b2582ae4b9aa6055f0c60ee6023eef87adb6bc81", /* valid Starknet address */
         );
 
         let result = Relayer::new().await;

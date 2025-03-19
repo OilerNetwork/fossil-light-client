@@ -1,12 +1,9 @@
 #![deny(unused_crate_dependencies)]
 
+use std::{env, fs, io::Write, path::Path, str};
+
 use dotenv::dotenv;
 use eyre::{eyre, Result};
-use std::env;
-use std::fs;
-use std::io::Write;
-use std::path::Path;
-use std::str;
 use tokio::task;
 use tracing::{info, warn};
 
@@ -205,11 +202,12 @@ impl IpfsManager {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::env;
+
     use tempfile::NamedTempFile;
-    use tokio::fs;
-    use tokio::io::AsyncWriteExt;
+    use tokio::{fs, io::AsyncWriteExt};
+
+    use super::*;
 
     // Setup environment variables for tests
     fn setup_test_env() {

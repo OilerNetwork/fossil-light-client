@@ -54,10 +54,10 @@ fn test_update_store_state_no_weighted_avg_fee() {
     start_cheat_caller_address(dispatcher.contract_address, verifier_address());
     dispatcher.update_store_state(OWNER(), test_journal(), test_avg_fees_1(), IPFS_HASH.clone());
 
-    let timestamp_1 = test_avg_fees_1()[0].timestamp;
+    let timestamp_1 = test_avg_fees_1()[1].timestamp;
     let avg_fee_1: UFixedPoint123x128 = dispatcher.get_avg_fee(*timestamp_1).into();
 
-    assert_eq!(avg_fee_1, (*test_avg_fees_1()[0].avg_fee).into());
+    assert_eq!(avg_fee_1, (*test_avg_fees_1()[1].avg_fee).into());
 
     let mmr_state = dispatcher.get_mmr_state(test_journal().batch_index);
     assert_eq!(mmr_state.batch_index, test_journal().batch_index);
@@ -168,9 +168,9 @@ fn test_get_avg_fee() {
     start_cheat_caller_address(dispatcher.contract_address, verifier_address());
     dispatcher.update_store_state(OWNER(), test_journal(), test_avg_fees_1(), IPFS_HASH.clone());
 
-    let timestamp_1 = test_avg_fees_1()[0].timestamp;
+    let timestamp_1 = test_avg_fees_1()[1].timestamp;
     let avg_fee: UFixedPoint123x128 = dispatcher.get_avg_fee(*timestamp_1).into();
-    assert_eq!(avg_fee, (*test_avg_fees_1()[0].avg_fee).into());
+    assert_eq!(avg_fee, (*test_avg_fees_1()[1].avg_fee).into());
 }
 
 #[test]
@@ -185,14 +185,12 @@ fn test_get_avg_fees_in_range() {
     let start_timestamp = test_avg_fees_1()[0].timestamp;
     let end_timestamp = test_avg_fees_1()[3].timestamp;
 
+    // skip first avg fee and last avg fee because they have less than 200 data points
     let expected_avg_fees = array![
-        *test_avg_fees_1()[0].avg_fee,
-        *test_avg_fees_1()[1].avg_fee,
-        *test_avg_fees_1()[2].avg_fee,
-        *test_avg_fees_1()[3].avg_fee,
+        *test_avg_fees_1()[0].avg_fee, *test_avg_fees_1()[1].avg_fee, *test_avg_fees_1()[2].avg_fee,
     ];
 
-    let avg_fees = dispatcher.get_avg_fees_in_range(*start_timestamp, *end_timestamp);
+    let (_, _, avg_fees) = dispatcher.get_avg_fees_in_range(*start_timestamp, *end_timestamp);
     for i in 0..avg_fees.len() {
         let avg_fee: UFixedPoint123x128 = (*avg_fees[i]).into();
         let expected_avg_fee: UFixedPoint123x128 = (*expected_avg_fees[i]).into();
@@ -283,7 +281,7 @@ fn test_weighted_average_fee_calculation() {
     let packed_avg_fee_1: felt252 = UFixedPoint123x128StorePacking::pack(avg_fee_1);
     let packed_avg_fee_2: felt252 = UFixedPoint123x128StorePacking::pack(avg_fee_2);
     let mut avg_fees = array![
-        verifier::AvgFees { timestamp, avg_fee: packed_avg_fee_1, data_points: 10 },
+        verifier::AvgFees { timestamp, avg_fee: packed_avg_fee_1, data_points: 210 },
         verifier::AvgFees { timestamp, avg_fee: packed_avg_fee_2, data_points: 20 },
     ];
 
@@ -296,11 +294,11 @@ fn test_weighted_average_fee_calculation() {
     );
 
     // 166.226854911280625642308916404954512140970
-    assert_eq!(fee.get_integer(), 166, "Incorrect weighted average calculation");
+    assert_eq!(fee.get_integer(), 108, "Incorrect weighted average integer part calculation");
     assert_eq!(
         fee.get_fractional(),
-        226854911280625642308916404954512140970,
-        "Incorrect weighted average calculation",
+        236718168292826757191912770387317016665,
+        "Incorrect weighted average fractional part calculation",
     );
 }
 

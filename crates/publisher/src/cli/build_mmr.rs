@@ -1,9 +1,9 @@
-use crate::core::AccumulatorBuilder;
-use crate::core::{BatchProcessor, MMRStateManager, ProofGenerator};
 use clap::Parser;
 use common::{get_env_var, initialize_logger};
 use methods::{MMR_BUILD_ELF, MMR_BUILD_ID};
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
+
+use crate::core::{AccumulatorBuilder, BatchProcessor, MMRStateManager, ProofGenerator};
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {

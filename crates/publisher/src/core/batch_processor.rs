@@ -1,6 +1,5 @@
-use crate::core::{MMRStateManager, ProofGenerator};
-use crate::db::DbConnection;
-use crate::utils::BatchResult;
+use std::path::PathBuf;
+
 use common::get_or_create_db_path;
 use eth_rlp_types::BlockHeader;
 use eyre::{eyre, Result};
@@ -8,11 +7,15 @@ use guest_types::{CombinedInput, GuestOutput, MMRInput};
 use ipfs_utils::IpfsManager;
 use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
-use starknet_handler::provider::StarknetProvider;
-use starknet_handler::u256_from_hex;
-use std::path::PathBuf;
+use starknet_handler::{provider::StarknetProvider, u256_from_hex};
 use tracing::{debug, error, info, warn};
 use uuid;
+
+use crate::{
+    core::{MMRStateManager, ProofGenerator},
+    db::DbConnection,
+    utils::BatchResult,
+};
 
 pub struct BatchProcessor<'a> {
     batch_size: u64,
@@ -215,7 +218,18 @@ impl<'a> BatchProcessor<'a> {
                 expected_hash, last_header.block_hash
             );
 
-            if last_header.block_hash != *expected_hash {
+            // Normalize both hashes by stripping '0x' prefix and leading zeros
+            let normalized_expected = expected_hash
+                .strip_prefix("0x")
+                .unwrap_or(expected_hash)
+                .trim_start_matches('0');
+            let normalized_actual = last_header
+                .block_hash
+                .strip_prefix("0x")
+                .unwrap_or(&last_header.block_hash)
+                .trim_start_matches('0');
+
+            if normalized_actual != normalized_expected {
                 return Err(eyre!(
                     "Latest block hash mismatch: expected {}, got {}",
                     expected_hash,
@@ -520,9 +534,11 @@ fn defer_cleanup(path: PathBuf) -> CleanupGuard {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use mockall::mock;
     use std::env;
+
+    use mockall::mock;
+
+    use super::*;
 
     // Setup test environment variables
     fn setup_test_env() {
