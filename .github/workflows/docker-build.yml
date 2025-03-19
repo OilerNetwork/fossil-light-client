@@ -5,12 +5,12 @@ on:
     branches: ['main']
     paths:
       - '**/Cargo.toml'
-      - '**/Cargo.lock'
+      - 'Cargo.lock'
   pull_request:
     branches: ['main']
     paths:
       - '**/Cargo.toml'
-      - '**/Cargo.lock'
+      - 'Cargo.lock'
   # Allow manual trigger
   workflow_dispatch:
 
@@ -18,6 +18,7 @@ env:
   CARGO_TERM_COLOR: always
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
 jobs:
   build-and-push:
@@ -51,11 +52,15 @@ jobs:
         run: |
           chmod +x scripts/build-client-image.sh
           ./scripts/build-client-image.sh
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Build MMR Docker image
         run: |
           chmod +x scripts/build-mmr-image.sh
           ./scripts/build-mmr-image.sh
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
       - name: Tag and push client image
         run: |
