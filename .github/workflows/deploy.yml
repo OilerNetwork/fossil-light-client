@@ -21,12 +21,17 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          echo "Host light-client\n    HostName 3.237.238.67\n    User ubuntu\n    IdentityFile ~/.ssh/id_rsa" > ~/.ssh/config
+          chmod 600 ~/.ssh/config
           ls -la ~/.ssh/
           ssh-keygen -l -f ~/.ssh/id_rsa
 
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
       - name: Deploy to server
         run: |
-          ssh -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
+          sshpass -p "${{ secrets.SSH_PASSWORD }}" ssh -o StrictHostKeyChecking=no light-client '
             cd fossil-light-client && \
             # Get current image hash before pull
             CURRENT_HASH=$(docker inspect ametelnethermind/fossil-client:latest --format "{{.Id}}" 2>/dev/null || echo "") && \
