@@ -1,13 +1,11 @@
 name: Deploy to Server
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types:
+      - completed
     branches: ['main', 'sepolia-deployment']
-    paths:
-      - 'docker-compose.client.yml'
-      - '.env'
-      - '.github/workflows/deploy.yml'
-  workflow_dispatch:
 
 jobs:
   deploy:
