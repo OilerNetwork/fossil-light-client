@@ -6,7 +6,9 @@ on:
     types:
       - completed
     branches: ['main', 'sepolia-deployment']
-
+    # Allow manual trigger
+  workflow_dispatch:
+    
 jobs:
   deploy:
     runs-on: ubuntu-latest
