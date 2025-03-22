@@ -23,9 +23,14 @@ jobs:
           known_hosts: unnecessary
           if_key_exists: replace
 
+      - name: Debug SSH key
+        run: |
+          ls -la ~/.ssh/
+          ssh-keygen -l -f ~/.ssh/id_rsa
+
       - name: Deploy to server
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
+          ssh -v -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} '
             cd fossil-light-client && \
             # Get current image hash before pull
             CURRENT_HASH=$(docker inspect ametelnethermind/fossil-client:latest --format "{{.Id}}" 2>/dev/null || echo "") && \
