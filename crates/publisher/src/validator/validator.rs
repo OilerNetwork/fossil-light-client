@@ -1,6 +1,5 @@
-use crate::db::DbConnection;
-use crate::errors::ValidatorError;
-use crate::{core::ProofGenerator, utils::Stark};
+use std::{collections::HashMap, path::Path};
+
 use common::get_or_create_db_path;
 use guest_types::{BlocksValidityInput, GuestProof, MMRInput};
 use ipfs_utils::IpfsManager;
@@ -8,12 +7,11 @@ use methods::{VALIDATE_BLOCKS_AND_EXTRACT_FEES_ELF, VALIDATE_BLOCKS_AND_EXTRACT_
 use mmr::{PeaksOptions, MMR};
 use mmr_utils::{initialize_mmr, StoreManager};
 use starknet::core::types::U256;
-use starknet_handler::provider::StarknetProvider;
-use starknet_handler::u256_from_hex;
-use std::collections::HashMap;
-use std::path::Path;
+use starknet_handler::{provider::StarknetProvider, u256_from_hex};
 use store::SqlitePool;
 use tracing::{error, info, warn};
+
+use crate::{core::ProofGenerator, db::DbConnection, errors::ValidatorError, utils::Stark};
 
 pub struct ValidatorBuilder<'a> {
     rpc_url: &'a str,
@@ -250,7 +248,7 @@ impl<'a> ValidatorBuilder<'a> {
     ) -> Result<HashMap<u64, (StoreManager, MMR, SqlitePool)>, ValidatorError> {
         let mut mmrs = HashMap::new();
         let provider = StarknetProvider::new(&self.rpc_url)?;
-        let ipfs_manager = IpfsManager::new();
+        let ipfs_manager = IpfsManager::with_endpoint()?;
 
         for header in headers {
             let batch_index = header.number as u64 / self.batch_size;
@@ -415,9 +413,9 @@ impl From<LocalGuestProof> for GuestProof {
 
 #[cfg(test)]
 mod tests {
+    use mockall::{mock, predicate::*};
+
     use super::*;
-    use mockall::mock;
-    use mockall::predicate::*;
 
     // Mock StarknetProvider
     mock! {

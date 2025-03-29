@@ -135,6 +135,78 @@ impl DbConnection {
 
         Ok(temp_to_block_header(temp_header))
     }
+
+    /// Fetches a single block header by block hash
+    pub async fn get_block_header_by_hash(&self, block_hash: &str) -> Result<BlockHeader> {
+        let temp_header = sqlx::query_as!(
+            TempBlockHeader,
+            r#"
+            SELECT block_hash, number, gas_limit, gas_used, nonce, 
+                   transaction_root, receipts_root, state_root, 
+                   base_fee_per_gas, parent_hash, miner, logs_bloom, 
+                   difficulty, totaldifficulty, sha3_uncles, timestamp, 
+                   extra_data, mix_hash, withdrawals_root, 
+                   blob_gas_used, excess_blob_gas, parent_beacon_block_root,
+                   requests_hash
+            FROM public.blockheaders
+            WHERE block_hash = $1
+            "#,
+            block_hash
+        )
+        .fetch_optional(&self.pool)
+        .await?
+        .ok_or_else(|| eyre!("Block header not found for block hash: {}", block_hash))?;
+
+        Ok(temp_to_block_header(temp_header))
+    }
+
+    /// Fetches hourly block headers in a given range
+    pub async fn get_hourly_block_headers_in_range(
+        &self,
+        start_block: u64,
+        end_block: u64,
+    ) -> Result<Vec<BlockHeader>> {
+        if start_block > end_block {
+            return Err(eyre!(
+                "Invalid block range: start block {} is greater than end block {}",
+                start_block,
+                end_block
+            ));
+        }
+
+        // Get the first block of each hour within the range
+        let temp_headers = sqlx::query_as!(
+            TempBlockHeader,
+            r#"
+            WITH hourly_blocks AS (
+                SELECT 
+                    *, 
+                    ROW_NUMBER() OVER (PARTITION BY DATE_TRUNC('hour', TO_TIMESTAMP(timestamp::numeric)) ORDER BY number) as row_num
+                FROM public.blockheaders
+                WHERE number BETWEEN $1 AND $2
+            )
+            SELECT 
+                block_hash, number, gas_limit, gas_used, nonce, 
+                transaction_root, receipts_root, state_root, 
+                base_fee_per_gas, parent_hash, miner, logs_bloom, 
+                difficulty, totaldifficulty, sha3_uncles, timestamp, 
+                extra_data, mix_hash, withdrawals_root, 
+                blob_gas_used, excess_blob_gas, parent_beacon_block_root,
+                requests_hash
+            FROM hourly_blocks
+            WHERE row_num = 1
+            ORDER BY number ASC
+            "#,
+            start_block as i64,
+            end_block as i64
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let headers: Vec<BlockHeader> =
+            temp_headers.into_iter().map(temp_to_block_header).collect();
+        Ok(headers)
+    }
 }
 
 #[derive(Debug, sqlx::FromRow)]
