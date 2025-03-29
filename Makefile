@@ -96,7 +96,7 @@ clippy: ## Run clippy linter with project-specific settings.
 
 .PHONY: lint-codespell
 lint-codespell: ensure-codespell ## Check for spelling mistakes.
-	codespell --skip "*.json"
+	codespell
 
 .PHONY: ensure-codespell
 ensure-codespell:

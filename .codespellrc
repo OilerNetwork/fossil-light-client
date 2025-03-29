@@ -1,0 +1,3 @@
+[codespell]
+skip = .git,target,./crates/storage/libmdbx-rs/mdbx-sys/libmdbx,Cargo.toml,Cargo.lock, */node_modules, */yarn.lock,./contracts/ethereum/lib/forge-std, ./contracts/ethereum/out, 
+ignore-words-list = crate,ser,ratatui

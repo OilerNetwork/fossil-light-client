@@ -26,7 +26,7 @@ interface IStarknetMessaging is IStarknetMessagingEvents {
 
     /**
       Sends a message to an L2 contract.
-      This function is payable, the payed amount is the message fee.
+      This function is payable, the paid amount is the message fee.
 
       Returns the hash of the message and the nonce of the message.
     */
@@ -41,9 +41,10 @@ interface IStarknetMessaging is IStarknetMessagingEvents {
 
       Returns the hash of the message.
     */
-    function consumeMessageFromL2(uint256 fromAddress, uint256[] calldata payload)
-        external
-        returns (bytes32);
+    function consumeMessageFromL2(
+        uint256 fromAddress,
+        uint256[] calldata payload
+    ) external returns (bytes32);
 
     /**
       Starts the cancellation of an L1 to L2 message.

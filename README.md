@@ -351,7 +351,7 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    ```
 
    **Option 2: Faster deployment (build locally first)**
-   To save time during network container bootup, you can build the Starknet contracts locally before running docker-compose:
+   To save time during network container boot-up, you can build the Starknet contracts locally before running docker-compose:
 
    ```bash
    # Build Starknet contracts locally

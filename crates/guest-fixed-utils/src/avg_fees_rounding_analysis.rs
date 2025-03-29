@@ -25,7 +25,7 @@ impl PairedFixture {
                 4064369561.824138,
                 3054256612.6335616,
             ],
-            // Data from Sepolia deployment at Store addrees 0x0563512ed52225b3ec2539343019be98cd8dc7943bfa6464ac425f57c5a58c31
+            // Data from Sepolia deployment at Store address 0x0563512ed52225b3ec2539343019be98cd8dc7943bfa6464ac425f57c5a58c31
             // entrypoint: get_avg_fees_in_range(1739718000, 1739761200)
             onchain_hex: vec![
                 "0x40046e002877a400000000000000000000000000",

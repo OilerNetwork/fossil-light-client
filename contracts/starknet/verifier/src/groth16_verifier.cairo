@@ -65,7 +65,7 @@ mod Risc0Groth16VerifierBN254 {
             msm_calldata.append(2);
             msm_calldata.append(claim_digest.low.into());
             msm_calldata.append(claim_digest.high.into());
-            // Complete with the curve indentifier (0 for BN254):
+            // Complete with the curve identifier (0 for BN254):
             msm_calldata.append(0);
 
             // Call the multi scalar multiplication endpoint on the Garaga ECIP ops contract

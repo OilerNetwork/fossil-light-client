@@ -13,10 +13,10 @@ async fn test_mmr_proofs() {
     let store_path = binding.to_str().unwrap();
     let (store_manager, mmr, pool) = initialize_mmr(store_path).await.unwrap();
 
-    let indexs = vec![1, 2, 4, 5, 8, 9, 11, 12, 16, 17, 19, 20, 23, 24, 26, 27];
+    let indexes = vec![1, 2, 4, 5, 8, 9, 11, 12, 16, 17, 19, 20, 23, 24, 26, 27];
 
     let mut hashes = vec![];
-    for index in indexs.iter() {
+    for index in indexes.iter() {
         let hash = store_manager
             .get_value_for_element_index(&pool, *index)
             .await
@@ -24,7 +24,7 @@ async fn test_mmr_proofs() {
         hashes.push(hash.unwrap());
     }
 
-    for (i, index) in indexs.iter().enumerate() {
+    for (i, index) in indexes.iter().enumerate() {
         let proof = mmr.get_proof(*index, None).await.unwrap();
         let result = mmr
             .verify_proof(proof, hashes[i].clone(), None)
