@@ -24,9 +24,7 @@
 
 - [📋 Table of Contents](#-table-of-contents)
 - [✨ Key Features](#-key-features)
-- [🚀 Quick Start](#-quick-start)
 - [📚 Detailed Documentation](#-detailed-documentation)
-  - [Prerequisites](#prerequisites)
   - [Deployment Options](#deployment-options)
   - [Documentation Setup](#documentation-setup)
 - [🐋 Docker-Based Deployment](#-docker-based-deployment)
@@ -60,51 +58,8 @@
 - 🚀 **Scalable Architecture**: Process Ethereum blocks in batches with MMR accumulation
 - 🛠️ **Flexible Deployment**: Run via Docker or compile manually for development
 
-## 🚀 Quick Start
-
-```bash
-# Clone the repository
-git clone https://github.com/OilerNetwork/fossil-light-client.git
-cd fossil-light-client
-
-# Initialize submodules
-git submodule update --init --recursive
-
-# Start with Docker (recommended)
-cp config/.env.example .env
-cp config/.env.docker.example .env.docker
-
-# Start local devnets and deploy contracts (wait for .env.docker to be updated)
-docker-compose up -d
-
-# Start headers accumulation (wait for the container to finish)
-ENV_FILE=.env.docker NUM_BATCHES=1 docker-compose -f docker-compose.accumulation.yml up -d
-
-# Start the Light Client
-ENV_FILE=.env.docker docker-compose -f docker-compose.client.yml up -d
-
-# Start the Relayer
-ENV_FILE=.env.docker RELAY_TIME_MINUTES=5 docker-compose -f docker-compose.relayer.yml up -d
-```
 
 ## 📚 Detailed Documentation
-
-### Prerequisites
-
-For all deployment methods, you'll need:
-
-1. Clone the repository:
-
-   ```bash
-   git clone https://github.com/OilerNetwork/fossil-light-client.git
-   cd fossil-light-client
-   ```
-
-2. Initialize repository:
-
-   ```bash
-   git submodule update --init --recursive
-   ```
 
 ### Deployment Options
 
@@ -267,7 +222,7 @@ This approach connects to existing Ethereum and Starknet networks:
    ENV_FILE=.env.sepolia docker-compose -f docker-compose.relayer.yml up
    ```
 
-The Docker image `ametelnethermind/fossil-build-mmr:latest` will be automatically pulled from DockerHub, so no local build is required.
+The Docker image will be automatically pulled from DockerHub, so no local build is required.
 
 ### Management Commands
 
@@ -290,44 +245,32 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
 
 ### Manual Prerequisites
 
-1. Install Rust:
+You can install all prerequisites automatically with:
 
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-   ```
+```bash
+make setup
+```
 
-2. Install Starknet Development Toolchain:
+This will install all necessary dependencies:
+- Rust (with nightly toolchain)
+- Foundry for Ethereum development
+- RISC Zero tools
+- Starknet development toolchain (scarb, starknet-foundry, starkli)
+- Platform-specific requirements
 
-   ```bash
-   curl --proto '=https' --tlsv1.2 -sSf https://sh.starkup.dev | sh
+For individual component installation:
 
-   asdf install scarb 2.9.4
+```bash
+# Install only specific components
+make setup-rust         # Install Rust and nightly toolchain
+make setup-foundry      # Install Foundry
+make setup-risc0        # Install RISC Zero
+make setup-starknet     # Install Starknet tools
+make setup-platform     # Install platform-specific dependencies
+make init-repo          # Initialize git submodules
+```
 
-   asdf install starknet-foundry 0.37
-
-   asdf plugin add starkli
-   asdf install starkli latest
-   ```
-
-3. Install Risc0:
-
-   ```bash
-   curl -L https://risczero.com/install | bash && rzup
-   ```
-
-4. Platform-specific requirements:
-   - **For macOS users:**
-
-     ```bash
-     # Install Python toolchain and gettext
-     brew install python
-     brew install gettext
-
-     # Add to ~/.zshrc or ~/.bash_profile:
-     export PATH="/usr/local/opt/python/libexec/bin:$PATH"
-     ```
-
-   - **For Linux users:** No additional requirements
+See the [Makefile](./Makefile) for all available commands.
 
 ### Setup and Execution
 
