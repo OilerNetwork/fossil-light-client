@@ -23,6 +23,7 @@ required-features = ["mmr-benchmark"]
 [dependencies]
 clap = { workspace = true }
 common = { path = "../common" }
+guest-mmr = { path = "../guest-mmr" }
 dotenv = { workspace = true }
 eth-rlp-types = { workspace = true }
 ethereum = { path = "../ethereum" }

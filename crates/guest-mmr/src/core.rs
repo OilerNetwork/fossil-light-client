@@ -1,7 +1,8 @@
 use std::collections::{HashMap, VecDeque};
 
 use eyre::{eyre, Result};
-use guest_types::{AppendResult, GuestProof};
+use guest_types::{AppendResult, GuestMMRProof};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     formatting::ProofOptions,
@@ -11,7 +12,7 @@ use crate::{
     },
 };
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GuestMMR {
     hashes: HashMap<usize, String>,
     elements_count: usize,
@@ -104,7 +105,7 @@ impl GuestMMR {
         ))
     }
 
-    pub fn get_proof(&self, element_index: usize) -> Result<GuestProof> {
+    pub fn get_proof(&self, element_index: usize) -> Result<GuestMMRProof> {
         if element_index == 0 {
             return Err(eyre!("InvalidElementIndex: {}", element_index));
         }
@@ -128,7 +129,7 @@ impl GuestMMR {
             .get(&element_index)
             .ok_or_else(|| eyre!("NoHashFoundForIndex({})", element_index))?;
 
-        Ok(GuestProof {
+        Ok(GuestMMRProof {
             element_index,
             element_hash: element_hash.clone(),
             siblings_hashes,
@@ -139,7 +140,7 @@ impl GuestMMR {
 
     pub fn verify_proof(
         &self,
-        mut proof: GuestProof,
+        mut proof: GuestMMRProof,
         element_value: String,
         options: Option<ProofOptions>,
     ) -> Result<bool> {

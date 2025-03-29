@@ -2858,6 +2858,7 @@ dependencies = [
  "hex",
  "num-bigint",
  "num-traits",
+ "serde",
  "sha2",
 ]
 
@@ -4467,6 +4468,7 @@ dependencies = [
  "ethereum",
  "eyre",
  "garaga_rs",
+ "guest-mmr",
  "guest-types",
  "hasher",
  "ipfs-utils",

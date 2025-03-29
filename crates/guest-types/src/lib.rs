@@ -243,7 +243,7 @@ impl FinalHash {
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct GuestProof {
+pub struct GuestMMRProof {
     pub element_index: usize,
     pub element_hash: String,
     pub siblings_hashes: Vec<String>,
@@ -256,14 +256,14 @@ pub struct BlocksValidityInput {
     chain_id: u64,
     headers: Vec<BlockHeader>,
     mmr_input: MMRInput,
-    proofs: Vec<GuestProof>,
+    proofs: Vec<GuestMMRProof>,
 }
 impl BlocksValidityInput {
     pub const fn new(
         chain_id: u64,
         headers: Vec<BlockHeader>,
         mmr_input: MMRInput,
-        proofs: Vec<GuestProof>,
+        proofs: Vec<GuestMMRProof>,
     ) -> Self {
         Self {
             chain_id,
@@ -281,7 +281,7 @@ impl BlocksValidityInput {
         &self.headers
     }
 
-    pub const fn proofs(&self) -> &Vec<GuestProof> {
+    pub const fn proofs(&self) -> &Vec<GuestMMRProof> {
         &self.proofs
     }
 
@@ -424,7 +424,7 @@ mod tests {
     fn test_blocks_validity_input() {
         let mmr_input = MMRInput::new(vec!["peak1".to_string()], 10, 5, vec!["elem1".to_string()]);
 
-        let guest_proof = GuestProof {
+        let guest_proof = GuestMMRProof {
             element_index: 1,
             element_hash: "hash".to_string(),
             siblings_hashes: vec!["sibling".to_string()],
