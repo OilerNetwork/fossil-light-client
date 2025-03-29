@@ -10,4 +10,4 @@ pub mod core;
 pub mod db;
 pub mod utils;
 
-pub use api::operations::prove_mmr_update;
+pub use api::operations::{get_block_hash_inclusion_proof, prove_mmr_update};

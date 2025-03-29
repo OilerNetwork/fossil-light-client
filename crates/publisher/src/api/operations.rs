@@ -255,7 +255,7 @@ pub async fn get_single_block_hash_proof(
 }
 
 /// Convenience function that returns a serializable proof structure
-pub async fn get_block_hash_proof_serializable(
+pub async fn get_block_hash_inclusion_proof(
     block_hash: String,
     rpc_url: String,
     store_address: String,

@@ -1,13 +1,13 @@
 //! # World Coin Block Header Verification Example
 //!
-//! This example demonstrates how to verify an Ethereum block by its hash using the RISC0 zkVM
+//! This example demonstrates how to verify an Ethereum hash inclusion in Fossil MMR using the RISC0 zkVM
 //! and extract verified block information.
 //!
 //! ## Overview
 //!
 //! This example showcases a complete workflow for verifying an Ethereum block by its hash:
 //!
-//! 1. **API Call (Outside Guest Program)**: The `get_block_hash_proof_serializable` API endpoint
+//! 1. **API Call (Outside Guest Program)**: The `get_block_hash_inclusion_proof` API endpoint
 //!    is called from outside the guest program. This function:
 //!    - Accepts a block hash as input
 //!    - Fetches the MMR state from onchain
@@ -48,7 +48,13 @@
 //! [dependencies]
 //! publisher = { git = "https://github.com/OilerNetwork/fossil-light-client.git", package = "publisher" }
 //! guest-types = { git = "https://github.com/OilerNetwork/fossil-light-client.git", package = "guest-types" }
-//! methods = { git = "https://github.com/OilerNetwork/fossil-light-client.git", package = "methods" }
+//! guest-mmr = { git = "https://github.com/OilerNetwork/fossil-light-client.git", package = "guest-mmr" }
+//! ```
+//!
+//! Then import the necessary function in your code:
+//!
+//! ```rust
+//! use publisher::get_block_hash_inclusion_proof;
 //! ```
 //!
 //! This allows you to integrate Ethereum block hash verification with cryptographic
@@ -56,7 +62,7 @@
 
 use dotenv::dotenv;
 use eyre::{eyre, Result};
-use publisher::api::operations::get_block_hash_proof_serializable;
+use publisher::get_block_hash_inclusion_proof;
 use tracing::info;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
@@ -82,7 +88,8 @@ async fn main() -> Result<()> {
     info!("Starting block hash verification example");
     info!("Verifying block with hash: {}", BLOCK_HASH);
 
-    let proof_response = get_block_hash_proof_serializable(
+    // Get the mmr state and proof outside of the zkVM Guest Program
+    let proof_response = get_block_hash_inclusion_proof(
         BLOCK_HASH.to_string(),
         rpc_url.clone(),
         FOSSIL_STORE.to_string(),
@@ -90,6 +97,9 @@ async fn main() -> Result<()> {
     )
     .await?;
 
+    // Pass BlockHashProofResponse to the zkVM Guest Program
+
+    // Verify the proof inside the zkVM Guest Program
     let proof_verified = proof_response.guest_mmr.verify_proof(
         proof_response.proof.clone(),
         BLOCK_HASH.to_string(),
