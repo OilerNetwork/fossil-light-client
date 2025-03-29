@@ -2,6 +2,7 @@ use std::collections::{HashMap, VecDeque};
 
 use eyre::{eyre, Result};
 use guest_types::{AppendResult, GuestMMRProof};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     formatting::ProofOptions,
@@ -11,7 +12,7 @@ use crate::{
     },
 };
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct GuestMMR {
     hashes: HashMap<usize, String>,
     elements_count: usize,

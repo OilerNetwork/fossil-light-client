@@ -57,8 +57,12 @@
 use dotenv::dotenv;
 use eyre::{eyre, Result};
 use publisher::api::operations::get_block_hash_proof_serializable;
-use tracing::{error, info};
+use tracing::info;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+
+const BATCH_SIZE: u64 = 1024;
+const FOSSIL_STORE: &str = "0x01710d5f515a17943f439c0a5ba4483d44bac0d2b04f5345639c222debc80b2c";
+const BLOCK_HASH: &str = "0x18d9e3002e3b190959a0bf0a97b16b282eaa3fd08c0a72e1b932d31e0255f1be";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -71,51 +75,31 @@ async fn main() -> Result<()> {
     // Load environment variables
     dotenv().ok();
 
-    // The block hash to verify
-    let block_hash =
-        "0x18d9e3002e3b190959a0bf0a97b16b282eaa3fd08c0a72e1b932d31e0255f1be".to_string();
-
     // Configuration from environment variables
     let rpc_url = std::env::var("STARKNET_RPC_URL")
         .map_err(|_| eyre!("STARKNET_RPC_URL environment variable not set"))?;
-    let store_address = std::env::var("STARKNET_STORE_ADDRESS")
-        .map_err(|_| eyre!("STARKNET_STORE_ADDRESS environment variable not set"))?;
-    let batch_size = std::env::var("BATCH_SIZE")
-        .map_err(|_| eyre!("BATCH_SIZE environment variable not set"))?
-        .parse::<u64>()
-        .map_err(|_| eyre!("BATCH_SIZE must be a valid integer"))?;
 
     info!("Starting block hash verification example");
-    info!("Verifying block with hash: {}", block_hash);
+    info!("Verifying block with hash: {}", BLOCK_HASH);
 
-    // Get the proof for the block hash
-    match get_block_hash_proof_serializable(block_hash.clone(), rpc_url, store_address, batch_size)
-        .await
-    {
-        Ok(proof_response) => {
-            // Successfully retrieved the proof
-            info!("Block verification successful!");
-            info!("Batch Index: {}", proof_response.batch_index);
+    let proof_response = get_block_hash_proof_serializable(
+        BLOCK_HASH.to_string(),
+        rpc_url.clone(),
+        FOSSIL_STORE.to_string(),
+        BATCH_SIZE,
+    )
+    .await?;
 
-            let proof = proof_response.proof;
-            info!("Element Index: {}", proof.element_index);
-            info!("Element Hash: {}", proof.element_hash);
-            info!("Number of Siblings: {}", proof.siblings_hashes.len());
-            info!("Number of Peaks: {}", proof.peaks_hashes.len());
+    let proof_verified = proof_response.guest_mmr.verify_proof(
+        proof_response.proof.clone(),
+        BLOCK_HASH.to_string(),
+        None,
+    )?;
 
-            info!("This proof can be used to verify the block's inclusion in the MMR");
-
-            // Example: Verify the proof (this would typically be done in another system)
-            info!("To verify this proof, you would typically:");
-            info!("1. Use the proof to verify against the MMR root");
-            info!("2. Check that the MMR root matches the one stored onchain");
-            info!("3. Confirm the element hash matches the expected block hash");
-        }
-        Err(e) => {
-            error!("Failed to verify block hash: {}", e);
-            return Err(eyre!("Block verification failed: {}", e));
-        }
-    }
+    info!("Proof verified: {}", proof_verified);
+    info!("Batch index: {}", proof_response.batch_index);
+    info!("Guest MMR: {:?}", proof_response.guest_mmr);
+    info!("Proof: {:?}", proof_response.proof);
 
     Ok(())
 }

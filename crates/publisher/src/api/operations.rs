@@ -1,6 +1,7 @@
 use std::path::Path;
 
 use eyre::Result;
+use guest_mmr::{core::GuestMMR, helper::find_peaks};
 use guest_types::GuestMMRProof;
 use methods::{MMR_BUILD_ELF, MMR_BUILD_ID};
 use mmr;
@@ -18,14 +19,16 @@ use crate::{
 // Define a serializable proof structure for API responses
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BlockHashProofResponse {
-    pub proof: GuestMMRProof,
     pub batch_index: u64,
+    pub guest_mmr: GuestMMR,
+    pub proof: GuestMMRProof,
 }
 
-impl From<(mmr::Proof, u64)> for BlockHashProofResponse {
-    fn from(proof_data: (mmr::Proof, u64)) -> Self {
-        let (proof, batch_index) = proof_data;
+impl From<(GuestMMR, mmr::Proof, u64)> for BlockHashProofResponse {
+    fn from(proof_data: (GuestMMR, mmr::Proof, u64)) -> Self {
+        let (guest_mmr, proof, batch_index) = proof_data;
         Self {
+            guest_mmr,
             proof: GuestMMRProof {
                 element_index: proof.element_index,
                 element_hash: proof.element_hash,
@@ -145,7 +148,7 @@ pub async fn get_single_block_hash_proof(
     rpc_url: String,
     store_address: String,
     batch_size: u64,
-) -> Result<(mmr::Proof, u64)> {
+) -> Result<(u64, GuestMMR, mmr::Proof)> {
     tracing::info!("Looking up proof for block hash: {}", block_hash);
 
     // Connect to Starknet
@@ -226,6 +229,10 @@ pub async fn get_single_block_hash_proof(
         ));
     }
 
+    let peaks = mmr
+        .retrieve_peaks_hashes(find_peaks(mmr_elements_count), None)
+        .await?;
+
     tracing::info!("MMR state verification successful");
 
     // Get the element index for the block hash
@@ -233,6 +240,8 @@ pub async fn get_single_block_hash_proof(
         .get_element_index_for_value(&pool, &block_hash)
         .await?
         .ok_or_else(|| eyre::eyre!("Block hash not found in MMR"))?;
+
+    let guest_mmr = GuestMMR::new(peaks, mmr_elements_count, mmr_leaves_count);
 
     // Get the Merkle proof for the block hash
     let proof = mmr.get_proof(element_index, None).await?;
@@ -242,7 +251,7 @@ pub async fn get_single_block_hash_proof(
         block_hash
     );
 
-    Ok((proof, batch_index))
+    Ok((batch_index, guest_mmr, proof))
 }
 
 /// Convenience function that returns a serializable proof structure
@@ -252,7 +261,7 @@ pub async fn get_block_hash_proof_serializable(
     store_address: String,
     batch_size: u64,
 ) -> Result<BlockHashProofResponse> {
-    let (proof, batch_index) =
+    let (batch_index, guest_mmr, proof) =
         get_single_block_hash_proof(block_hash, rpc_url, store_address, batch_size).await?;
 
     // Convert mmr::Proof to GuestMMRProof
@@ -265,8 +274,9 @@ pub async fn get_block_hash_proof_serializable(
     };
 
     Ok(BlockHashProofResponse {
-        proof: guest_proof,
         batch_index,
+        guest_mmr,
+        proof: guest_proof,
     })
 }
 
@@ -329,7 +339,7 @@ mod tests {
         let batch_size = 100;
 
         match get_single_block_hash_proof(block_hash, rpc_url, store_address, batch_size).await {
-            Ok((proof, batch_index)) => {
+            Ok((batch_index, _guest_mmr, proof)) => {
                 println!(
                     "Successfully retrieved proof for batch index: {}",
                     batch_index
