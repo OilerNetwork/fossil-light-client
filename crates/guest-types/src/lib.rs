@@ -115,7 +115,7 @@ impl GuestOutput {
         &self.first_block_parent_hash
     }
 
-    pub fn avg_fees(&self) -> &Vec<(usize, usize, String)> {
+    pub const fn avg_fees(&self) -> &Vec<(usize, usize, String)> {
         &self.avg_fees
     }
 }

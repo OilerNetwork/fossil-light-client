@@ -42,7 +42,7 @@
 - [🛠️ Advanced Topics](#️-advanced-topics)
   - [Building Docker Containers Locally](#building-docker-containers-locally)
   - [Manual Contract Deployment](#manual-contract-deployment)
-    - [Prerequisites](#prerequisites-1)
+    - [Manual Deployment Prerequisites](#manual-deployment-prerequisites)
     - [Deploying the Ethereum Smart Contract](#deploying-the-ethereum-smart-contract)
     - [Deploying the Starknet Smart Contract](#deploying-the-starknet-smart-contract)
   - [Deploying to Sepolia Network](#deploying-to-sepolia-network)
@@ -302,6 +302,7 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    curl --proto '=https' --tlsv1.2 -sSf https://sh.starkup.dev | sh
 
    asdf install scarb 2.9.4
+
    asdf install starknet-foundry 0.37
 
    asdf plugin add starkli
@@ -314,11 +315,7 @@ This setup uses Docker only for networks (Ethereum & StarkNet) and contract depl
    curl -L https://risczero.com/install | bash && rzup
    ```
 
-4. Install IPFS:
-   - Download and install [IPFS Desktop](https://github.com/ipfs/ipfs-desktop/releases)
-   - Ensure IPFS daemon is running before proceeding
-
-5. Platform-specific requirements:
+4. Platform-specific requirements:
    - **For macOS users:**
 
      ```bash
