@@ -20,8 +20,8 @@ checksum = "sha256:f636c02dfcb0fd321cd865c3ef0d5d352c7e27e4e21a2c3ad5836ab0d2511
 
 [[package]]
 name = "garaga"
-version = "0.15.4"
-source = "git+https://github.com/keep-starknet-strange/garaga.git?rev=d23e117#d23e117a8b861488a47bd5530137c366322750d8"
+version = "0.16.0"
+source = "git+https://github.com/keep-starknet-strange/garaga.git?branch=risc0v2#40a2577342e238672f02be3b93272dae803af62b"
 
 [[package]]
 name = "l1_message_proxy"
@@ -63,15 +63,15 @@ checksum = "sha256:fd348b31c4a4407add33adc3c2b8f26dca71dbd7431faaf726168f37a91db
 
 [[package]]
 name = "snforge_scarb_plugin"
-version = "0.37.0"
+version = "0.40.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:9dbb114f853decc27b2d6d53e2ddd207217ce63c2d24a47c5c48d5f475b0b9a5"
+checksum = "sha256:7c3b21f6cdab14fc63e19f9e6789b6a3d44f5618ebcf02d03b397375304e1891"
 
 [[package]]
 name = "snforge_std"
-version = "0.37.0"
+version = "0.40.0"
 source = "registry+https://scarbs.xyz/"
-checksum = "sha256:f5702c4a6d54e3563b4aa78c834de6ddcf18ef8ca8fd35dc1bceb7ece58e9571"
+checksum = "sha256:0221bbe959eec72eb2e30be68df66c4ff5dcd924ec491f285c974e49671fabc0"
 dependencies = [
  "snforge_scarb_plugin",
 ]
