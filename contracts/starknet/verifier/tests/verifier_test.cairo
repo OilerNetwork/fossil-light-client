@@ -3,20 +3,18 @@ use snforge_std::{
     ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
     stop_cheat_caller_address,
 };
+use verifier::decode_journal;
+use verifier::fossil_verifier::{IFossilVerifierDispatcher, IFossilVerifierDispatcherTrait};
+use verifier::groth16_verifier::{
+    IRisc0Groth16VerifierBN254Dispatcher, IRisc0Groth16VerifierBN254DispatcherTrait,
+};
 use super::fixtures::{calldata_default, invalid_proof, test_avg_fees, test_journal};
 
-use verifier::{
-    decode_journal, fossil_verifier::{IFossilVerifierDispatcher, IFossilVerifierDispatcherTrait},
-    groth16_verifier::{
-        IRisc0Groth16VerifierBN254Dispatcher, IRisc0Groth16VerifierBN254DispatcherTrait,
-    },
-};
-
 fn l1_message_proxy_address() -> starknet::ContractAddress {
-    starknet::contract_address_const::<'L1_MSG_SENDER'>()
+    'L1_MSG_SENDER'.try_into().unwrap()
 }
 fn OWNER() -> starknet::ContractAddress {
-    starknet::contract_address_const::<'OWNER'>()
+    'OWNER'.try_into().unwrap()
 }
 
 fn deploy() -> (IRisc0Groth16VerifierBN254Dispatcher, IFossilVerifierDispatcher) {
@@ -123,7 +121,7 @@ fn test_get_fossil_store_address() {
     let (_, verifier) = deploy();
     // We need to get the store address from deployment
     let store_address = verifier.get_fossil_store_address();
-    assert!(store_address != starknet::contract_address_const::<0>());
+    assert!(store_address != 0.try_into().unwrap());
 }
 
 #[test]

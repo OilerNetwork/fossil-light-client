@@ -1,4 +1,4 @@
-use garaga::definitions::{G1Point};
+use garaga::definitions::G1Point;
 use garaga::ec_ops::{DerivePointFromXHint, MSMHint, MSMHintSmallScalar};
 
 #[starknet::interface]
@@ -26,7 +26,7 @@ trait IUniversalECIP<TContractState> {
 
 #[starknet::contract]
 mod UniversalECIP {
-    use garaga::definitions::{G1Point};
+    use garaga::definitions::G1Point;
     use garaga::ec_ops::{DerivePointFromXHint, MSMHint, MSMHintSmallScalar, msm_g1, msm_g1_u128};
 
     #[storage]
