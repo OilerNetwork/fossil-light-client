@@ -5,16 +5,16 @@ use super::fixtures::{test_avg_fees_1, test_avg_fees_2, test_journal};
 
 
 fn verifier_address() -> starknet::ContractAddress {
-    starknet::contract_address_const::<'VERIFIER_ADDRESS'>()
+    'VERIFIER_ADDRESS'.try_into().unwrap()
 }
 
 fn l1_message_proxy_address() -> starknet::ContractAddress {
-    starknet::contract_address_const::<'L1_MESSAGE_PROXY_ADDRESS'>()
+    'L1_MESSAGE_PROXY_ADDRESS'.try_into().unwrap()
 }
 
 const MIN_UPDATE_INTERVAL: u64 = 10;
 fn OWNER() -> starknet::ContractAddress {
-    starknet::contract_address_const::<'OWNER'>()
+    'OWNER'.try_into().unwrap()
 }
 
 

@@ -13,7 +13,7 @@ openzeppelin_upgrades.workspace = true
 
 [dev-dependencies]
 assert_macros.workspace = true
-snforge_std = "0.37.0"
+snforge_std.workspace = true
 
 [[target.starknet-contract]]
 sierra = true

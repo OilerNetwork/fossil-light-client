@@ -81,6 +81,7 @@ mod FossilVerifier {
         fn verify_mmr_proof(
             ref self: ContractState, mut proof: Span<felt252>, ipfs_hash: ByteArray, is_build: bool,
         ) -> bool {
+            println!("verify_mmr_proof");
             let _ = proof.pop_front();
             let journal = self
                 .bn254_verifier
@@ -94,11 +95,11 @@ mod FossilVerifier {
 
             if is_build {
                 let batch_link = fossil_store.get_batch_last_block_link(journal.batch_index);
-                // If the batch link is zero, it means that the batch is the first batch, and we
-                // don't need to check the batch link
-                if !batch_link.is_zero() {
-                    assert!(batch_link == journal.latest_mmr_block_hash, "Batch link mismatch");
-                }
+                // If the batch link is non-zero, verify that it matches the latest MMR block hash
+                assert!(
+                    batch_link.is_zero() || batch_link == journal.latest_mmr_block_hash,
+                    "Batch link mismatch",
+                );
             } else {
                 let current_batch_state = fossil_store.get_mmr_state(journal.batch_index);
                 let mut batch_link = 0;

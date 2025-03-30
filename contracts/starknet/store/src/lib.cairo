@@ -32,12 +32,12 @@ pub trait IFossilStore<TContractState> {
 
 #[starknet::contract]
 pub mod Store {
-    use core::starknet::storage::{
-        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
-    };
     use fp::{UFixedPoint123x128, UFixedPoint123x128Impl, UFixedPoint123x128StorePacking};
     use openzeppelin_access::ownable::OwnableComponent;
     use openzeppelin_upgrades::UpgradeableComponent;
+    use starknet::storage::{
+        Map, StoragePathEntry, StoragePointerReadAccess, StoragePointerWriteAccess,
+    };
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: UpgradeableComponent, storage: upgradeable, event: UpgradeableEvent);
@@ -281,7 +281,7 @@ pub mod Store {
                             },
                         );
                 }
-            };
+            }
 
             // Emit MMR state update event
             self
@@ -398,7 +398,7 @@ pub mod Store {
                     last_timestamp = i;
                 }
                 i += HOUR_IN_SECONDS;
-            };
+            }
 
             (first_timestamp, last_timestamp, fees)
         }
