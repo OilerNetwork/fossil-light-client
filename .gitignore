@@ -48,3 +48,4 @@ docs/.docusaurus/
 changes.diff
 config/keystore
 config/sepolia-account
+config/devnet-account
