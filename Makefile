@@ -3,18 +3,26 @@
 ##@ Build
 
 .PHONY: build
-build: ## Build the project in release mode.
-	cargo build --release
+build: ## Build Rust code in release mode.
+	cargo build --release 
 
 .PHONY: build-debug
-build-debug: ## Build the project in debug mode.
+build-debug: ## Build Rust code in debug mode.
 	cargo build
+
+.PHONY: build-cairo
+build-cairo: ## Build Cairo code.
+	scarb build
 
 ##@ Test
 
 .PHONY: test
-test: ## Run all tests.
+test: ## Test Rust code.
 	cargo test --workspace --all-features
+
+.PHONY: test-cairo
+test-cairo: ## Test Cairo code with snforge.
+	snforge test
 
 ##@ Linting
 
@@ -100,20 +108,40 @@ lint-codespell: ensure-codespell ## Check for spelling mistakes.
 
 .PHONY: ensure-codespell
 ensure-codespell:
-	@if ! command -v codespell &> /dev/null; then \
-		echo "codespell not found. Please install it with 'pip install codespell'" >&2; \
-		exit 1; \
+	@if ! which codespell >/dev/null 2>&1; then \
+		echo "codespell not found. Installing codespell..."; \
+		if [ "$$(uname)" = "Darwin" ]; then \
+			pip install codespell; \
+		else \
+			if command -v apt &> /dev/null; then \
+				sudo apt-get update && (sudo apt-get install -y codespell || python3 -m pip install --user codespell); \
+			elif command -v dnf &> /dev/null; then \
+				sudo dnf install -y codespell || python3 -m pip install --user codespell; \
+			elif command -v pacman &> /dev/null; then \
+				sudo pacman -S --noconfirm codespell || python3 -m pip install --user codespell; \
+			else \
+				python3 -m pip install --user codespell; \
+			fi; \
+		fi; \
+	else \
+		echo "✅ codespell already installed"; \
 	fi
 
 .PHONY: lint
-lint: fmt clippy lint-codespell ## Run all linters.
+lint: fmt clippy lint-codespell fmt-cairo ## Run all linters.
+
+.PHONY: fmt-cairo
+fmt-cairo: ## Format Cairo code with scarb fmt.
+	scarb fmt
 
 ##@ Pull Request
 
 .PHONY: pr
 pr: ## Prepare code for a pull request.
 	make lint && \
-	make test
+	make test && \
+	make fmt-cairo && \
+	make test-cairo
 
 ##@ Help
 

@@ -18,38 +18,6 @@
 
 </div>
 
-<hr />
-
-## 📋 Table of Contents
-
-- [📋 Table of Contents](#-table-of-contents)
-- [✨ Key Features](#-key-features)
-- [📚 Detailed Documentation](#-detailed-documentation)
-  - [Deployment Options](#deployment-options)
-  - [Documentation Setup](#documentation-setup)
-- [🐋 Docker-Based Deployment](#-docker-based-deployment)
-  - [Docker Prerequisites](#docker-prerequisites)
-  - [Docker Deployment Options](#docker-deployment-options)
-    - [Option 1: Using Local Development Network](#option-1-using-local-development-network)
-    - [Option 2: Using Production Networks](#option-2-using-production-networks)
-  - [Management Commands](#management-commands)
-- [🔧 Manual Compilation and Execution](#-manual-compilation-and-execution)
-  - [Manual Prerequisites](#manual-prerequisites)
-  - [Setup and Execution](#setup-and-execution)
-  - [Block Range Selection for Fee State Proofs](#block-range-selection-for-fee-state-proofs)
-- [🛠️ Advanced Topics](#️-advanced-topics)
-  - [Building Docker Containers Locally](#building-docker-containers-locally)
-  - [Manual Contract Deployment](#manual-contract-deployment)
-    - [Manual Deployment Prerequisites](#manual-deployment-prerequisites)
-    - [Deploying the Ethereum Smart Contract](#deploying-the-ethereum-smart-contract)
-    - [Deploying the Starknet Smart Contract](#deploying-the-starknet-smart-contract)
-  - [Deploying to Sepolia Network](#deploying-to-sepolia-network)
-- [❓ Troubleshooting](#-troubleshooting)
-  - [Docker Issues](#docker-issues)
-  - [Common Issues](#common-issues)
-
-<hr />
-
 ## ✨ Key Features
 
 - 🔗 **Cross-Chain Communication**: Securely relay Ethereum block hashes to Starknet
