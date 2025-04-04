@@ -14,7 +14,7 @@
 [![Starknet](https://img.shields.io/badge/Starknet-Powered-purple?style=flat)](https://starknet.io/)
 [![RISC Zero](https://img.shields.io/badge/RISC_Zero-ZK_Proofs-orange?style=flat)](https://www.risczero.com/)
 
-**A lightweight Ethereum client for Starknet with ZK-powered fee state proofs**
+## A lightweight Ethereum client for Starknet with ZK-powered fee state proofs
 
 </div>
 
@@ -25,7 +25,6 @@
 - 📊 **Fee State Proofs**: Generate and verify cryptographic proofs of Ethereum gas fees
 - 🚀 **Scalable Architecture**: Process Ethereum blocks in batches with MMR accumulation
 - 🛠️ **Flexible Deployment**: Run via Docker or compile manually for development
-
 
 ## 📚 Detailed Documentation
 
@@ -220,6 +219,7 @@ make setup
 ```
 
 This will install all necessary dependencies:
+
 - Rust (with nightly toolchain)
 - Foundry for Ethereum development
 - RISC Zero tools

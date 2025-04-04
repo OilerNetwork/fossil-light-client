@@ -1,6 +1,8 @@
 #![deny(unused_crate_dependencies)]
 
 use crypto_bigint::U256 as CryptoBigIntU256;
+#[cfg(test)]
+use mockall as _;
 pub mod account;
 pub mod provider;
 use eyre::{eyre, Result};
