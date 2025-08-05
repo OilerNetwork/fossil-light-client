@@ -2,7 +2,7 @@ use super::groth16_verifier_constants::{N_FREE_PUBLIC_INPUTS, T, ic, precomputed
 
 #[starknet::interface]
 pub trait IRisc0Groth16VerifierBN254<TContractState> {
-    fn verify_groth16_proof_bn254(
+    fn verify_r0_groth16_proof_bn254(
         self: @TContractState, full_proof_with_hints: Span<felt252>,
     ) -> Option<Span<u8>>;
 }
@@ -11,26 +11,27 @@ pub trait IRisc0Groth16VerifierBN254<TContractState> {
 mod Risc0Groth16VerifierBN254 {
     use garaga::definitions::{G1G2Pair, G1Point};
     use garaga::ec_ops::{G1PointTrait, ec_safe_add};
-    use garaga::ec_ops_g2::{G2PointTrait};
-    use garaga::groth16::{multi_pairing_check_bn254_3P_2F_with_extra_miller_loop_result};
+    use garaga::ec_ops_g2::G2PointTrait;
+    use garaga::groth16::multi_pairing_check_bn254_3P_2F_with_extra_miller_loop_result;
     use garaga::utils::calldata::deserialize_full_proof_with_hints_risc0;
     use garaga::utils::risc0::{compute_receipt_claim, journal_sha256};
     use starknet::SyscallResultTrait;
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use super::{N_FREE_PUBLIC_INPUTS, T, ic, precomputed_lines, vk};
 
     #[storage]
     struct Storage {
-        ecip_ops_class_hash: felt252,
+        pub ecip_ops_class_hash: felt252,
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState, ecip_ops_class_hash: felt252) {
-        self.ecip_ops_class_hash.write(ecip_ops_class_hash);
+    fn constructor(ref self: ContractState, ecip_ops: felt252) {
+        self.ecip_ops_class_hash.write(ecip_ops);
     }
 
     #[abi(embed_v0)]
     impl IRisc0Groth16VerifierBN254 of super::IRisc0Groth16VerifierBN254<ContractState> {
-        fn verify_groth16_proof_bn254(
+        fn verify_r0_groth16_proof_bn254(
             self: @ContractState, full_proof_with_hints: Span<felt252>,
         ) -> Option<Span<u8>> {
             // DO NOT EDIT THIS FUNCTION UNLESS YOU KNOW WHAT YOU ARE DOING.
@@ -58,21 +59,27 @@ mod Risc0Groth16VerifierBN254 {
             let claim_digest = compute_receipt_claim(image_id, journal_digest);
 
             // Start serialization with the hint array directly to avoid copying it.
-            let mut msm_calldata: Array<felt252> = msm_hint;
+            let mut msm_calldata: Array<felt252> = array![];
             // Add the points from VK relative to the non-constant public inputs.
             Serde::serialize(@ic.slice(3, N_FREE_PUBLIC_INPUTS), ref msm_calldata);
-            // Add the claim digest as scalars for the msm.
+            // Add the claim digest as u256 scalars for the msm.
             msm_calldata.append(2);
             msm_calldata.append(claim_digest.low.into());
-            msm_calldata.append(claim_digest.high.into());
-            // Complete with the curve identifier (0 for BN254):
             msm_calldata.append(0);
+            msm_calldata.append(claim_digest.high.into());
+            msm_calldata.append(0);
+            // Complete with the curve indentifier (0 for BN254):
+            msm_calldata.append(0);
+            // Add the hint array.
+            for x in msm_hint {
+                msm_calldata.append(*x);
+            }
 
             // Call the multi scalar multiplication endpoint on the Garaga ECIP ops contract
             // to obtain claim0 * IC[3] + claim1 * IC[4].
-            let mut _msm_result_serialized = core::starknet::syscalls::library_call_syscall(
+            let mut _msm_result_serialized = starknet::syscalls::library_call_syscall(
                 self.ecip_ops_class_hash.read().try_into().unwrap(),
-                selector!("msm_g1_u128"),
+                selector!("msm_g1"),
                 msm_calldata.span(),
             )
                 .unwrap_syscall();

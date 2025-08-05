@@ -42,7 +42,7 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         let shifted_byte: u64 = BitShift::shl(current_byte, 8 * byte_idx.into());
         batch_index += shifted_byte;
         byte_idx += 1;
-    };
+    }
     byte_offset += U64_SIZE;
 
     // Parse latest_mmr_block
@@ -53,7 +53,7 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         let shifted_byte: u64 = BitShift::shl(current_byte, 8 * byte_idx.into());
         latest_mmr_block += shifted_byte;
         byte_idx += 1;
-    };
+    }
     // Parse latest_mmr_block_hash
     byte_offset += U64_SIZE; // Skip to start of hash length
     byte_offset += U32_SIZE; // Skip length indicator (66, 0, 0, 0)
@@ -76,7 +76,7 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         };
         latest_mmr_block_hash = shifted_hash + hex_byte - hex_base;
         hex_idx += 1;
-    };
+    }
     // Parse root_hash
     byte_offset +=
         HEX_HASH_WITH_PREFIX_SIZE; // Skip past latest_mmr_block_hash (64 hex chars + "0x")
@@ -100,7 +100,7 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         };
         root_hash = shifted_hash + hex_byte - hex_base;
         hex_idx += 1;
-    };
+    }
     // Parse leaves_count
     byte_offset += HEX_HASH_WITH_PREFIX_SIZE;
     let mut leaves_count: u64 = 0;
@@ -110,7 +110,7 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         let shifted_byte: u64 = BitShift::shl(current_byte, 8 * byte_idx.into());
         leaves_count += shifted_byte;
         byte_idx += 1;
-    };
+    }
     // Parse first_block_parent_hash
     byte_offset += U64_SIZE;
     byte_offset += U32_SIZE; // Skip length indicator (66, 0, 0, 0)
@@ -133,7 +133,7 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         };
         first_block_parent_hash = shifted_hash + hex_byte - hex_base;
         hex_idx += 1;
-    };
+    }
     // Parse avg_fees
     byte_offset += HEX_HASH_WITH_PREFIX_SIZE;
 
@@ -145,7 +145,7 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
         let shifted_byte: u32 = BitShift::shl(current_byte, 8 * byte_idx.into());
         avg_fees_len += shifted_byte;
         byte_idx += 1;
-    };
+    }
 
     byte_offset += U32_SIZE;
     // Create array to hold fee data
@@ -163,7 +163,7 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
             let shifted_byte = BitShift::shl(current_byte, shift_amount);
             timestamp = timestamp | shifted_byte;
             byte_idx += 1;
-        };
+        }
         byte_offset += U64_SIZE;
         // Read data_points (8 bytes)
         let mut data_points: u64 = 0;
@@ -174,7 +174,7 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
             let shifted_byte = BitShift::shl(current_byte, shift_amount);
             data_points = data_points | shifted_byte;
             byte_idx += 1;
-        };
+        }
         byte_offset += U64_SIZE;
 
         // Read the decimal string and convert to felt252
@@ -197,11 +197,11 @@ pub fn decode_journal(journal_bytes: Span<u8>) -> (Journal, Array<AvgFees>) {
             };
             avg_fee = shifted_hash + hex_byte - hex_base;
             hex_idx += 1;
-        };
+        }
         byte_offset += HEX_HASH_WITH_PREFIX_SIZE;
         avg_fees.append(AvgFees { timestamp, data_points, avg_fee: avg_fee.try_into().unwrap() });
         entry_idx += 1;
-    };
+    }
 
     (
         Journal {

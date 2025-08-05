@@ -17,6 +17,7 @@ mod FossilVerifier {
     use fossil_store::{IFossilStoreDispatcher, IFossilStoreDispatcherTrait};
     use openzeppelin_access::ownable::OwnableComponent;
     use openzeppelin_upgrades::UpgradeableComponent;
+    use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
     use verifier::decode_journal;
     use verifier::groth16_verifier::{
         IRisc0Groth16VerifierBN254Dispatcher, IRisc0Groth16VerifierBN254DispatcherTrait,
@@ -85,7 +86,7 @@ mod FossilVerifier {
             let journal = self
                 .bn254_verifier
                 .read()
-                .verify_groth16_proof_bn254(proof)
+                .verify_r0_groth16_proof_bn254(proof)
                 .expect('Failed to verify proof');
 
             let (journal, avg_fees) = decode_journal(journal);
