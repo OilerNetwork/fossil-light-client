@@ -3,6 +3,14 @@ name = "client"
 version = { workspace = true }
 edition = { workspace = true }
 
+[[bin]]
+name = "client"
+path = "src/main.rs"
+
+[lib]
+name = "client"
+path = "src/lib.rs"
+
 [dependencies]
 publisher = { path = "../publisher" }
 starknet-handler = { path = "../starknet-handler" }
@@ -16,7 +24,16 @@ tokio = { workspace = true, features = ["signal"] }
 starknet = { workspace = true }
 clap = { workspace = true }
 dotenv = { workspace = true }
+config = "0.14"
+derive_more = "0.99"
+serde = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["json", "chrono", "env-filter"] }
+chrono = { version = "0.4", features = ["serde"] }
 
 [dev-dependencies]
-mockall = { workspace = true }
-tempfile = { workspace = true }
+proptest = "1.0"
+tokio-test = "0.4"
+mockall = "0.12"
+tempfile = "3.0"
+hex = "0.4"
+toml = "0.8"

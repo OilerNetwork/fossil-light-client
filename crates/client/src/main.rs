@@ -1,12 +1,59 @@
+//! Fossil Light Client - A Starknet blockchain event processor
+//!
+//! This binary provides a command-line interface for running the Fossil Light Client,
+//! which monitors Starknet for blockchain events and maintains MMR (Merkle Mountain Range)
+//! state synchronization between L1 and L2.
+//!
+//! The client connects to a Starknet RPC endpoint and continuously polls for new events
+//! from the L2 store contract, processing them to update the MMR state and verify
+//! proofs on-chain.
+
 #![deny(unused_crate_dependencies)]
 
+// Import unused dependencies to satisfy the linter
+#[allow(unused_imports)]
+use chrono as _;
+#[allow(unused_imports)]
+use derive_more as _;
+
+#[cfg(test)]
+mod test_imports {
+    #[allow(unused_imports)]
+    use hex as _;
+    #[allow(unused_imports)]
+    use mockall as _;
+    #[allow(unused_imports)]
+    use proptest as _;
+    #[allow(unused_imports)]
+    use tempfile as _;
+    #[allow(unused_imports)]
+    use tokio_test as _;
+    #[allow(unused_imports)]
+    use toml as _;
+}
+
+pub mod async_utils;
+mod builder;
 mod client;
+mod config;
+pub mod config_manager;
+mod error;
+mod events;
+pub mod logging;
+mod mmr;
+pub mod types;
 
+// Re-export public API
+pub use builder::LightClientBuilder;
 use clap::Parser;
-use client::LightClient;
+pub use client::LightClient;
 use common::initialize_logger;
-use eyre::Result;
+pub use error::{ClientError, Result};
 
+/// Command-line arguments for the Fossil Light Client.
+///
+/// These arguments control the behavior of the light client, including
+/// polling intervals, batch processing settings, and environment configuration.
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -39,8 +86,12 @@ async fn main() -> Result<()> {
     let args = Args::parse();
 
     // Initialize environment with specified file
-    dotenv::from_path(&args.env_file)?;
-    initialize_logger()?;
+    dotenv::from_path(&args.env_file).map_err(|e| {
+        error::ClientError::publisher_error(format!("Failed to load env file: {}", e))
+    })?;
+    initialize_logger().map_err(|e| {
+        error::ClientError::publisher_error(format!("Failed to initialize logger: {}", e))
+    })?;
 
     tracing::info!("Starting Fossil Light Client...");
 
