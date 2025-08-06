@@ -251,7 +251,7 @@ impl StarknetProvider {
                     .to_u128()
                     .ok_or_else(|| eyre::eyre!("Failed to convert Felt to u128"))?,
             );
-            let block_hash = format!("{:#x}", block_hash_u256);
+            let block_hash = format!("{block_hash_u256:#x}");
             info!(block_number, "Retrieved latest relayed block");
 
             Ok(LatestRelayBlock {

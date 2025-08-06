@@ -1,6 +1,9 @@
 services:
   relayer:
-    image: ametelnethermind/fossil-relayer:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.relayer
+    # image: ametelnethermind/fossil-relayer:latest
     # image: fossil-relayer:latest
     container_name: fossil-relayer
     restart: unless-stopped

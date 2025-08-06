@@ -170,13 +170,13 @@ impl IpfsManager {
             .next()
             .ok_or_else(|| eyre!("Invalid IPFS_ADD_URL format: {}", self.add_url))?;
 
-        let version_url = format!("{}/api/v0/version", base_url);
+        let version_url = format!("{base_url}/api/v0/version");
         let token = self.token.clone();
 
         task::spawn_blocking(move || -> Result<()> {
             let mut easy = curl::easy::Easy::new();
             easy.url(&version_url).map_err(|e| eyre!(e.to_string()))?;
-            let header_value = format!("Authorization: Bearer {}", token);
+            let header_value = format!("Authorization: Bearer {token}");
             let mut list = curl::easy::List::new();
             list.append(&header_value)
                 .map_err(|e| eyre!(e.to_string()))?;
