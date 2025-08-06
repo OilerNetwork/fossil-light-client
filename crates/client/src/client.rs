@@ -63,11 +63,22 @@ impl LightClient {
         let events_provider = StarknetProvider::new(&config.starknet_rpc_url)?;
         let mmr_provider = StarknetProvider::new(&config.starknet_rpc_url)?;
 
-        // Create event processor using config values
+        // Create MMR manager first to get latest MMR block
+        let mmr_provider_for_init = StarknetProvider::new(&config.starknet_rpc_url)?;
+        let temp_mmr_manager = MmrManager::new(
+            mmr_provider_for_init,
+            config.l2_store_addr.value().to_string(),
+            config.verifier_addr.value().to_string(),
+            config.chain_id.value(),
+            config.batch_size.value(),
+        );
+        let latest_mmr_block = temp_mmr_manager.get_latest_mmr_block().await?;
+
+        // Create event processor starting from latest MMR block + 1
         let event_processor = EventProcessor::new(
             events_provider,
             config.l2_store_addr.value().to_string(),
-            config.start_block,
+            latest_mmr_block + 1,
             config.blocks_per_run,
         );
 
@@ -138,7 +149,10 @@ impl LightClient {
         }
 
         // Process events using the event processor
-        let event_count = self.event_processor.process_events().await?;
+        let event_count = self
+            .event_processor
+            .process_events(latest_relayed_block.block_number)
+            .await?;
         logger.log_milestone(
             "events processed",
             Some(&format!("{} events found", event_count)),

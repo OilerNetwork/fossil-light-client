@@ -9,11 +9,9 @@ use starknet::{
     providers::Provider as EventProvider,
 };
 use starknet_handler::provider::StarknetProvider;
-use tokio::time::Duration;
 use tracing::{debug, error};
 
 use crate::{
-    async_utils::{with_timeout_and_retry, TimeoutConfig},
     error::{ClientError, Result},
     logging::{log_event_processing, ClientContext},
 };
@@ -27,7 +25,6 @@ pub struct EventProcessor {
     l2_store_addr: String,
     latest_processed_block: u64,
     blocks_per_run: u64,
-    timeout_config: TimeoutConfig,
 }
 
 impl EventProcessor {
@@ -50,79 +47,7 @@ impl EventProcessor {
             l2_store_addr,
             latest_processed_block: start_block.saturating_sub(1),
             blocks_per_run,
-            timeout_config: TimeoutConfig::default(),
         }
-    }
-
-    /// Creates a new event processor with custom timeout configuration.
-    ///
-    /// # Arguments
-    ///
-    /// * `provider` - The Starknet provider for blockchain interactions
-    /// * `l2_store_addr` - Address of the L2 store contract to monitor
-    /// * `start_block` - The block number to start processing from
-    /// * `blocks_per_run` - Maximum blocks to process in each run (0 for unlimited)
-    /// * `timeout_config` - Custom timeout configuration for async operations
-    #[allow(dead_code)]
-    pub fn with_timeouts(
-        provider: StarknetProvider,
-        l2_store_addr: String,
-        start_block: u64,
-        blocks_per_run: u64,
-        timeout_config: TimeoutConfig,
-    ) -> Self {
-        Self {
-            provider,
-            l2_store_addr,
-            latest_processed_block: start_block.saturating_sub(1),
-            blocks_per_run,
-            timeout_config,
-        }
-    }
-
-    /// Gets the latest block number from Starknet with timeout and retry logic.
-    ///
-    /// This method uses the improved async utilities to handle network operations
-    /// with proper timeout handling and exponential backoff retry logic.
-    ///
-    /// # Returns
-    ///
-    /// Returns the latest block number from the network.
-    ///
-    /// # Errors
-    ///
-    /// * `ClientError::OperationTimeout` - If the operation times out
-    /// * `ClientError::AsyncOperationFailed` - If all retry attempts fail
-    pub async fn get_latest_block_with_retry(&mut self) -> Result<u64> {
-        const MAX_RETRIES: u32 = 3;
-        const INITIAL_BACKOFF: Duration = Duration::from_secs(1);
-
-        let rpc_url = self.provider.rpc_url().to_string();
-
-        with_timeout_and_retry(
-            {
-                let rpc_url = rpc_url.clone();
-                move || {
-                    let url = rpc_url.clone();
-                    async move {
-                        // Recreate provider on each attempt to handle connection issues
-                        let provider = StarknetProvider::new(&url).map_err(|e| {
-                            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-                        })?;
-
-                        debug!("Fetching latest block number from network");
-                        provider.provider().block_number().await.map_err(|e| {
-                            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-                        })
-                    }
-                }
-            },
-            self.timeout_config.network_timeout,
-            MAX_RETRIES,
-            INITIAL_BACKOFF,
-            "fetch latest block number",
-        )
-        .await
     }
 
     /// Checks if event processing should be skipped for the given block.
@@ -218,19 +143,39 @@ impl EventProcessor {
         let address_felt = Felt::from_hex(&self.l2_store_addr)
             .map_err(|_| ClientError::invalid_address(&self.l2_store_addr))?;
 
+        // Get current Starknet block to search recent blocks for events
+        let current_starknet_block = self
+            .provider
+            .provider()
+            .block_number()
+            .await
+            .map_err(ClientError::from)?;
+
+        // Search the last 1000 Starknet blocks for events containing our Ethereum blocks
+        let search_from = current_starknet_block.saturating_sub(1000);
+        let search_to = current_starknet_block;
+
+        debug!(
+            ethereum_from_block = from_block,
+            ethereum_to_block = to_block,
+            starknet_search_from = search_from,
+            starknet_search_to = search_to,
+            "Searching Starknet blocks for Ethereum block events"
+        );
+
         let event_filter = EventFilter {
-            from_block: Some(BlockId::Number(from_block)),
-            to_block: Some(BlockId::Number(to_block)),
+            from_block: Some(BlockId::Number(search_from)),
+            to_block: Some(BlockId::Number(search_to)),
             address: Some(address_felt),
             keys: Some(vec![vec![selector!("LatestBlockhashFromL1Stored")]]),
         };
 
         // For now, let's use the simpler direct approach since StarknetProvider doesn't implement Clone
         debug!(
-            from_block,
-            to_block,
+            starknet_from_block = search_from,
+            starknet_to_block = search_to,
             address = %self.l2_store_addr,
-            "Fetching events from Starknet"
+            "Fetching events from Starknet blocks"
         );
 
         self.provider
@@ -243,12 +188,16 @@ impl EventProcessor {
     /// Processes a complete event processing cycle.
     ///
     /// This method orchestrates the full event processing workflow:
-    /// 1. Gets the latest block number
+    /// 1. Uses the provided latest relayed block number (Ethereum block)
     /// 2. Checks if processing should be skipped
     /// 3. Calculates the block range to process
     /// 4. Fetches events from that range
     /// 5. Returns information about found events
     /// 6. Updates the processed block tracker
+    ///
+    /// # Arguments
+    ///
+    /// * `latest_relayed_block` - The latest Ethereum block number relayed from L1
     ///
     /// # Returns
     ///
@@ -257,19 +206,19 @@ impl EventProcessor {
     /// # Errors
     ///
     /// Various errors from the individual processing steps.
-    pub async fn process_events(&mut self) -> Result<usize> {
+    pub async fn process_events(&mut self, latest_relayed_block: u64) -> Result<usize> {
         let start_time = std::time::Instant::now();
-        let latest_block = self.get_latest_block_with_retry().await?;
+        let latest_block = latest_relayed_block;
 
         debug!(
-            latest_network_block = latest_block,
+            latest_relayed_block = latest_block,
             current_processed_block = self.latest_processed_block,
-            "Retrieved latest block from network"
+            "Processing Ethereum blocks relayed to Starknet"
         );
 
         if self.should_skip_processing(latest_block).await? {
             debug!(
-                latest_network_block = latest_block,
+                latest_relayed_block = latest_block,
                 latest_processed_block = self.latest_processed_block,
                 "Skipping event processing - already up to date"
             );
@@ -285,7 +234,23 @@ impl EventProcessor {
             "Calculated block range for processing"
         );
 
-        let events = self.fetch_events(from_block, to_block).await?;
+        debug!(
+            "About to fetch events for range {} to {}",
+            from_block, to_block
+        );
+
+        let events = match self.fetch_events(from_block, to_block).await {
+            Ok(events) => events,
+            Err(e) => {
+                error!(
+                    from_block,
+                    to_block,
+                    error = %e,
+                    "Failed to fetch events from Starknet"
+                );
+                return Err(e);
+            }
+        };
         let event_count = events.events.len();
         let processing_time = start_time.elapsed();
 
