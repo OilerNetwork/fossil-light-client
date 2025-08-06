@@ -1,0 +1,6 @@
+[package]
+name = "size-of"
+version = "0.1.5"
+edition = "2021"
+description = "Linux-compatible fork of size-of crate"
+license = "MIT OR Apache-2.0"
