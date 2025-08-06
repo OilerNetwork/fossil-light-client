@@ -11,6 +11,7 @@ pub mod db;
 pub mod error;
 pub mod service;
 pub mod utils;
+// Note: validator module is not included as it has dependency issues and is not currently used
 
 pub use api::operations::{get_block_hash_inclusion_proof, prove_mmr_update};
-pub use error::{PublisherError, PublisherResult, Result};
+pub use error::{PublisherError, PublisherResult, Result, ValidatorError};

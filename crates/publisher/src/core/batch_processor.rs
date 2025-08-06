@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use common::get_or_create_db_path;
 use eth_rlp_types::BlockHeader;
-use eyre::{eyre, Result};
 use guest_types::{CombinedInput, GuestOutput, MMRInput};
 use ipfs_utils::IpfsManager;
 use mmr::PeaksOptions;
@@ -14,6 +13,7 @@ use uuid;
 use crate::{
     core::{MMRStateManager, ProofGenerator},
     db::DbConnection,
+    error::{PublisherError, PublisherResult},
     utils::BatchResult,
 };
 
@@ -29,14 +29,17 @@ impl<'a> BatchProcessor<'a> {
         batch_size: u64,
         proof_generator: ProofGenerator<CombinedInput>,
         mmr_state_manager: MMRStateManager<'a>,
-    ) -> Result<Self> {
+    ) -> PublisherResult<Self> {
         if batch_size == 0 {
-            return Err(eyre!("Batch size must be greater than 0: {}", batch_size));
+            return Err(PublisherError::validation(format!(
+                "Batch size must be greater than 0: {}",
+                batch_size
+            )));
         }
 
         let ipfs_manager = IpfsManager::with_endpoint().map_err(|e| {
             error!(error = %e, "Failed to create IPFS manager");
-            eyre!("Failed to create IPFS manager: {}", e)
+            PublisherError::validation(format!("Failed to create IPFS manager: {}", e))
         })?;
 
         Ok(Self {
@@ -65,13 +68,12 @@ impl<'a> BatchProcessor<'a> {
         start_block: u64,
         end_block: u64,
         latest_relayed_block_and_hash: Option<String>,
-    ) -> Result<Option<BatchResult>> {
+    ) -> PublisherResult<Option<BatchResult>> {
         if end_block < start_block {
-            return Err(eyre!(
+            return Err(PublisherError::validation(format!(
                 "End block cannot be less than start block: {} < {}",
-                end_block,
-                start_block
-            ));
+                end_block, start_block
+            )));
         }
 
         let batch_index = start_block / self.batch_size;
@@ -79,11 +81,10 @@ impl<'a> BatchProcessor<'a> {
         let (batch_start, batch_end) = self.calculate_batch_bounds(batch_index)?;
 
         if start_block < batch_start {
-            return Err(eyre!(
+            return Err(PublisherError::validation(format!(
                 "Start block is before batch start: {} < {}",
-                start_block,
-                batch_start
-            ));
+                start_block, batch_start
+            )));
         }
 
         let adjusted_end_block = std::cmp::min(end_block, batch_end);
@@ -100,8 +101,9 @@ impl<'a> BatchProcessor<'a> {
 
         // Extract IPFS hash from MMR state
         let ipfs_hash = mmr_state.ipfs_hash();
-        let ipfs_hash_str = String::try_from(ipfs_hash.clone())
-            .map_err(|_| eyre!("Failed to convert IPFS hash: {:?}", ipfs_hash))?;
+        let ipfs_hash_str = String::try_from(ipfs_hash.clone()).map_err(|_| {
+            PublisherError::validation(format!("Failed to convert IPFS hash: {:?}", ipfs_hash))
+        })?;
         // Create path for the batch database with a unique identifier
         let batch_file_name = format!("batch_{}_{}.db", batch_index, uuid::Uuid::new_v4());
         let db_file_path = PathBuf::from(get_or_create_db_path(&batch_file_name).map_err(|e| {
@@ -203,11 +205,10 @@ impl<'a> BatchProcessor<'a> {
                 "No headers found for block range {} to {}",
                 start_block, adjusted_end_block
             );
-            return Err(eyre!(
+            return Err(PublisherError::validation(format!(
                 "No headers found for block range {} to {}",
-                start_block,
-                adjusted_end_block
-            ));
+                start_block, adjusted_end_block
+            )));
         }
 
         // Validate the latest block hash if provided
@@ -230,11 +231,10 @@ impl<'a> BatchProcessor<'a> {
                 .trim_start_matches('0');
 
             if normalized_actual != normalized_expected {
-                return Err(eyre!(
+                return Err(PublisherError::validation(format!(
                     "Latest block hash mismatch: expected {}, got {}",
-                    expected_hash,
-                    last_header.block_hash
-                ));
+                    expected_hash, last_header.block_hash
+                )));
             } else {
                 info!("Latest block hash validation successful");
             }
@@ -347,7 +347,7 @@ impl<'a> BatchProcessor<'a> {
             .ipfs_manager
             .upload_db(&db_file_path)
             .await
-            .map_err(|e| eyre!("Failed to upload to IPFS: {}", e))?;
+            .map_err(|e| PublisherError::validation(format!("Failed to upload to IPFS: {}", e)))?;
 
         let batch_result = Some(BatchResult::new(
             start_block,
@@ -361,57 +361,74 @@ impl<'a> BatchProcessor<'a> {
         Ok(batch_result)
     }
 
-    pub fn calculate_batch_bounds(&self, batch_index: u64) -> Result<(u64, u64)> {
-        let batch_start = batch_index
-            .checked_mul(self.batch_size)
-            .ok_or(eyre!("Batch index too large: {}", batch_index))?;
+    pub fn calculate_batch_bounds(&self, batch_index: u64) -> PublisherResult<(u64, u64)> {
+        let batch_start =
+            batch_index
+                .checked_mul(self.batch_size)
+                .ok_or(PublisherError::validation(format!(
+                    "Batch index too large: {}",
+                    batch_index
+                )))?;
 
         let batch_end = batch_start
             .checked_add(self.batch_size)
-            .ok_or(eyre!(
+            .ok_or(PublisherError::validation(format!(
                 "Batch end calculation overflow: {} + {}",
-                batch_start,
-                self.batch_size
-            ))?
+                batch_start, self.batch_size
+            )))?
             .saturating_sub(1);
 
         Ok((batch_start, batch_end))
     }
 
-    pub fn calculate_start_block(&self, current_end: u64) -> Result<u64> {
+    pub fn calculate_start_block(&self, current_end: u64) -> PublisherResult<u64> {
         if current_end == 0 {
-            return Err(eyre!("Current end block cannot be 0: {}", current_end));
+            return Err(PublisherError::validation(format!(
+                "Current end block cannot be 0: {}",
+                current_end
+            )));
         }
 
         Ok(current_end.saturating_sub(current_end % self.batch_size))
     }
 
-    pub fn calculate_batch_range(&self, current_end: u64, start_block: u64) -> Result<BatchRange> {
+    pub fn calculate_batch_range(
+        &self,
+        current_end: u64,
+        start_block: u64,
+    ) -> PublisherResult<BatchRange> {
         if current_end < start_block {
-            return Err(eyre!(
+            return Err(PublisherError::validation(format!(
                 "Current end block cannot be less than start block: {} < {}",
-                current_end,
-                start_block
-            ));
+                current_end, start_block
+            )));
         }
 
         if current_end == 0 {
-            return Err(eyre!("Current end block cannot be 0: {}", current_end));
+            return Err(PublisherError::validation(format!(
+                "Current end block cannot be 0: {}",
+                current_end
+            )));
         }
 
         let batch_start = current_end.saturating_sub(current_end % self.batch_size);
         let effective_start = batch_start.max(start_block);
 
-        let batch_size_minus_one = self
-            .batch_size
-            .checked_sub(1)
-            .ok_or(eyre!("Invalid batch size: {}", self.batch_size))?;
+        let batch_size_minus_one =
+            self.batch_size
+                .checked_sub(1)
+                .ok_or(PublisherError::validation(format!(
+                    "Invalid batch size: {}",
+                    self.batch_size
+                )))?;
 
-        let max_end = batch_start.checked_add(batch_size_minus_one).ok_or(eyre!(
-            "Batch end calculation overflow: {} + {}",
-            batch_start,
-            batch_size_minus_one
-        ))?;
+        let max_end =
+            batch_start
+                .checked_add(batch_size_minus_one)
+                .ok_or(PublisherError::validation(format!(
+                    "Batch end calculation overflow: {} + {}",
+                    batch_start, batch_size_minus_one
+                )))?;
 
         let effective_end = std::cmp::min(current_end, max_end);
 
@@ -428,13 +445,12 @@ pub struct BatchRange {
 }
 
 impl BatchRange {
-    pub fn new(start_block: u64, end_block: u64) -> Result<Self> {
+    pub fn new(start_block: u64, end_block: u64) -> PublisherResult<Self> {
         if end_block < start_block {
-            return Err(eyre!(
+            return Err(PublisherError::validation(format!(
                 "End block cannot be less than start block: {} < {}",
-                end_block,
-                start_block
-            ));
+                end_block, start_block
+            )));
         }
         Ok(Self {
             start: start_block,

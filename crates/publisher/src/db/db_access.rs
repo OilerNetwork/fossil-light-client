@@ -2,11 +2,12 @@ use std::sync::Arc;
 
 use common::get_env_var;
 use eth_rlp_types::BlockHeader;
-use eyre::{eyre, Result};
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use tokio::time::{sleep, Duration};
 use tracing::{error, info};
+
+use crate::error::{PublisherError, PublisherResult};
 
 #[derive(Debug)]
 pub struct DbConnection {
@@ -19,7 +20,7 @@ impl DbConnection {
     const RETRY_DELAY: Duration = Duration::from_secs(5);
 
     /// Creates a new database connection with retries
-    pub async fn new() -> Result<Arc<Self>> {
+    pub async fn new() -> PublisherResult<Arc<Self>> {
         let mut attempt = 0;
 
         while attempt < Self::MAX_RETRIES {
@@ -44,11 +45,11 @@ impl DbConnection {
                         );
                         sleep(Self::RETRY_DELAY).await;
                     } else {
-                        return Err(eyre!(
+                        return Err(PublisherError::database(format!(
                             "Failed to connect after {} attempts: {}",
                             Self::MAX_RETRIES,
                             e
-                        ));
+                        )));
                     }
                 }
             }
@@ -58,7 +59,7 @@ impl DbConnection {
     }
 
     /// Internal method to attempt a database connection
-    async fn try_connect() -> Result<Arc<Self>> {
+    async fn try_connect() -> PublisherResult<Arc<Self>> {
         let database_url = get_env_var("DATABASE_URL")?;
 
         let pool = PgPoolOptions::new()
@@ -69,7 +70,9 @@ impl DbConnection {
             .acquire_timeout(std::time::Duration::from_secs(30))
             .connect(&database_url)
             .await
-            .map_err(|e| eyre!("Failed to connect to database: {}", e))?;
+            .map_err(|e| {
+                PublisherError::database(format!("Failed to connect to database: {}", e))
+            })?;
 
         Ok(Arc::new(Self { pool }))
     }
@@ -78,13 +81,12 @@ impl DbConnection {
         &self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<Vec<BlockHeader>> {
+    ) -> PublisherResult<Vec<BlockHeader>> {
         if start_block > end_block {
-            return Err(eyre!(
+            return Err(PublisherError::database(format!(
                 "Invalid block range: start block {} is greater than end block {}",
-                start_block,
-                end_block
-            ));
+                start_block, end_block
+            )));
         }
         let temp_headers = sqlx::query_as!(
             TempBlockHeader,
@@ -113,7 +115,10 @@ impl DbConnection {
     }
 
     /// Fetches a single block header by block number
-    pub async fn get_block_header_by_number(&self, block_number: u64) -> Result<BlockHeader> {
+    pub async fn get_block_header_by_number(
+        &self,
+        block_number: u64,
+    ) -> PublisherResult<BlockHeader> {
         let temp_header = sqlx::query_as!(
             TempBlockHeader,
             r#"
@@ -131,13 +136,18 @@ impl DbConnection {
         )
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| eyre!("Block header not found for block number: {}", block_number))?;
+        .ok_or_else(|| {
+            PublisherError::database(format!(
+                "Block header not found for block number: {}",
+                block_number
+            ))
+        })?;
 
         Ok(temp_to_block_header(temp_header))
     }
 
     /// Fetches a single block header by block hash
-    pub async fn get_block_header_by_hash(&self, block_hash: &str) -> Result<BlockHeader> {
+    pub async fn get_block_header_by_hash(&self, block_hash: &str) -> PublisherResult<BlockHeader> {
         let temp_header = sqlx::query_as!(
             TempBlockHeader,
             r#"
@@ -155,7 +165,12 @@ impl DbConnection {
         )
         .fetch_optional(&self.pool)
         .await?
-        .ok_or_else(|| eyre!("Block header not found for block hash: {}", block_hash))?;
+        .ok_or_else(|| {
+            PublisherError::database(format!(
+                "Block header not found for block hash: {}",
+                block_hash
+            ))
+        })?;
 
         Ok(temp_to_block_header(temp_header))
     }
@@ -165,13 +180,12 @@ impl DbConnection {
         &self,
         start_block: u64,
         end_block: u64,
-    ) -> Result<Vec<BlockHeader>> {
+    ) -> PublisherResult<Vec<BlockHeader>> {
         if start_block > end_block {
-            return Err(eyre!(
+            return Err(PublisherError::database(format!(
                 "Invalid block range: start block {} is greater than end block {}",
-                start_block,
-                end_block
-            ));
+                start_block, end_block
+            )));
         }
 
         // Get the first block of each hour within the range
@@ -276,7 +290,7 @@ fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
     }
 }
 
-pub fn get_store_path(db_file: Option<String>) -> Result<String> {
+pub fn get_store_path(db_file: Option<String>) -> PublisherResult<String> {
     // Load the database file path from the environment or use the provided argument
     let store_path = if let Some(db_file) = db_file {
         db_file

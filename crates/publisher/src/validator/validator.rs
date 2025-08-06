@@ -11,7 +11,7 @@ use starknet_handler::{provider::StarknetProvider, u256_from_hex};
 use store::SqlitePool;
 use tracing::{error, info, warn};
 
-use crate::{core::ProofGenerator, db::DbConnection, errors::ValidatorError, utils::Stark};
+use crate::{core::ProofGenerator, db::DbConnection, error::ValidatorError, utils::Stark};
 
 pub struct ValidatorBuilder<'a> {
     rpc_url: &'a str,

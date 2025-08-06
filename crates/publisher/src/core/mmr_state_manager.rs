@@ -1,4 +1,3 @@
-use eyre::{eyre, Result};
 use guest_types::GuestOutput;
 use mmr::MMR;
 use mmr_utils::StoreManager;
@@ -6,7 +5,10 @@ use starknet_handler::{account::StarknetAccount, u256_from_hex, MmrState};
 use store::SqlitePool;
 use tracing::{debug, error, info};
 
-use crate::utils::validate_u256_hex;
+use crate::{
+    error::{PublisherError, PublisherResult},
+    utils::validate_u256_hex,
+};
 pub struct MMRStateManager<'a> {
     account: StarknetAccount,
     store_address: &'a str,
@@ -42,9 +44,12 @@ impl<'a> MMRStateManager<'a> {
         latest_block_number: u64,
         guest_output: Option<&GuestOutput>,
         headers: &Vec<String>,
-    ) -> Result<MmrState> {
+    ) -> PublisherResult<MmrState> {
         if headers.is_empty() {
-            return Err(eyre!("Headers list cannot be empty: {:?}", headers));
+            return Err(PublisherError::mmr_operation(format!(
+                "Headers list cannot be empty: {:?}",
+                headers
+            )));
         }
 
         info!("Updating MMR state with {} headers...", headers.len());
@@ -140,12 +145,15 @@ impl<'a> MMRStateManager<'a> {
         mmr: &mut MMR,
         pool: &SqlitePool,
         headers: &Vec<String>,
-    ) -> Result<()> {
+    ) -> PublisherResult<()> {
         debug!("Appending headers to MMR");
 
         for hash in headers {
             if hash.trim().is_empty() {
-                return Err(eyre!("Header hash cannot be empty: {:?}", hash));
+                return Err(PublisherError::mmr_operation(format!(
+                    "Header hash cannot be empty: {:?}",
+                    hash
+                )));
             }
 
             let append_result = mmr.append(hash.clone()).await.map_err(|e| {
@@ -164,7 +172,7 @@ impl<'a> MMRStateManager<'a> {
         Ok(())
     }
 
-    async fn verify_mmr_state(mmr: &MMR, guest_output: &GuestOutput) -> Result<()> {
+    async fn verify_mmr_state(mmr: &MMR, guest_output: &GuestOutput) -> PublisherResult<()> {
         debug!("Verifying MMR state");
 
         let leaves_count = mmr.leaves_count.get().await.map_err(|e| {
@@ -172,11 +180,11 @@ impl<'a> MMRStateManager<'a> {
             e
         })?;
         if leaves_count != guest_output.leaves_count() as usize {
-            return Err(eyre!(
+            return Err(PublisherError::mmr_operation(format!(
                 "Invalid state transition: leaves_count mismatch: {} != {}",
                 leaves_count,
                 guest_output.leaves_count()
-            ));
+            )));
         }
 
         let new_element_count = mmr.elements_count.get().await.map_err(|e| {
@@ -195,11 +203,11 @@ impl<'a> MMRStateManager<'a> {
             })?;
 
         if new_root_hash != guest_output.root_hash() {
-            return Err(eyre!(
+            return Err(PublisherError::mmr_operation(format!(
                 "Invalid state transition: root_hash mismatch: {} != {}",
                 new_root_hash,
                 guest_output.root_hash()
-            ));
+            )));
         }
 
         validate_u256_hex(&new_root_hash).map_err(|e| e)?;
@@ -211,12 +219,12 @@ impl<'a> MMRStateManager<'a> {
     async fn create_new_state(
         latest_block_number: u64,
         guest_output: &GuestOutput,
-    ) -> Result<MmrState> {
+    ) -> PublisherResult<MmrState> {
         debug!("Creating new MMR state");
 
         let root_hash = guest_output.root_hash().trim_start_matches("0x");
         if root_hash.is_empty() {
-            return Err(eyre!("Root hash cannot be empty"));
+            return Err(PublisherError::mmr_operation("Root hash cannot be empty"));
         }
 
         let latest_mmr_block_hash =
