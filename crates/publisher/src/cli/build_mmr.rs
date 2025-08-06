@@ -4,6 +4,7 @@ use methods::{MMR_BUILD_ELF, MMR_BUILD_ID};
 use starknet_handler::{account::StarknetAccount, provider::StarknetProvider};
 
 use crate::core::{AccumulatorBuilder, BatchProcessor, MMRStateManager, ProofGenerator};
+/// Command line arguments for MMR building operation
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 pub struct Args {
@@ -36,6 +37,7 @@ pub struct Args {
     pub resume: bool,
 }
 
+/// Run the MMR building process with the specified arguments
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     // Initialize environment with specified file
     dotenv::from_path(&args.env_file)?;

@@ -9,6 +9,7 @@ use crate::{
     error::{PublisherError, PublisherResult},
     utils::validate_u256_hex,
 };
+/// Manages MMR state updates and interactions with Starknet
 pub struct MMRStateManager<'a> {
     account: StarknetAccount,
     store_address: &'a str,
@@ -16,6 +17,7 @@ pub struct MMRStateManager<'a> {
 }
 
 impl<'a> MMRStateManager<'a> {
+    /// Create a new MMR state manager
     pub fn new(account: StarknetAccount, store_address: &'a str, rpc_url: &'a str) -> Self {
         Self {
             account,
@@ -24,18 +26,22 @@ impl<'a> MMRStateManager<'a> {
         }
     }
 
+    /// Get the Starknet account
     pub fn account(&self) -> &StarknetAccount {
         &self.account
     }
 
+    /// Get the store contract address
     pub fn store_address(&self) -> &'a str {
         self.store_address
     }
 
+    /// Get the RPC URL
     pub fn rpc_url(&self) -> &'a str {
         self.rpc_url
     }
 
+    /// Update the MMR state with new block data
     pub async fn update_state(
         &self,
         store_manager: StoreManager,

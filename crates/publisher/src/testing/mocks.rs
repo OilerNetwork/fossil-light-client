@@ -1,0 +1,155 @@
+use eth_rlp_types::BlockHeader;
+/// Mock implementations for testing
+///
+/// This module contains mock implementations of external dependencies
+/// to facilitate unit testing without requiring actual network connections
+/// or database access.
+use mockall::mock;
+use starknet_handler::MmrSnapshot;
+
+use crate::error::PublisherResult;
+
+mock! {
+    /// Mock implementation of StarknetProvider for testing
+    pub StarknetProvider {
+        pub fn new(rpc_url: &str) -> PublisherResult<Self>;
+
+        pub async fn get_mmr_state(
+            &self,
+            address: &str,
+            batch_index: u64,
+        ) -> PublisherResult<MmrSnapshot>;
+    }
+}
+
+mock! {
+    /// Mock implementation of database connection for testing
+    pub DbConnection {
+        pub async fn new() -> PublisherResult<std::sync::Arc<Self>>;
+
+        pub async fn get_block_header_by_hash(
+            &self,
+            block_hash: &str,
+        ) -> PublisherResult<BlockHeader>;
+    }
+}
+
+mock! {
+    /// Mock implementation of IPFS manager for testing
+    pub IpfsManager {
+        pub fn with_endpoint() -> PublisherResult<Self>;
+
+        pub async fn fetch_db(
+            &self,
+            hash: &str,
+            output_path: &std::path::Path,
+        ) -> PublisherResult<()>;
+    }
+}
+
+mock! {
+    /// Mock implementation of MMR for testing
+    pub MMR {
+        pub fn new() -> Self;
+
+        pub async fn get_proof(
+            &self,
+            index: u64,
+            option: Option<u64>,
+        ) -> PublisherResult<mmr::Proof>;
+
+        pub async fn verify_proof(
+            &self,
+            proof: mmr::Proof,
+            hash: String,
+            option: Option<u64>,
+        ) -> PublisherResult<bool>;
+
+        pub fn elements_count(&self) -> MockElementsCount;
+        pub fn leaves_count(&self) -> MockLeavesCount;
+
+        pub async fn bag_the_peaks(
+            &self,
+            elements_count: Option<u64>,
+        ) -> PublisherResult<String>;
+
+        pub fn calculate_root_hash(
+            &self,
+            bag: &str,
+            elements_count: u64,
+        ) -> PublisherResult<String>;
+
+        pub async fn retrieve_peaks_hashes(
+            &self,
+            peaks: Vec<usize>,
+            option: Option<u64>,
+        ) -> PublisherResult<Vec<String>>;
+    }
+}
+
+mock! {
+    /// Mock for MMR elements count
+    pub ElementsCount {
+        pub async fn get(&self) -> PublisherResult<u64>;
+    }
+}
+
+mock! {
+    /// Mock for MMR leaves count
+    pub LeavesCount {
+        pub async fn get(&self) -> PublisherResult<u64>;
+    }
+}
+
+mock! {
+    /// Mock implementation of store manager for testing
+    pub StoreManager {
+        pub async fn get_element_index_for_value(
+            &self,
+            pool: &sqlx::Pool<sqlx::Sqlite>,
+            block_hash: &str,
+        ) -> PublisherResult<Option<u64>>;
+
+        pub async fn get_value_for_element_index(
+            &self,
+            pool: &sqlx::Pool<sqlx::Sqlite>,
+            index: u64,
+        ) -> PublisherResult<Option<String>>;
+    }
+}
+
+/// Helper trait for creating mock responses
+pub trait MockResponse {
+    fn success_response() -> Self;
+    fn error_response() -> Self;
+}
+
+impl MockResponse for MmrSnapshot {
+    fn success_response() -> Self {
+        // This would need actual implementation based on MmrSnapshot structure
+        todo!("Implement MmrSnapshot mock response")
+    }
+
+    fn error_response() -> Self {
+        // This would need actual implementation based on MmrSnapshot structure
+        todo!("Implement MmrSnapshot error response")
+    }
+}
+
+impl MockResponse for BlockHeader {
+    fn success_response() -> Self {
+        BlockHeader {
+            number: 100,
+            block_hash: "0xblockhash".to_string(),
+            parent_hash: Some("0xparenthash".to_string()),
+            timestamp: Some("1234567890".to_string()),
+            // Add other required fields based on BlockHeader structure
+            ..Default::default()
+        }
+    }
+
+    fn error_response() -> Self {
+        // Return a default that would cause errors in processing
+        BlockHeader::default()
+    }
+}

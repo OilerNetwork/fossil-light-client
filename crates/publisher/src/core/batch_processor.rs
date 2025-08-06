@@ -17,6 +17,7 @@ use crate::{
     utils::BatchResult,
 };
 
+/// Processes batches of blockchain data for MMR operations
 pub struct BatchProcessor<'a> {
     batch_size: u64,
     proof_generator: ProofGenerator<CombinedInput>,
@@ -25,6 +26,7 @@ pub struct BatchProcessor<'a> {
 }
 
 impl<'a> BatchProcessor<'a> {
+    /// Create a new BatchProcessor with the specified configuration
     pub fn new(
         batch_size: u64,
         proof_generator: ProofGenerator<CombinedInput>,
@@ -50,18 +52,22 @@ impl<'a> BatchProcessor<'a> {
         })
     }
 
+    /// Get a reference to the MMR state manager
     pub fn mmr_state_manager(&self) -> &MMRStateManager<'a> {
         &self.mmr_state_manager
     }
 
+    /// Get a reference to the proof generator
     pub fn proof_generator(&self) -> &ProofGenerator<CombinedInput> {
         &self.proof_generator
     }
 
+    /// Get the configured batch size
     pub fn batch_size(&self) -> u64 {
         self.batch_size
     }
 
+    /// Process a batch of blocks, generating proofs and updating MMR state
     pub async fn process_batch(
         &self,
         chain_id: u64,
@@ -361,6 +367,7 @@ impl<'a> BatchProcessor<'a> {
         Ok(batch_result)
     }
 
+    /// Calculate the start and end block numbers for a given batch index
     pub fn calculate_batch_bounds(&self, batch_index: u64) -> PublisherResult<(u64, u64)> {
         let batch_start =
             batch_index
@@ -381,6 +388,7 @@ impl<'a> BatchProcessor<'a> {
         Ok((batch_start, batch_end))
     }
 
+    /// Calculate the starting block for the next batch
     pub fn calculate_start_block(&self, current_end: u64) -> PublisherResult<u64> {
         if current_end == 0 {
             return Err(PublisherError::validation(format!(
@@ -392,6 +400,7 @@ impl<'a> BatchProcessor<'a> {
         Ok(current_end.saturating_sub(current_end % self.batch_size))
     }
 
+    /// Calculate the batch range for processing
     pub fn calculate_batch_range(
         &self,
         current_end: u64,
@@ -439,12 +448,16 @@ impl<'a> BatchProcessor<'a> {
     }
 }
 
+/// Represents a range of blocks to be processed in a batch
 pub struct BatchRange {
+    /// Starting block number (inclusive)
     pub start: u64,
+    /// Ending block number (inclusive)
     pub end: u64,
 }
 
 impl BatchRange {
+    /// Create a new BatchRange with validation
     pub fn new(start_block: u64, end_block: u64) -> PublisherResult<Self> {
         if end_block < start_block {
             return Err(PublisherError::validation(format!(
@@ -458,10 +471,12 @@ impl BatchRange {
         })
     }
 
+    /// Get the starting block number
     pub fn start_block(&self) -> u64 {
         self.start
     }
 
+    /// Get the ending block number
     pub fn end_block(&self) -> u64 {
         self.end
     }

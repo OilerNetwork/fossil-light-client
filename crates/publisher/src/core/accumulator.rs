@@ -9,6 +9,7 @@ use crate::{
     utils::BatchResult,
 };
 
+/// Builder for MMR accumulator operations, managing batch processing and proof generation
 pub struct AccumulatorBuilder<'a> {
     starknet_rpc_url: &'a String,
     chain_id: u64,
@@ -19,6 +20,7 @@ pub struct AccumulatorBuilder<'a> {
 }
 
 impl<'a> AccumulatorBuilder<'a> {
+    /// Create a new AccumulatorBuilder with the specified configuration
     pub async fn new(
         starknet_rpc_url: &'a String,
         chain_id: u64,
@@ -109,6 +111,7 @@ impl<'a> AccumulatorBuilder<'a> {
         Ok(())
     }
 
+    /// Build MMR from finalized blockchain blocks
     pub async fn build_from_finalized(&mut self) -> PublisherResult<()> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
         debug!(
@@ -136,6 +139,7 @@ impl<'a> AccumulatorBuilder<'a> {
         Ok(())
     }
 
+    /// Update the MMR with new block headers from the specified range
     pub async fn update_mmr_with_new_headers(
         &mut self,
         start_block: u64,
@@ -260,6 +264,7 @@ impl<'a> AccumulatorBuilder<'a> {
         Ok(())
     }
 
+    /// Build MMR starting from a specific block number
     pub async fn build_from_block(
         &mut self,
         start_block: u64,
@@ -269,6 +274,7 @@ impl<'a> AccumulatorBuilder<'a> {
         self.process_blocks_from(start_block, is_build).await
     }
 
+    /// Build MMR from a specific block with a limited number of batches
     pub async fn build_from_block_with_batches(
         &mut self,
         start_block: u64,
@@ -389,6 +395,7 @@ impl<'a> AccumulatorBuilder<'a> {
         Ok(())
     }
 
+    /// Build MMR from the latest available block
     pub async fn build_from_latest(&mut self, is_build: bool) -> PublisherResult<()> {
         let provider = StarknetProvider::new(&self.starknet_rpc_url).map_err(|e| {
             PublisherError::validation(format!("Failed to create Starknet provider: {}", e))
@@ -409,6 +416,7 @@ impl<'a> AccumulatorBuilder<'a> {
             .await
     }
 
+    /// Build MMR from the latest block with a limited number of batches
     pub async fn build_from_latest_with_batches(
         &mut self,
         num_batches: u64,

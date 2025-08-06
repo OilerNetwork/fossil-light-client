@@ -22,6 +22,7 @@ const MAX_RETRIES: u32 = 3;
 const INITIAL_RETRY_DELAY_MS: u64 = 1000;
 
 #[derive(Debug)]
+/// Generates zero-knowledge proofs for MMR operations using RISC Zero
 pub struct ProofGenerator<T> {
     method_elf: &'static [u8],
     method_id: [u32; 8],
@@ -32,6 +33,7 @@ impl<T> ProofGenerator<T>
 where
     T: serde::Serialize + Clone + Send + 'static,
 {
+    /// Create a new proof generator with method ELF and ID
     pub fn new(method_elf: &'static [u8], method_id: [u32; 8]) -> PublisherResult<Self> {
         if method_elf.is_empty() {
             return Err(PublisherError::proof_generation(format!(
@@ -120,6 +122,7 @@ where
         self.generate_groth16_proof_with_retry(input).await
     }
 
+    /// Decode the journal data from a Groth16 proof
     pub fn decode_journal<U: for<'a> Deserialize<'a>>(
         &self,
         proof: &Groth16,

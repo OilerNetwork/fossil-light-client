@@ -10,7 +10,9 @@ use tracing::{error, info};
 use crate::error::{PublisherError, PublisherResult};
 
 #[derive(Debug)]
+/// Database connection wrapper for Postgres operations
 pub struct DbConnection {
+    /// Connection pool for database operations
     pub pool: Pool<Postgres>,
 }
 
@@ -77,6 +79,7 @@ impl DbConnection {
         Ok(Arc::new(Self { pool }))
     }
 
+    /// Get block headers within a specific block range
     pub async fn get_block_headers_by_block_range(
         &self,
         start_block: u64,
@@ -290,6 +293,7 @@ fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
     }
 }
 
+/// Get the path for storing database files
 pub fn get_store_path(db_file: Option<String>) -> PublisherResult<String> {
     // Load the database file path from the environment or use the provided argument
     let store_path = if let Some(db_file) = db_file {

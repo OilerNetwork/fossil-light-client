@@ -17,6 +17,7 @@ pub struct MmrService {
 }
 
 impl MmrService {
+    /// Create a new MMR service with the specified configuration
     pub fn new(
         rpc_url: String,
         chain_id: u64,
@@ -37,7 +38,7 @@ impl MmrService {
         account_private_key: &str,
         account_address: &str,
         batch_size: u64,
-    ) -> PublisherResult<AccumulatorBuilder> {
+    ) -> PublisherResult<AccumulatorBuilder<'_>> {
         let starknet_provider = StarknetProvider::new(&self.rpc_url).map_err(|e| {
             PublisherError::starknet_provider(format!("Failed to create provider: {}", e))
         })?;
