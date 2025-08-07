@@ -65,43 +65,8 @@ impl ErrorRecoveryCoordinator {
     /// Handle an error and determine recovery action
     pub async fn handle_error(&mut self, error: &RelayerError) -> RecoveryAction {
         self.failure_count += 1;
-
         let recovery_action = self.determine_recovery_action(error);
-
-        match &recovery_action {
-            RecoveryAction::Retry { strategy, delay } => {
-                info!(
-                    error = %error,
-                    strategy = ?strategy,
-                    delay_ms = delay.as_millis(),
-                    failure_count = self.failure_count,
-                    "Attempting error recovery with retry"
-                );
-            }
-            RecoveryAction::Failover { config } => {
-                warn!(
-                    error = %error,
-                    config = ?config,
-                    failure_count = self.failure_count,
-                    "Attempting error recovery with failover"
-                );
-            }
-            RecoveryAction::DegradedMode => {
-                warn!(
-                    error = %error,
-                    failure_count = self.failure_count,
-                    "Entering degraded mode due to persistent errors"
-                );
-            }
-            RecoveryAction::Fail => {
-                error!(
-                    error = %error,
-                    failure_count = self.failure_count,
-                    "All recovery strategies exhausted, failing operation"
-                );
-            }
-        }
-
+        self.log_recovery_action(error, &recovery_action);
         recovery_action
     }
 
@@ -218,6 +183,59 @@ impl ErrorRecoveryCoordinator {
 
         let delay = Duration::from_millis(delay as u64);
         std::cmp::min(delay, config.max_delay)
+    }
+
+    /// Log the recovery action being taken
+    fn log_recovery_action(&self, error: &RelayerError, recovery_action: &RecoveryAction) {
+        match recovery_action {
+            RecoveryAction::Retry { strategy, delay } => {
+                self.log_retry_action(error, strategy, delay);
+            }
+            RecoveryAction::Failover { config } => {
+                self.log_failover_action(error, config);
+            }
+            RecoveryAction::DegradedMode => {
+                self.log_degraded_mode_action(error);
+            }
+            RecoveryAction::Fail => {
+                self.log_fail_action(error);
+            }
+        }
+    }
+
+    fn log_retry_action(&self, error: &RelayerError, strategy: &RetryConfig, delay: &Duration) {
+        info!(
+            error = %error,
+            strategy = ?strategy,
+            delay_ms = delay.as_millis(),
+            failure_count = self.failure_count,
+            "Attempting error recovery with retry"
+        );
+    }
+
+    fn log_failover_action(&self, error: &RelayerError, config: &EthereumProviderConfig) {
+        warn!(
+            error = %error,
+            config = ?config,
+            failure_count = self.failure_count,
+            "Attempting error recovery with failover"
+        );
+    }
+
+    fn log_degraded_mode_action(&self, error: &RelayerError) {
+        warn!(
+            error = %error,
+            failure_count = self.failure_count,
+            "Entering degraded mode due to persistent errors"
+        );
+    }
+
+    fn log_fail_action(&self, error: &RelayerError) {
+        error!(
+            error = %error,
+            failure_count = self.failure_count,
+            "All recovery strategies exhausted, failing operation"
+        );
     }
 
     /// Advance to the next recovery strategy

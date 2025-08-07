@@ -22,101 +22,137 @@ where
 
     loop {
         attempt += 1;
-
-        debug!(
-            operation = operation_name,
-            attempt = attempt,
-            max_attempts = config.max_attempts,
-            "Attempting operation"
-        );
+        log_attempt_start(operation_name, attempt, config.max_attempts);
 
         match operation().await {
             Ok(result) => {
-                if attempt > 1 {
-                    debug!(
-                        operation = operation_name,
-                        attempt = attempt,
-                        "Operation succeeded after retry"
-                    );
-                }
-
-                // Record success metrics
-                counter!(
-                    "relayer_retries_total",
-                    "operation" => operation_name.to_string(),
-                    "final_attempt" => attempt.to_string(),
-                    "outcome" => "success"
-                )
-                .increment(1);
-
+                handle_operation_success(operation_name, attempt);
                 return Ok(result);
             }
             Err(error) => {
-                if attempt >= config.max_attempts || !is_retryable_error(&error) {
-                    warn!(
-                        operation = operation_name,
-                        attempt = attempt,
-                        error = %error,
-                        "Operation failed permanently"
-                    );
-
-                    // Record permanent failure metrics
-                    counter!(
-                        "relayer_retries_total",
-                        "operation" => operation_name.to_string(),
-                        "final_attempt" => attempt.to_string(),
-                        "outcome" => "permanent_failure"
-                    )
-                    .increment(1);
-
+                if should_stop_retrying(attempt, config.max_attempts, &error) {
+                    handle_permanent_failure(operation_name, attempt, &error);
                     return Err(error);
                 }
 
                 if let Some(delay) = backoff.next_backoff() {
-                    warn!(
-                        operation = operation_name,
-                        attempt = attempt,
-                        error = %error,
-                        delay_ms = delay.as_millis(),
-                        "Operation failed, retrying after delay"
-                    );
-
-                    // Record retry attempt
-                    counter!(
-                        "relayer_retries_total",
-                        "operation" => operation_name.to_string(),
-                        "attempt" => attempt.to_string(),
-                        "outcome" => "retry"
-                    )
-                    .increment(1);
-
-                    // Record backoff duration
-                    histogram!("relayer_retry_backoff_duration_seconds")
-                        .record(delay.as_secs_f64());
-
-                    tokio::time::sleep(delay).await;
+                    handle_retry_attempt(operation_name, attempt, &error, delay).await;
                 } else {
-                    warn!(
-                        operation = operation_name,
-                        attempt = attempt,
-                        error = %error,
-                        "Backoff strategy exhausted"
-                    );
-
-                    // Record backoff exhaustion
-                    counter!(
-                        "relayer_retries_total",
-                        "operation" => operation_name.to_string(),
-                        "final_attempt" => attempt.to_string(),
-                        "outcome" => "backoff_exhausted"
-                    )
-                    .increment(1);
-
+                    handle_backoff_exhausted(operation_name, attempt, &error);
                     return Err(error);
                 }
             }
         }
     }
+}
+
+fn log_attempt_start(operation_name: &str, attempt: u32, max_attempts: usize) {
+    debug!(
+        operation = operation_name,
+        attempt = attempt,
+        max_attempts = max_attempts,
+        "Attempting operation"
+    );
+}
+
+fn handle_operation_success(operation_name: &str, attempt: u32) {
+    if attempt > 1 {
+        debug!(
+            operation = operation_name,
+            attempt = attempt,
+            "Operation succeeded after retry"
+        );
+    }
+
+    // Record success metrics
+    counter!(
+        "relayer_retries_total",
+        "operation" => operation_name.to_string(),
+        "final_attempt" => attempt.to_string(),
+        "outcome" => "success"
+    )
+    .increment(1);
+}
+
+fn should_stop_retrying(
+    attempt: u32,
+    max_attempts: usize,
+    error: &crate::error::RelayerError,
+) -> bool {
+    attempt as usize >= max_attempts || !is_retryable_error(error)
+}
+
+fn handle_permanent_failure(
+    operation_name: &str,
+    attempt: u32,
+    error: &crate::error::RelayerError,
+) {
+    warn!(
+        operation = operation_name,
+        attempt = attempt,
+        error = %error,
+        "Operation failed permanently"
+    );
+
+    // Record permanent failure metrics
+    counter!(
+        "relayer_retries_total",
+        "operation" => operation_name.to_string(),
+        "final_attempt" => attempt.to_string(),
+        "outcome" => "permanent_failure"
+    )
+    .increment(1);
+}
+
+async fn handle_retry_attempt(
+    operation_name: &str,
+    attempt: u32,
+    error: &crate::error::RelayerError,
+    delay: std::time::Duration,
+) {
+    warn!(
+        operation = operation_name,
+        attempt = attempt,
+        error = %error,
+        delay_ms = delay.as_millis(),
+        "Operation failed, retrying after delay"
+    );
+
+    // Record retry attempt
+    counter!(
+        "relayer_retries_total",
+        "operation" => operation_name.to_string(),
+        "attempt" => attempt.to_string(),
+        "outcome" => "retry"
+    )
+    .increment(1);
+
+    // Record backoff duration
+    histogram!("relayer_retry_backoff_duration_seconds").record(delay.as_secs_f64());
+
+    tokio::time::sleep(delay).await;
+}
+
+fn handle_backoff_exhausted(
+    operation_name: &str,
+    attempt: u32,
+    error: &crate::error::RelayerError,
+) {
+    warn!(
+        operation = operation_name,
+        attempt = attempt,
+        error = %error,
+        "Backoff strategy exhausted"
+    );
+
+    // Record backoff exhaustion
+    counter!(
+        "relayer_retries_total",
+        "operation" => operation_name.to_string(),
+        "final_attempt" => attempt.to_string(),
+        "outcome" => "backoff_exhausted"
+    )
+    .increment(1);
 }
 
 /// Retry wrapper for network operations

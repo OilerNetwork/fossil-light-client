@@ -156,21 +156,16 @@ impl CircuitBreaker {
             CircuitState::Closed | CircuitState::HalfOpen => true,
             CircuitState::Open => {
                 // Check if enough time has passed to try half-open
-                if let Ok(guard) = self.last_failure_time.lock() {
-                    if let Some(last_failure) = *guard {
+                self.last_failure_time.lock().is_ok_and(|guard| {
+                    guard.is_some_and(|last_failure| {
                         if last_failure.elapsed() >= self.config.recovery_timeout {
                             self.transition_to_half_open();
                             true
                         } else {
                             false
                         }
-                    } else {
-                        false
-                    }
-                } else {
-                    // Mutex is poisoned, assume we can't execute safely
-                    false
-                }
+                    })
+                })
             }
         }
     }
