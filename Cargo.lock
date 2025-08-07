@@ -2799,8 +2799,8 @@ checksum = "42012b0f064e01aa58b545fe3727f90f7dd4020f4a3ea735b50344965f5a57e9"
 
 [[package]]
 name = "garaga_rs"
-version = "0.18.1"
-source = "git+https://github.com/ametel01/garaga.git?branch=update-to-risc0-2.3.1#8962e1a206ef7ede4b4a5df5118a26381fb6cea1"
+version = "0.18.2"
+source = "git+https://github.com/keep-starknet-strange/garaga.git?rev=ffb90e533497121ffa5284c7362dc56fa10b18c6#ffb90e533497121ffa5284c7362dc56fa10b18c6"
 dependencies = [
  "arbitrary",
  "getrandom 0.3.3",
