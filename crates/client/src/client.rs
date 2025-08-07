@@ -25,7 +25,7 @@ pub struct LightClient {
 impl LightClient {
     /// Creates a new builder for configuring the light client.
     ///
-    /// This provides a fluent API for constructing LightClient instances
+    /// This provides a fluent API for constructing `LightClient` instances
     /// with optional parameters and preset configurations.
     ///
     /// # Example
@@ -155,7 +155,7 @@ impl LightClient {
             .await?;
         logger.log_milestone(
             "events processed",
-            Some(&format!("{} events found", event_count)),
+            Some(&format!("{event_count} events found")),
         );
 
         if event_count > 0 {
@@ -167,7 +167,7 @@ impl LightClient {
                 )
                 .await?;
 
-            logger.log_success(Some(&format!("processed {} events", event_count)));
+            logger.log_success(Some(&format!("processed {event_count} events")));
         } else {
             logger.log_success(Some("no events to process"));
         }

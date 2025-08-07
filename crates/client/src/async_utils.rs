@@ -33,7 +33,7 @@ impl Default for TimeoutConfig {
 
 impl TimeoutConfig {
     /// Creates a new timeout configuration with custom durations.
-    pub fn new(network_secs: u64, database_secs: u64, crypto_secs: u64) -> Self {
+    pub const fn new(network_secs: u64, database_secs: u64, crypto_secs: u64) -> Self {
         Self {
             network_timeout: Duration::from_secs(network_secs),
             database_timeout: Duration::from_secs(database_secs),
@@ -84,7 +84,7 @@ where
     match timeout(timeout_duration, future).await {
         Ok(Ok(result)) => Ok(result),
         Ok(Err(e)) => Err(ClientError::async_operation_failed(
-            format!("Operation '{}' failed", operation_name),
+            format!("Operation '{operation_name}' failed"),
             e,
         )),
         Err(_) => Err(ClientError::operation_timeout(

@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-use config::{Config, ConfigError, Environment, File};
+use config::{builder::DefaultState, Config, ConfigBuilder, ConfigError, Environment, File};
 use secrecy::Secret;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
@@ -159,8 +159,20 @@ impl ClientConfiguration {
         info!("Loading client configuration");
 
         let mut builder = Config::builder();
+        builder = Self::set_default_values(builder)?;
+        builder = Self::add_config_file_source(builder, config_file_path);
+        builder = Self::add_environment_sources(builder);
 
-        // Start with defaults
+        let config = Self::build_config(builder)?;
+        let client_config = Self::parse_config(config)?;
+
+        Self::log_loaded_config(&client_config);
+        Ok(client_config)
+    }
+
+    fn set_default_values(
+        mut builder: ConfigBuilder<DefaultState>,
+    ) -> Result<ConfigBuilder<DefaultState>> {
         builder = builder.set_default("timeouts.network_timeout_secs", 30)?;
         builder = builder.set_default("timeouts.database_timeout_secs", 10)?;
         builder = builder.set_default("timeouts.crypto_timeout_secs", 60)?;
@@ -173,8 +185,13 @@ impl ClientConfiguration {
         builder = builder.set_default("processing.start_block", 0)?;
         builder = builder.set_default("processing.blocks_per_run", 0)?;
         builder = builder.set_default("processing.auto_start_block", false)?;
+        Ok(builder)
+    }
 
-        // Add configuration file if provided
+    fn add_config_file_source(
+        mut builder: ConfigBuilder<DefaultState>,
+        config_file_path: Option<&Path>,
+    ) -> ConfigBuilder<DefaultState> {
         if let Some(config_path) = config_file_path {
             if config_path.exists() {
                 info!("Loading configuration from file: {}", config_path.display());
@@ -183,7 +200,12 @@ impl ClientConfiguration {
                 debug!("Configuration file not found: {}", config_path.display());
             }
         }
+        builder
+    }
 
+    fn add_environment_sources(
+        mut builder: ConfigBuilder<DefaultState>,
+    ) -> ConfigBuilder<DefaultState> {
         // Add environment variables with FOSSIL_CLIENT prefix
         builder = builder.add_source(
             Environment::with_prefix("FOSSIL_CLIENT")
@@ -192,50 +214,58 @@ impl ClientConfiguration {
         );
 
         // Also support legacy environment variables without prefix
-        builder = builder.add_source(Environment::default().source(Some({
-            let mut env_map = std::collections::HashMap::new();
+        builder =
+            builder.add_source(Environment::default().source(Some(Self::create_legacy_env_map())));
+        builder
+    }
 
-            // Map legacy env vars to new structure
-            if let Ok(val) = std::env::var("STARKNET_RPC_URL") {
-                env_map.insert("network.starknet_rpc_url".to_string(), val);
-            }
-            if let Ok(val) = std::env::var("CHAIN_ID") {
-                env_map.insert("network.chain_id".to_string(), val);
-            }
-            if let Ok(val) = std::env::var("FOSSIL_STORE") {
-                env_map.insert("contracts.l2_store_address".to_string(), val);
-            }
-            if let Ok(val) = std::env::var("FOSSIL_VERIFIER") {
-                env_map.insert("contracts.verifier_address".to_string(), val);
-            }
-            if let Ok(val) = std::env::var("STARKNET_PRIVATE_KEY") {
-                env_map.insert("auth.starknet_private_key".to_string(), val);
-            }
-            if let Ok(val) = std::env::var("STARKNET_ACCOUNT_ADDRESS") {
-                env_map.insert("auth.starknet_account_address".to_string(), val);
-            }
+    fn create_legacy_env_map() -> std::collections::HashMap<String, String> {
+        let mut env_map = std::collections::HashMap::new();
 
-            env_map
-        })));
+        // Map legacy env vars to new structure
+        if let Ok(val) = std::env::var("STARKNET_RPC_URL") {
+            env_map.insert("network.starknet_rpc_url".to_string(), val);
+        }
+        if let Ok(val) = std::env::var("CHAIN_ID") {
+            env_map.insert("network.chain_id".to_string(), val);
+        }
+        if let Ok(val) = std::env::var("FOSSIL_STORE") {
+            env_map.insert("contracts.l2_store_address".to_string(), val);
+        }
+        if let Ok(val) = std::env::var("FOSSIL_VERIFIER") {
+            env_map.insert("contracts.verifier_address".to_string(), val);
+        }
+        if let Ok(val) = std::env::var("STARKNET_PRIVATE_KEY") {
+            env_map.insert("auth.starknet_private_key".to_string(), val);
+        }
+        if let Ok(val) = std::env::var("STARKNET_ACCOUNT_ADDRESS") {
+            env_map.insert("auth.starknet_account_address".to_string(), val);
+        }
 
-        let config = builder
+        env_map
+    }
+
+    fn build_config(builder: ConfigBuilder<DefaultState>) -> Result<Config> {
+        builder
             .build()
-            .map_err(|e| ClientError::async_operation_failed("configuration loading", e))?;
+            .map_err(|e| ClientError::async_operation_failed("configuration loading", e))
+    }
 
-        let client_config: ClientConfiguration = config
+    fn parse_config(config: Config) -> Result<Self> {
+        config
             .try_deserialize()
-            .map_err(|e| ClientError::async_operation_failed("configuration parsing", e))?;
+            .map_err(|e| ClientError::async_operation_failed("configuration parsing", e))
+    }
 
+    fn log_loaded_config(client_config: &Self) {
         info!("Configuration loaded successfully");
         debug!(
             "Network: {} (Chain ID: {})",
             client_config.network.network_name, client_config.network.chain_id
         );
-
-        Ok(client_config)
     }
 
-    /// Converts this configuration to the legacy LightClientConfig format.
+    /// Converts this configuration to the legacy `LightClientConfig` format.
     ///
     /// This method provides backward compatibility with the existing codebase
     /// while allowing for a smooth transition to the new configuration system.
@@ -272,8 +302,8 @@ impl ClientConfiguration {
         })
     }
 
-    /// Creates a TimeoutConfig from the timeout settings.
-    pub fn timeout_config(&self) -> TimeoutConfig {
+    /// Creates a `TimeoutConfig` from the timeout settings.
+    pub const fn timeout_config(&self) -> TimeoutConfig {
         TimeoutConfig::new(
             self.timeouts.network_timeout_secs,
             self.timeouts.database_timeout_secs,
@@ -350,7 +380,7 @@ impl ClientConfiguration {
 
 impl From<ConfigError> for ClientError {
     fn from(err: ConfigError) -> Self {
-        ClientError::async_operation_failed("configuration error", err)
+        Self::async_operation_failed("configuration error", err)
     }
 }
 
@@ -359,25 +389,25 @@ fn default_network_name() -> String {
     "starknet".to_string()
 }
 
-fn default_network_timeout() -> u64 {
+const fn default_network_timeout() -> u64 {
     30
 }
-fn default_database_timeout() -> u64 {
+const fn default_database_timeout() -> u64 {
     10
 }
-fn default_crypto_timeout() -> u64 {
+const fn default_crypto_timeout() -> u64 {
     60
 }
-fn default_max_retries() -> u32 {
+const fn default_max_retries() -> u32 {
     3
 }
-fn default_initial_retry_delay() -> u64 {
+const fn default_initial_retry_delay() -> u64 {
     1000
 }
 fn default_log_level() -> String {
     "info".to_string()
 }
-fn default_structured_logging() -> bool {
+const fn default_structured_logging() -> bool {
     true
 }
 fn default_log_format() -> String {

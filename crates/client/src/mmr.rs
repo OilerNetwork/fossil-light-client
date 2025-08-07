@@ -4,6 +4,7 @@
 //! and verifying proofs on-chain through the publisher interface.
 
 use common::get_env_var;
+use publisher::UpdateMMRConfigBuilder;
 use starknet_handler::provider::{LatestRelayBlock, StarknetProvider};
 use tracing::{debug, info, instrument};
 
@@ -31,7 +32,7 @@ impl MmrManager {
     /// * `verifier_addr` - Address of the verifier contract
     /// * `chain_id` - Target chain ID
     /// * `batch_size` - Number of blocks to process in each batch
-    pub fn new(
+    pub const fn new(
         provider: StarknetProvider,
         l2_store_addr: String,
         verifier_addr: String,
@@ -69,7 +70,7 @@ impl MmrManager {
     /// * `ClientError::Publisher` - If MMR update operations fail
     /// * Network connectivity issues
     #[instrument(skip(self, private_key))]
-    pub async fn handle_events(&mut self, private_key: &str, account_address: &str) -> Result<()> {
+    pub async fn handle_events(&self, private_key: &str, account_address: &str) -> Result<()> {
         // Fetch the latest stored blockhash from L1
         let latest_relayed_block = self
             .provider
@@ -116,7 +117,7 @@ impl MmrManager {
     /// * `ClientError::Publisher` - If the publisher operation fails
     #[instrument(skip(self, private_key))]
     pub async fn update_mmr(
-        &mut self,
+        &self,
         latest_mmr_block: u64,
         latest_relayed_block_and_hash: LatestRelayBlock,
         private_key: &str,
@@ -136,20 +137,23 @@ impl MmrManager {
         let starknet_rpc_url = get_env_var("STARKNET_RPC_URL")
             .map_err(|_| ClientError::missing_env_var("STARKNET_RPC_URL"))?;
 
-        // Call the publisher function directly with all required parameters
-        let _result = publisher::api::operations::update_mmr(
-            &starknet_rpc_url,
-            self.chain_id,
-            &self.verifier_addr,
-            &self.l2_store_addr,
-            &private_key.to_string(),
-            &account_address.to_string(),
-            self.batch_size,
-            start_block,
-            latest_relayed_block_and_hash,
-        )
-        .await
-        .map_err(|e| ClientError::publisher_error(e.to_string()))?;
+        // Build config and call the publisher function
+        let config = UpdateMMRConfigBuilder::new()
+            .rpc_url(&starknet_rpc_url)
+            .chain_id(self.chain_id)
+            .verifier_address(&self.verifier_addr)
+            .store_address(&self.l2_store_addr)
+            .account_private_key(private_key)
+            .account_address(account_address)
+            .batch_size(self.batch_size)
+            .start_block(start_block)
+            .latest_relayed_block(latest_relayed_block_and_hash)
+            .build()
+            .map_err(|e| ClientError::publisher_error(format!("Config build error: {e}")))?;
+
+        publisher::update_mmr_with_config(config)
+            .await
+            .map_err(|e| ClientError::publisher_error(e.to_string()))?;
 
         info!(
             "MMR update completed successfully for blocks {} to {}",
@@ -201,8 +205,7 @@ mod tests {
     #[tokio::test]
     async fn test_update_mmr_no_new_blocks() {
         let provider = StarknetProvider::new("http://localhost:5050").unwrap();
-        let mut manager =
-            MmrManager::new(provider, "0x123".to_string(), "0x456".to_string(), 5, 1024);
+        let manager = MmrManager::new(provider, "0x123".to_string(), "0x456".to_string(), 5, 1024);
 
         let latest_relayed = LatestRelayBlock {
             block_number: 100,

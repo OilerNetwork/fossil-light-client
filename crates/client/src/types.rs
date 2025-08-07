@@ -13,23 +13,23 @@ use std::fmt;
 pub struct BlockNumber(pub u64);
 
 impl BlockNumber {
-    /// Creates a new BlockNumber.
-    pub fn new(value: u64) -> Self {
+    /// Creates a new `BlockNumber`.
+    pub const fn new(value: u64) -> Self {
         Self(value)
     }
 
     /// Returns the underlying u64 value.
-    pub fn value(&self) -> u64 {
+    pub const fn value(&self) -> u64 {
         self.0
     }
 
     /// Returns the next block number.
-    pub fn next(&self) -> Self {
+    pub const fn next(&self) -> Self {
         Self(self.0 + 1)
     }
 
     /// Returns the previous block number, or None if this is block 0.
-    pub fn prev(&self) -> Option<Self> {
+    pub const fn prev(&self) -> Option<Self> {
         if self.0 > 0 {
             Some(Self(self.0 - 1))
         } else {
@@ -38,7 +38,7 @@ impl BlockNumber {
     }
 
     /// Safely subtracts 1, returning 0 if this would underflow.
-    pub fn saturating_sub_one(&self) -> Self {
+    pub const fn saturating_sub_one(&self) -> Self {
         Self(self.0.saturating_sub(1))
     }
 }
@@ -69,13 +69,13 @@ impl fmt::Display for BlockNumber {
 pub struct ChainId(pub u64);
 
 impl ChainId {
-    /// Creates a new ChainId.
-    pub fn new(value: u64) -> Self {
+    /// Creates a new `ChainId`.
+    pub const fn new(value: u64) -> Self {
         Self(value)
     }
 
     /// Returns the underlying u64 value.
-    pub fn value(&self) -> u64 {
+    pub const fn value(&self) -> u64 {
         self.0
     }
 
@@ -169,7 +169,7 @@ impl Address {
         &self.0
     }
 
-    /// Returns the address as a hex string (same as value()).
+    /// Returns the address as a hex string (same as `value()`).
     pub fn as_hex(&self) -> &str {
         &self.0
     }
@@ -186,7 +186,7 @@ impl TryFrom<String> for Address {
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
         let value_clone = value.clone();
-        Self::new(value).ok_or_else(|| format!("Invalid address format: {}", value_clone))
+        Self::new(value).ok_or_else(|| format!("Invalid address format: {value_clone}"))
     }
 }
 
@@ -194,7 +194,7 @@ impl TryFrom<&str> for Address {
     type Error = String;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::new(value).ok_or_else(|| format!("Invalid address format: {}", value))
+        Self::new(value).ok_or_else(|| format!("Invalid address format: {value}"))
     }
 }
 
@@ -206,7 +206,7 @@ impl TryFrom<&str> for Address {
 pub struct BatchSize(u64);
 
 impl BatchSize {
-    /// Creates a new BatchSize.
+    /// Creates a new `BatchSize`.
     ///
     /// # Arguments
     ///
@@ -215,7 +215,7 @@ impl BatchSize {
     /// # Returns
     ///
     /// Returns `Some(BatchSize)` if the value is valid (> 0), `None` otherwise.
-    pub fn new(value: u64) -> Option<Self> {
+    pub const fn new(value: u64) -> Option<Self> {
         if value > 0 {
             Some(Self(value))
         } else {
@@ -224,7 +224,7 @@ impl BatchSize {
     }
 
     /// Returns the underlying u64 value.
-    pub fn value(&self) -> u64 {
+    pub const fn value(&self) -> u64 {
         self.0
     }
 
@@ -258,7 +258,7 @@ impl fmt::Display for BatchSize {
 pub struct PollingInterval(u64);
 
 impl PollingInterval {
-    /// Creates a new PollingInterval.
+    /// Creates a new `PollingInterval`.
     ///
     /// # Arguments
     ///
@@ -267,7 +267,7 @@ impl PollingInterval {
     /// # Returns
     ///
     /// Returns `Some(PollingInterval)` if the value is valid (> 0), `None` otherwise.
-    pub fn new(seconds: u64) -> Option<Self> {
+    pub const fn new(seconds: u64) -> Option<Self> {
         if seconds > 0 {
             Some(Self(seconds))
         } else {
@@ -276,12 +276,12 @@ impl PollingInterval {
     }
 
     /// Returns the interval in seconds.
-    pub fn seconds(&self) -> u64 {
+    pub const fn seconds(&self) -> u64 {
         self.0
     }
 
     /// Returns the interval as a `Duration`.
-    pub fn as_duration(&self) -> std::time::Duration {
+    pub const fn as_duration(&self) -> std::time::Duration {
         std::time::Duration::from_secs(self.0)
     }
 

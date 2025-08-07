@@ -1,6 +1,6 @@
 //! Builder pattern implementation for the Fossil Light Client.
 //!
-//! This module provides a fluent API for constructing LightClient instances
+//! This module provides a fluent API for constructing `LightClient` instances
 //! with optional parameters and clear configuration steps.
 
 use crate::{
@@ -9,9 +9,9 @@ use crate::{
     types::{BatchSize, PollingInterval},
 };
 
-/// Builder for creating LightClient instances with a fluent API.
+/// Builder for creating `LightClient` instances with a fluent API.
 ///
-/// This builder provides a more ergonomic way to construct LightClient instances,
+/// This builder provides a more ergonomic way to construct `LightClient` instances,
 /// especially when dealing with optional parameters or when you want to clearly
 /// express the configuration steps.
 ///
@@ -29,7 +29,7 @@ use crate::{
 ///         .blocks_per_run(50)
 ///         .build()
 ///         .await?;
-///     
+///
 ///     Ok(())
 /// }
 /// ```
@@ -59,7 +59,7 @@ impl LightClientBuilder {
     /// # use client::LightClientBuilder;
     /// let builder = LightClientBuilder::new().polling_interval_secs(5);
     /// ```
-    pub fn polling_interval_secs(mut self, seconds: u64) -> Self {
+    pub const fn polling_interval_secs(mut self, seconds: u64) -> Self {
         self.polling_interval_secs = Some(seconds);
         self
     }
@@ -76,7 +76,7 @@ impl LightClientBuilder {
     /// # use client::LightClientBuilder;
     /// let builder = LightClientBuilder::new().batch_size(1024);
     /// ```
-    pub fn batch_size(mut self, size: u64) -> Self {
+    pub const fn batch_size(mut self, size: u64) -> Self {
         self.batch_size = Some(size);
         self
     }
@@ -93,7 +93,7 @@ impl LightClientBuilder {
     /// # use client::LightClientBuilder;
     /// let builder = LightClientBuilder::new().start_block(1000);
     /// ```
-    pub fn start_block(mut self, block: u64) -> Self {
+    pub const fn start_block(mut self, block: u64) -> Self {
         self.start_block = Some(block);
         self
     }
@@ -110,12 +110,12 @@ impl LightClientBuilder {
     /// # use client::LightClientBuilder;
     /// let builder = LightClientBuilder::new().blocks_per_run(100);
     /// ```
-    pub fn blocks_per_run(mut self, blocks: u64) -> Self {
+    pub const fn blocks_per_run(mut self, blocks: u64) -> Self {
         self.blocks_per_run = Some(blocks);
         self
     }
 
-    /// Sets polling interval using the PollingInterval type.
+    /// Sets polling interval using the `PollingInterval` type.
     ///
     /// # Arguments
     ///
@@ -128,12 +128,12 @@ impl LightClientBuilder {
     /// let interval = PollingInterval::new(5).unwrap();
     /// let builder = LightClientBuilder::new().polling_interval(interval);
     /// ```
-    pub fn polling_interval(mut self, interval: PollingInterval) -> Self {
+    pub const fn polling_interval(mut self, interval: PollingInterval) -> Self {
         self.polling_interval_secs = Some(interval.seconds());
         self
     }
 
-    /// Sets batch size using the BatchSize type.
+    /// Sets batch size using the `BatchSize` type.
     ///
     /// # Arguments
     ///
@@ -146,7 +146,7 @@ impl LightClientBuilder {
     /// let size = BatchSize::new(1024).unwrap();
     /// let builder = LightClientBuilder::new().batch_size_typed(size);
     /// ```
-    pub fn batch_size_typed(mut self, size: BatchSize) -> Self {
+    pub const fn batch_size_typed(mut self, size: BatchSize) -> Self {
         self.batch_size = Some(size.value());
         self
     }
@@ -168,7 +168,7 @@ impl LightClientBuilder {
     ///     .with_defaults()
     ///     .start_block(1000);
     /// ```
-    pub fn with_defaults(mut self) -> Self {
+    pub const fn with_defaults(mut self) -> Self {
         self.polling_interval_secs = Some(PollingInterval::DEFAULT.seconds());
         self.batch_size = Some(BatchSize::DEFAULT.value());
         self.blocks_per_run = Some(100);
@@ -190,7 +190,7 @@ impl LightClientBuilder {
     ///     .fast_mode()
     ///     .start_block(1000);
     /// ```
-    pub fn fast_mode(mut self) -> Self {
+    pub const fn fast_mode(mut self) -> Self {
         self.polling_interval_secs = Some(PollingInterval::FAST.seconds());
         self.batch_size = Some(BatchSize::SMALL.value());
         self.blocks_per_run = Some(50);
@@ -212,14 +212,14 @@ impl LightClientBuilder {
     ///     .high_throughput_mode()
     ///     .start_block(1000);
     /// ```
-    pub fn high_throughput_mode(mut self) -> Self {
+    pub const fn high_throughput_mode(mut self) -> Self {
         self.polling_interval_secs = Some(PollingInterval::SLOW.seconds());
         self.batch_size = Some(BatchSize::LARGE.value());
         self.blocks_per_run = Some(1000);
         self
     }
 
-    /// Builds the LightClient with the configured parameters.
+    /// Builds the `LightClient` with the configured parameters.
     ///
     /// Uses default values for any parameters not explicitly set:
     /// - Polling interval: 5 seconds
@@ -229,7 +229,7 @@ impl LightClientBuilder {
     ///
     /// # Returns
     ///
-    /// Returns a configured LightClient instance.
+    /// Returns a configured `LightClient` instance.
     ///
     /// # Errors
     ///
@@ -259,14 +259,14 @@ impl LightClientBuilder {
         LightClient::new(polling_interval, batch_size, start_block, blocks_per_run).await
     }
 
-    /// Builds the LightClient with automatic start block detection.
+    /// Builds the `LightClient` with automatic start block detection.
     ///
     /// This is equivalent to calling `build()` and then using the client to
     /// determine the latest relayed block, but it's done automatically.
     ///
     /// # Returns
     ///
-    /// Returns a configured LightClient instance with the start block set to
+    /// Returns a configured `LightClient` instance with the start block set to
     /// the latest relayed block + 1.
     ///
     /// # Example

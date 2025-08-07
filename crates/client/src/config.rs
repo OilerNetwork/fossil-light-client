@@ -45,12 +45,12 @@ impl LightClientConfig {
     ///
     /// # Errors
     ///
-    /// * `ClientError::InvalidPollingInterval` - If polling_interval is 0
-    /// * `ClientError::InvalidBatchSize` - If batch_size is 0
+    /// * `ClientError::InvalidPollingInterval` - If `polling_interval` is 0
+    /// * `ClientError::InvalidBatchSize` - If `batch_size` is 0
     /// * `ClientError::MissingEnvironmentVariable` - If required env vars are missing
     /// * `ClientError::InvalidAddress` - If addresses are malformed
     /// * `ClientError::InvalidUrl` - If the RPC URL is malformed
-    /// * `ClientError::EnvironmentVariableParseError` - If CHAIN_ID parsing fails
+    /// * `ClientError::EnvironmentVariableParseError` - If `CHAIN_ID` parsing fails
     pub async fn from_env(
         polling_interval_secs: u64,
         batch_size_value: u64,

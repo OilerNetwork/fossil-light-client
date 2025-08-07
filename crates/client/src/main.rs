@@ -87,10 +87,10 @@ async fn main() -> Result<()> {
 
     // Initialize environment with specified file
     dotenv::from_path(&args.env_file).map_err(|e| {
-        error::ClientError::publisher_error(format!("Failed to load env file: {}", e))
+        error::ClientError::publisher_error(format!("Failed to load env file: {e}"))
     })?;
     initialize_logger().map_err(|e| {
-        error::ClientError::publisher_error(format!("Failed to initialize logger: {}", e))
+        error::ClientError::publisher_error(format!("Failed to initialize logger: {e}"))
     })?;
 
     tracing::info!("Starting Fossil Light Client...");

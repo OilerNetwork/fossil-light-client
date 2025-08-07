@@ -36,7 +36,7 @@ impl EventProcessor {
     /// * `l2_store_addr` - Address of the L2 store contract to monitor
     /// * `start_block` - The block number to start processing from
     /// * `blocks_per_run` - Maximum blocks to process in each run (0 for unlimited)
-    pub fn new(
+    pub const fn new(
         provider: StarknetProvider,
         l2_store_addr: String,
         start_block: u64,
@@ -85,7 +85,7 @@ impl EventProcessor {
     ///
     /// # Returns
     ///
-    /// Returns a tuple of (from_block, to_block) for event fetching.
+    /// Returns a tuple of (`from_block`, `to_block`) for event fetching.
     ///
     /// # Errors
     ///
@@ -208,23 +208,49 @@ impl EventProcessor {
     /// Various errors from the individual processing steps.
     pub async fn process_events(&mut self, latest_relayed_block: u64) -> Result<usize> {
         let start_time = std::time::Instant::now();
-        let latest_block = latest_relayed_block;
 
+        self.log_processing_start(latest_relayed_block);
+
+        if let Some(skip_count) = self.check_skip_processing(latest_relayed_block).await? {
+            return Ok(skip_count);
+        }
+
+        let (from_block, to_block) = self.prepare_block_range(latest_relayed_block)?;
+        let events = self.fetch_and_handle_events(from_block, to_block).await?;
+        let event_count = events.events.len();
+
+        self.finalize_processing(
+            from_block,
+            to_block,
+            latest_relayed_block,
+            event_count,
+            start_time,
+        );
+
+        Ok(event_count)
+    }
+
+    fn log_processing_start(&self, latest_relayed_block: u64) {
         debug!(
-            latest_relayed_block = latest_block,
+            latest_relayed_block = latest_relayed_block,
             current_processed_block = self.latest_processed_block,
             "Processing Ethereum blocks relayed to Starknet"
         );
+    }
 
+    async fn check_skip_processing(&self, latest_block: u64) -> Result<Option<usize>> {
         if self.should_skip_processing(latest_block).await? {
             debug!(
                 latest_relayed_block = latest_block,
                 latest_processed_block = self.latest_processed_block,
                 "Skipping event processing - already up to date"
             );
-            return Ok(0);
+            return Ok(Some(0));
         }
+        Ok(None)
+    }
 
+    fn prepare_block_range(&self, latest_block: u64) -> Result<(u64, u64)> {
         let (from_block, to_block) = self.calculate_block_range(latest_block)?;
 
         debug!(
@@ -239,8 +265,16 @@ impl EventProcessor {
             from_block, to_block
         );
 
-        let events = match self.fetch_events(from_block, to_block).await {
-            Ok(events) => events,
+        Ok((from_block, to_block))
+    }
+
+    async fn fetch_and_handle_events(
+        &self,
+        from_block: u64,
+        to_block: u64,
+    ) -> Result<starknet::core::types::EventsPage> {
+        match self.fetch_events(from_block, to_block).await {
+            Ok(events) => Ok(events),
             Err(e) => {
                 error!(
                     from_block,
@@ -248,10 +282,19 @@ impl EventProcessor {
                     error = %e,
                     "Failed to fetch events from Starknet"
                 );
-                return Err(e);
+                Err(e)
             }
-        };
-        let event_count = events.events.len();
+        }
+    }
+
+    fn finalize_processing(
+        &mut self,
+        from_block: u64,
+        to_block: u64,
+        latest_block: u64,
+        event_count: usize,
+        start_time: std::time::Instant,
+    ) {
         let processing_time = start_time.elapsed();
 
         // Create context for structured logging
@@ -264,12 +307,10 @@ impl EventProcessor {
 
         // Update the latest processed events block
         self.latest_processed_block = to_block;
-
-        Ok(event_count)
     }
 
     /// Gets the current processed block number.
-    pub fn latest_processed_block(&self) -> u64 {
+    pub const fn latest_processed_block(&self) -> u64 {
         self.latest_processed_block
     }
 }

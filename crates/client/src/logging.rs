@@ -18,7 +18,7 @@ use tracing_subscriber::{
 ///
 /// This struct provides a way to attach consistent contextual information
 /// to log entries throughout the application.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ClientContext {
     /// Current block being processed
     pub current_block: Option<u64>,
@@ -39,19 +39,6 @@ pub struct ClientContext {
     pub chain_id: Option<u64>,
 }
 
-impl Default for ClientContext {
-    fn default() -> Self {
-        Self {
-            current_block: None,
-            latest_network_block: None,
-            events_in_batch: None,
-            operation: None,
-            account_address: None,
-            chain_id: None,
-        }
-    }
-}
-
 impl ClientContext {
     /// Creates a new context with basic block information.
     pub fn with_block(current_block: u64) -> Self {
@@ -70,14 +57,14 @@ impl ClientContext {
     }
 
     /// Adds block range information to the context.
-    pub fn with_block_range(mut self, current: u64, latest: u64) -> Self {
+    pub const fn with_block_range(mut self, current: u64, latest: u64) -> Self {
         self.current_block = Some(current);
         self.latest_network_block = Some(latest);
         self
     }
 
     /// Adds event count information to the context.
-    pub fn with_events(mut self, count: usize) -> Self {
+    pub const fn with_events(mut self, count: usize) -> Self {
         self.events_in_batch = Some(count);
         self
     }
@@ -257,7 +244,7 @@ pub fn init_structured_logging(log_level: &str, structured: bool, log_format: &s
 /// # Arguments
 ///
 /// * `$name` - The name of the span
-/// * `$context` - The ClientContext for the operation
+/// * `$context` - The `ClientContext` for the operation
 /// * `$($field:ident = $value:expr),*` - Additional fields to include in the span
 #[macro_export]
 macro_rules! client_span {

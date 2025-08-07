@@ -128,7 +128,7 @@ impl PerformanceMonitor {
 
     /// Records the start and completion of an operation with timing.
     ///
-    /// This is a convenience method that combines start_operation and complete_operation
+    /// This is a convenience method that combines `start_operation` and `complete_operation`
     /// for operations where you have the full duration available.
     pub fn record_operation(&mut self, operation_name: &str, duration: Duration, success: bool) {
         let duration_ms = duration.as_millis() as u64;
@@ -158,7 +158,7 @@ impl PerformanceMonitor {
 
     /// Gets performance metrics for a specific operation.
     pub fn get_operation_metrics(&self, operation_name: &str) -> Option<OperationMetrics> {
-        if let Ok(metrics) = self.operation_metrics.lock() {
+        self.operation_metrics.lock().map_or(None, |metrics| {
             metrics.get(operation_name).map(|stats| OperationMetrics {
                 operation_name: operation_name.to_string(),
                 total_calls: stats.count,
@@ -176,37 +176,36 @@ impl PerformanceMonitor {
                 successful_calls: stats.success_count,
                 failed_calls: stats.failure_count,
             })
-        } else {
-            None
-        }
+        })
     }
 
     /// Gets all operation metrics.
     pub fn get_all_operation_metrics(&self) -> Vec<OperationMetrics> {
-        if let Ok(metrics) = self.operation_metrics.lock() {
-            metrics
-                .iter()
-                .map(|(name, stats)| OperationMetrics {
-                    operation_name: name.clone(),
-                    total_calls: stats.count,
-                    total_duration_ms: stats.total_duration_ms,
-                    average_duration_ms: if stats.count > 0 {
-                        stats.total_duration_ms as f64 / stats.count as f64
-                    } else {
-                        0.0
-                    },
-                    success_rate: if stats.count > 0 {
-                        stats.success_count as f64 / stats.count as f64
-                    } else {
-                        0.0
-                    },
-                    successful_calls: stats.success_count,
-                    failed_calls: stats.failure_count,
-                })
-                .collect()
-        } else {
-            Vec::new()
-        }
+        self.operation_metrics.lock().map_or_else(
+            |_| Vec::new(),
+            |metrics| {
+                metrics
+                    .iter()
+                    .map(|(name, stats)| OperationMetrics {
+                        operation_name: name.clone(),
+                        total_calls: stats.count,
+                        total_duration_ms: stats.total_duration_ms,
+                        average_duration_ms: if stats.count > 0 {
+                            stats.total_duration_ms as f64 / stats.count as f64
+                        } else {
+                            0.0
+                        },
+                        success_rate: if stats.count > 0 {
+                            stats.success_count as f64 / stats.count as f64
+                        } else {
+                            0.0
+                        },
+                        successful_calls: stats.success_count,
+                        failed_calls: stats.failure_count,
+                    })
+                    .collect()
+            },
+        )
     }
 }
 
@@ -218,11 +217,9 @@ impl PerformanceMonitorTrait for PerformanceMonitor {
     }
 
     fn complete_operation(&mut self, operation_name: &str, success: bool) {
-        let duration = if let Ok(mut starts) = self.operation_starts.lock() {
+        let duration = self.operation_starts.lock().map_or(None, |mut starts| {
             starts.remove(operation_name).map(|start| start.elapsed())
-        } else {
-            None
-        };
+        });
 
         if let Some(duration) = duration {
             self.record_operation(operation_name, duration, success);
