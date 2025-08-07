@@ -9,8 +9,12 @@ use risc0_zkvm::guest::env;
 const HOUR_IN_SECONDS: i64 = 3600;
 
 fn main() {
+    eprintln!("DEBUG: Guest program started!");
+    
     // Read combined input
     let input: CombinedInput = env::read();
+    
+    eprintln!("DEBUG: Input read successfully, headers count: {}", input.headers().len());
     // Flatten headers for validation
     let flattened_headers: Vec<BlockHeader> = input
         .headers()
@@ -65,8 +69,13 @@ fn main() {
     // Calculate fee averages for hourly groups using fixed-point arithmetic
     let mut avg_fees: Vec<(usize, usize, String)> = Vec::new(); // (timestamp, data_points, avg_fee_felt)
 
+    env::log(&format!("DEBUG: Starting fee calculation for {} hour groups", input.headers().len()));
+
     for (claimed_timestamp, hour_group) in input.headers() {
+        env::log(&format!("DEBUG: Processing hour group with claimed_timestamp: {}, headers: {}", claimed_timestamp, hour_group.len()));
+        
         if hour_group.is_empty() {
+            env::log("DEBUG: Skipping empty hour group");
             continue;
         }
 
@@ -74,12 +83,16 @@ fn main() {
         let group_timestamps: Vec<i64> = hour_group
             .iter()
             .filter_map(|header| {
-                header
+                let ts_result = header
                     .timestamp
                     .as_ref()
-                    .and_then(|ts| i64::from_str_radix(ts.trim_start_matches("0x"), 16).ok())
+                    .and_then(|ts| i64::from_str_radix(ts.trim_start_matches("0x"), 16).ok());
+                env::log(&format!("DEBUG: Header timestamp: {:?} -> parsed: {:?}", header.timestamp, ts_result));
+                ts_result
             })
             .collect();
+
+        env::log(&format!("DEBUG: Group timestamps: {:?}", group_timestamps));
 
         // Verify all timestamps are within the same hour as claimed_timestamp
         assert!(
@@ -99,32 +112,67 @@ fn main() {
         let mut total_fees = UFixedPoint123x128::from(0.0);
         let mut valid_fee_count = 0;
 
-        for header in hour_group {
+        env::log(&format!("DEBUG: Starting fee calculation for {} headers", hour_group.len()));
+
+        for (idx, header) in hour_group.iter().enumerate() {
+            env::log(&format!("DEBUG: Header {}: base_fee_per_gas = {:?}", idx, header.base_fee_per_gas));
+            
             if let Some(fee_str) = &header.base_fee_per_gas {
+                env::log(&format!("DEBUG: Parsing fee string: '{}'", fee_str));
+                
                 if let Ok(fee) = u64::from_str_radix(fee_str.trim_start_matches("0x"), 16) {
+                    env::log(&format!("DEBUG: Parsed fee: {} wei", fee));
+                    
                     // Convert fee to fixed-point and add to total
                     let fee_fixed = UFixedPoint123x128::from(fee as f64);
+                    env::log(&format!("DEBUG: Fee as fixed-point: integer={}, fractional={}", 
+                        fee_fixed.get_integer(), fee_fixed.get_fractional()));
+                    
                     total_fees = UFixedPoint123x128::from(
                         (total_fees.get_integer() as f64 + fee_fixed.get_integer() as f64) +
                         ((total_fees.get_fractional() as f64 + fee_fixed.get_fractional() as f64) / 2f64.powi(128))
                     );
                     valid_fee_count += 1;
+                    
+                    env::log(&format!("DEBUG: Running total: integer={}, fractional={}, count={}", 
+                        total_fees.get_integer(), total_fees.get_fractional(), valid_fee_count));
+                } else {
+                    env::log(&format!("DEBUG: Failed to parse fee string: '{}'", fee_str));
                 }
+            } else {
+                env::log(&format!("DEBUG: No base_fee_per_gas in header {}", idx));
             }
         }
+
+        env::log(&format!("DEBUG: Final totals - valid_fee_count: {}, total_fees: integer={}, fractional={}", 
+            valid_fee_count, total_fees.get_integer(), total_fees.get_fractional()));
 
         // Calculate average fee using fixed-point division
         let count_fixed = UFixedPoint123x128::from(valid_fee_count as f64);
         let avg_fee_fixed = if valid_fee_count > 0 {
             total_fees / count_fixed
         } else {
+            env::log("DEBUG: No valid fees found, using zero");
             UFixedPoint123x128::from(0.0)
         };
 
+        env::log(&format!("DEBUG: Average fee fixed-point: integer={}, fractional={}", 
+            avg_fee_fixed.get_integer(), avg_fee_fixed.get_fractional()));
+
         // Pack the fixed-point value into a Felt
         let avg_fee_felt = UFixedPoint123x128::pack(avg_fee_fixed).to_hex_string();
+        
+        env::log(&format!("DEBUG: Packed avg_fee_felt: '{}'", avg_fee_felt));
 
-        avg_fees.push((*claimed_timestamp as usize, valid_fee_count, avg_fee_felt));
+        avg_fees.push((*claimed_timestamp as usize, valid_fee_count, avg_fee_felt.clone()));
+        
+        env::log(&format!("DEBUG: Added to avg_fees: timestamp={}, count={}, felt='{}'", 
+            *claimed_timestamp as usize, valid_fee_count, avg_fee_felt));
+    }
+
+    env::log(&format!("DEBUG: Final avg_fees vector length: {}", avg_fees.len()));
+    for (i, (timestamp, count, felt)) in avg_fees.iter().enumerate() {
+        env::log(&format!("DEBUG: avg_fees[{}]: timestamp={}, count={}, felt='{}'", i, timestamp, count, felt));
     }
 
     let first_block_parent_hash = if first_batch_index == 0 {

@@ -111,12 +111,13 @@ impl StoreManager {
         .fetch_optional(pool)
         .await?;
 
-        if let Some(row) = row {
-            let element_index: i64 = row.get("element_index");
-            Ok(Some(element_index as usize))
-        } else {
-            Ok(None)
-        }
+        row.map_or_else(
+            || Ok(None),
+            |row| {
+                let element_index: i64 = row.get("element_index");
+                Ok(Some(element_index as usize))
+            },
+        )
     }
 
     /// Retrieves the stored value for the given element index, abstracting away the MMR ID
@@ -138,12 +139,13 @@ impl StoreManager {
         .fetch_optional(pool)
         .await?;
 
-        if let Some(row) = row {
-            let stored_value: String = row.get("value");
-            Ok(Some(stored_value))
-        } else {
-            Ok(None)
-        }
+        row.map_or_else(
+            || Ok(None),
+            |row| {
+                let stored_value: String = row.get("value");
+                Ok(Some(stored_value))
+            },
+        )
     }
 }
 
@@ -174,12 +176,13 @@ async fn get_mmr_id(pool: &SqlitePool) -> Result<Option<String>> {
         .fetch_optional(pool)
         .await?;
 
-    if let Some(row) = row {
-        let mmr_id: String = row.get("mmr_id");
-        Ok(Some(mmr_id))
-    } else {
-        Ok(None)
-    }
+    row.map_or_else(
+        || Ok(None),
+        |row| {
+            let mmr_id: String = row.get("mmr_id");
+            Ok(Some(mmr_id))
+        },
+    )
 }
 
 /// Saves the MMR ID to the `mmr_metadata` table

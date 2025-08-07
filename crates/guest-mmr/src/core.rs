@@ -145,10 +145,9 @@ impl GuestMMR {
         options: Option<ProofOptions>,
     ) -> Result<bool> {
         let options = options.unwrap_or_default();
-        let tree_size = match options.elements_count {
-            Some(count) => count,
-            None => self.elements_count,
-        };
+        let tree_size = options
+            .elements_count
+            .map_or(self.elements_count, |count| count);
 
         let leaf_count = mmr_size_to_leaf_count(tree_size);
         let peaks_count = leaf_count_to_peaks_count(leaf_count);
@@ -257,10 +256,8 @@ impl GuestMMR {
     pub fn calculate_root_hash(&self, elements_count: usize) -> Result<String> {
         let bag = self.bag_the_peaks()?;
 
-        match hasher(vec![elements_count.to_string(), bag.to_string()]) {
-            Ok(root_hash) => Ok(root_hash),
-            Err(_) => Err(eyre!("HashError: {}", bag)),
-        }
+        hasher(vec![elements_count.to_string(), bag.to_string()])
+            .map_or_else(|_| Err(eyre!("HashError: {}", bag)), Ok)
     }
 
     pub fn get_all_hashes(&self) -> Vec<(usize, String)> {

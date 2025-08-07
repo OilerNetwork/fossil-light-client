@@ -192,6 +192,8 @@ impl IpfsManager {
                     .map_err(|e| eyre!(e.to_string()))?;
                 transfer.perform().map_err(|e| eyre!(e.to_string()))?;
             }
+            // Response data is collected during transfer but not used - this is intentional
+            let _ = response_data;
             Ok(())
         })
         .await
