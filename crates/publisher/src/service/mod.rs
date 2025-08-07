@@ -9,7 +9,6 @@ pub use proof_service::ProofService;
 #[cfg(test)]
 mod tests {
     use mockall::{mock, predicate::*};
-    use starknet_handler::provider::LatestRelayBlock;
 
     use super::*;
     use crate::{
@@ -79,29 +78,5 @@ mod tests {
         // This is a basic smoke test
         assert_eq!(service.config.rpc_url, config.rpc_url);
         assert_eq!(service.config.chain_id, config.chain_id);
-    }
-
-    // Helper function to create test configuration
-    pub fn create_test_config() -> PublisherConfig {
-        PublisherConfig {
-            rpc_url: "http://localhost:8545".to_string(),
-            chain_id: 1,
-            verifier_address: "0x1234567890123456789012345678901234567890".to_string(),
-            store_address: "0x0987654321098765432109876543210987654321".to_string(),
-            batch_size: 100,
-        }
-    }
-
-    // Helper function to create test account configuration
-    pub fn create_test_account_config() -> AccountConfig {
-        AccountConfig::new("0xprivatekey".to_string(), "0xaddress".to_string())
-    }
-
-    // Helper function to create mock LatestRelayBlock
-    pub fn create_mock_latest_relay_block() -> LatestRelayBlock {
-        LatestRelayBlock {
-            block_number: 100,
-            block_hash: "0xblockhash".to_string(),
-        }
     }
 }

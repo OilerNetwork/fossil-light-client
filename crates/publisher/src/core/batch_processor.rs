@@ -26,7 +26,7 @@ pub struct BatchProcessor<'a> {
 }
 
 impl<'a> BatchProcessor<'a> {
-    /// Create a new BatchProcessor with the specified configuration
+    /// Create a new `BatchProcessor` with the specified configuration
     pub fn new(
         batch_size: u64,
         proof_generator: ProofGenerator<CombinedInput>,
@@ -34,14 +34,13 @@ impl<'a> BatchProcessor<'a> {
     ) -> PublisherResult<Self> {
         if batch_size == 0 {
             return Err(PublisherError::validation(format!(
-                "Batch size must be greater than 0: {}",
-                batch_size
+                "Batch size must be greater than 0: {batch_size}"
             )));
         }
 
         let ipfs_manager = IpfsManager::with_endpoint().map_err(|e| {
             error!(error = %e, "Failed to create IPFS manager");
-            PublisherError::validation(format!("Failed to create IPFS manager: {}", e))
+            PublisherError::validation(format!("Failed to create IPFS manager: {e}"))
         })?;
 
         Ok(Self {
@@ -53,21 +52,22 @@ impl<'a> BatchProcessor<'a> {
     }
 
     /// Get a reference to the MMR state manager
-    pub fn mmr_state_manager(&self) -> &MMRStateManager<'a> {
+    pub const fn mmr_state_manager(&self) -> &MMRStateManager<'a> {
         &self.mmr_state_manager
     }
 
     /// Get a reference to the proof generator
-    pub fn proof_generator(&self) -> &ProofGenerator<CombinedInput> {
+    pub const fn proof_generator(&self) -> &ProofGenerator<CombinedInput> {
         &self.proof_generator
     }
 
     /// Get the configured batch size
-    pub fn batch_size(&self) -> u64 {
+    pub const fn batch_size(&self) -> u64 {
         self.batch_size
     }
 
     /// Process a batch of blocks, generating proofs and updating MMR state
+    #[allow(clippy::cognitive_complexity)]
     pub async fn process_batch(
         &self,
         chain_id: u64,
@@ -77,30 +77,27 @@ impl<'a> BatchProcessor<'a> {
     ) -> PublisherResult<Option<BatchResult>> {
         if end_block < start_block {
             return Err(PublisherError::validation(format!(
-                "End block cannot be less than start block: {} < {}",
-                end_block, start_block
+                "End block cannot be less than start block: {end_block} < {start_block}"
             )));
         }
 
         let batch_index = start_block / self.batch_size;
-        info!("Processing batch index: {}", batch_index);
+        info!("Processing batch index: {batch_index}");
         let (batch_start, batch_end) = self.calculate_batch_bounds(batch_index)?;
 
         if start_block < batch_start {
             return Err(PublisherError::validation(format!(
-                "Start block is before batch start: {} < {}",
-                start_block, batch_start
+                "Start block is before batch start: {start_block} < {batch_start}"
             )));
         }
 
         let adjusted_end_block = std::cmp::min(end_block, batch_end);
         info!(
-            "Batch start: {}, Batch end: {}, Adjusted end block: {}",
-            batch_start, batch_end, adjusted_end_block
+            "Batch start: {batch_start}, Batch end: {batch_end}, Adjusted end block: {adjusted_end_block}"
         );
 
         // Check if batch state exists on-chain
-        let provider = StarknetProvider::new(&self.mmr_state_manager.rpc_url())?;
+        let provider = StarknetProvider::new(self.mmr_state_manager.rpc_url())?;
         let mmr_state = provider
             .get_mmr_state(self.mmr_state_manager.store_address(), batch_index)
             .await?;
@@ -108,10 +105,10 @@ impl<'a> BatchProcessor<'a> {
         // Extract IPFS hash from MMR state
         let ipfs_hash = mmr_state.ipfs_hash();
         let ipfs_hash_str = String::try_from(ipfs_hash.clone()).map_err(|_| {
-            PublisherError::validation(format!("Failed to convert IPFS hash: {:?}", ipfs_hash))
+            PublisherError::validation(format!("Failed to convert IPFS hash: {ipfs_hash:?}"))
         })?;
         // Create path for the batch database with a unique identifier
-        let batch_file_name = format!("batch_{}_{}.db", batch_index, uuid::Uuid::new_v4());
+        let batch_file_name = format!("batch_{batch_index}_{}.db", uuid::Uuid::new_v4());
         let db_file_path = PathBuf::from(get_or_create_db_path(&batch_file_name).map_err(|e| {
             error!(error = %e, "Failed to get or create DB path");
             e
@@ -129,7 +126,10 @@ impl<'a> BatchProcessor<'a> {
                 .await
             {
                 Ok(_) => {
-                    match initialize_mmr(db_file_path.to_str().unwrap()).await {
+                    let db_path_str = db_file_path.to_str().ok_or_else(|| {
+                        PublisherError::Io("Database file path contains invalid UTF-8".to_string())
+                    })?;
+                    match initialize_mmr(db_path_str).await {
                         Ok((sm, m, p)) => {
                             // Validate MMR root matches on-chain state
                             let mmr_elements_count = m.elements_count.get().await?;
@@ -142,7 +142,7 @@ impl<'a> BatchProcessor<'a> {
                                 let leaves_count = m.leaves_count.get().await?;
 
                                 if leaves_count as u64 >= self.batch_size {
-                                    debug!("Batch {} is already complete", batch_index);
+                                    debug!("Batch {batch_index} is already complete");
 
                                     // Create BatchResult and return early
                                     let mmr_state_for_result = starknet_handler::MmrState::new(
@@ -165,32 +165,46 @@ impl<'a> BatchProcessor<'a> {
                                 }
 
                                 info!(
-                                    "Loaded existing batch {} database with {} leaves (incomplete)",
-                                    batch_index, leaves_count
+                                    "Loaded existing batch {batch_index} database with {leaves_count} leaves (incomplete)"
                                 );
                                 (sm, m, p)
                             } else {
                                 warn!(
-                                    "MMR root mismatch for batch {}, creating new database",
-                                    batch_index
+                                    "MMR root mismatch for batch {batch_index}, creating new database"
                                 );
-                                initialize_mmr(db_file_path.to_str().unwrap()).await?
+                                let db_path_str = db_file_path.to_str().ok_or_else(|| {
+                                    PublisherError::Io(
+                                        "Database file path contains invalid UTF-8".to_string(),
+                                    )
+                                })?;
+                                initialize_mmr(db_path_str).await?
                             }
                         }
                         Err(e) => {
                             warn!(error = %e, "Failed to initialize MMR from downloaded DB, creating new database");
-                            initialize_mmr(db_file_path.to_str().unwrap()).await?
+                            let db_path_str = db_file_path.to_str().ok_or_else(|| {
+                                PublisherError::Io(
+                                    "Database file path contains invalid UTF-8".to_string(),
+                                )
+                            })?;
+                            initialize_mmr(db_path_str).await?
                         }
                     }
                 }
                 Err(e) => {
                     warn!(error = %e, "Failed to download DB from IPFS, creating new database");
-                    initialize_mmr(db_file_path.to_str().unwrap()).await?
+                    let db_path_str = db_file_path.to_str().ok_or_else(|| {
+                        PublisherError::Io("Database file path contains invalid UTF-8".to_string())
+                    })?;
+                    initialize_mmr(db_path_str).await?
                 }
             }
         } else {
             debug!("Creating new database file: {}", db_file_path.display());
-            initialize_mmr(db_file_path.to_str().unwrap()).await?
+            let db_path_str = db_file_path.to_str().ok_or_else(|| {
+                PublisherError::Io("Database file path contains invalid UTF-8".to_string())
+            })?;
+            initialize_mmr(db_path_str).await?
         };
 
         // Fetch block headers for the requested range
@@ -207,22 +221,20 @@ impl<'a> BatchProcessor<'a> {
                 e
             })?;
         if headers.is_empty() {
-            warn!(
-                "No headers found for block range {} to {}",
-                start_block, adjusted_end_block
-            );
+            warn!("No headers found for block range {start_block} to {adjusted_end_block}");
             return Err(PublisherError::validation(format!(
-                "No headers found for block range {} to {}",
-                start_block, adjusted_end_block
+                "No headers found for block range {start_block} to {adjusted_end_block}"
             )));
         }
 
         // Validate the latest block hash if provided
         if let Some(expected_hash) = &latest_relayed_block_and_hash {
-            let last_header = headers.last().unwrap();
+            let last_header = headers.last().ok_or_else(|| {
+                PublisherError::Validation("No headers found in batch".to_string())
+            })?;
             info!(
-                "Validating latest block hash: expected={}, actual={}",
-                expected_hash, last_header.block_hash
+                "Validating latest block hash: expected={expected_hash}, actual={}",
+                last_header.block_hash
             );
 
             // Normalize both hashes by stripping '0x' prefix and leading zeros
@@ -238,8 +250,8 @@ impl<'a> BatchProcessor<'a> {
 
             if normalized_actual != normalized_expected {
                 return Err(PublisherError::validation(format!(
-                    "Latest block hash mismatch: expected {}, got {}",
-                    expected_hash, last_header.block_hash
+                    "Latest block hash mismatch: expected {expected_hash}, got {}",
+                    last_header.block_hash
                 )));
             } else {
                 info!("Latest block hash validation successful");
@@ -280,8 +292,7 @@ impl<'a> BatchProcessor<'a> {
 
         // Debug the input
         debug!(
-            "Generating proof with input: chain_id={}, batch_size={}, headers={}, mmr_elements={}",
-            chain_id,
+            "Generating proof with input: chain_id={chain_id}, batch_size={}, headers={}, mmr_elements={}",
             self.batch_size,
             combined_input.headers().len(),
             combined_input.mmr_input().elements_count()
@@ -289,7 +300,7 @@ impl<'a> BatchProcessor<'a> {
 
         // Generate proof
         let (guest_output, proof) = {
-            info!("Generating proof for blocks {}-{}", start_block, end_block);
+            info!("Generating proof for blocks {start_block}-{end_block}");
 
             // Generate the proof with better error handling
             let result = match self
@@ -315,13 +326,13 @@ impl<'a> BatchProcessor<'a> {
                         }
                         Err(e) => {
                             error!(error = %e, "Failed to decode guest output");
-                            return Err(e.into());
+                            return Err(e);
                         }
                     }
                 }
                 Err(e) => {
                     error!(error = %e, "Failed to generate proof");
-                    return Err(e.into());
+                    return Err(e);
                 }
             };
 
@@ -353,14 +364,14 @@ impl<'a> BatchProcessor<'a> {
             .ipfs_manager
             .upload_db(&db_file_path)
             .await
-            .map_err(|e| PublisherError::validation(format!("Failed to upload to IPFS: {}", e)))?;
+            .map_err(|e| PublisherError::validation(format!("Failed to upload to IPFS: {e}")))?;
 
         let batch_result = Some(BatchResult::new(
             start_block,
             adjusted_end_block,
             new_mmr_state,
             proof,
-            ipfs_hash.to_string(),
+            ipfs_hash,
         ));
 
         // The file will be automatically cleaned up when _cleanup_guard goes out of scope
@@ -369,20 +380,18 @@ impl<'a> BatchProcessor<'a> {
 
     /// Calculate the start and end block numbers for a given batch index
     pub fn calculate_batch_bounds(&self, batch_index: u64) -> PublisherResult<(u64, u64)> {
-        let batch_start =
-            batch_index
-                .checked_mul(self.batch_size)
-                .ok_or(PublisherError::validation(format!(
-                    "Batch index too large: {}",
-                    batch_index
-                )))?;
+        let batch_start = batch_index.checked_mul(self.batch_size).ok_or_else(|| {
+            PublisherError::validation(format!("Batch index too large: {batch_index}"))
+        })?;
 
         let batch_end = batch_start
             .checked_add(self.batch_size)
-            .ok_or(PublisherError::validation(format!(
-                "Batch end calculation overflow: {} + {}",
-                batch_start, self.batch_size
-            )))?
+            .ok_or_else(|| {
+                PublisherError::validation(format!(
+                    "Batch end calculation overflow: {batch_start} + {}",
+                    self.batch_size
+                ))
+            })?
             .saturating_sub(1);
 
         Ok((batch_start, batch_end))
@@ -392,8 +401,7 @@ impl<'a> BatchProcessor<'a> {
     pub fn calculate_start_block(&self, current_end: u64) -> PublisherResult<u64> {
         if current_end == 0 {
             return Err(PublisherError::validation(format!(
-                "Current end block cannot be 0: {}",
-                current_end
+                "Current end block cannot be 0: {current_end}"
             )));
         }
 
@@ -408,36 +416,30 @@ impl<'a> BatchProcessor<'a> {
     ) -> PublisherResult<BatchRange> {
         if current_end < start_block {
             return Err(PublisherError::validation(format!(
-                "Current end block cannot be less than start block: {} < {}",
-                current_end, start_block
+                "Current end block cannot be less than start block: {current_end} < {start_block}"
             )));
         }
 
         if current_end == 0 {
             return Err(PublisherError::validation(format!(
-                "Current end block cannot be 0: {}",
-                current_end
+                "Current end block cannot be 0: {current_end}"
             )));
         }
 
         let batch_start = current_end.saturating_sub(current_end % self.batch_size);
         let effective_start = batch_start.max(start_block);
 
-        let batch_size_minus_one =
-            self.batch_size
-                .checked_sub(1)
-                .ok_or(PublisherError::validation(format!(
-                    "Invalid batch size: {}",
-                    self.batch_size
-                )))?;
+        let batch_size_minus_one = self.batch_size.checked_sub(1).ok_or_else(|| {
+            PublisherError::validation(format!("Invalid batch size: {}", self.batch_size))
+        })?;
 
-        let max_end =
-            batch_start
-                .checked_add(batch_size_minus_one)
-                .ok_or(PublisherError::validation(format!(
-                    "Batch end calculation overflow: {} + {}",
-                    batch_start, batch_size_minus_one
-                )))?;
+        let max_end = batch_start
+            .checked_add(batch_size_minus_one)
+            .ok_or_else(|| {
+                PublisherError::validation(format!(
+                    "Batch end calculation overflow: {batch_start} + {batch_size_minus_one}"
+                ))
+            })?;
 
         let effective_end = std::cmp::min(current_end, max_end);
 
@@ -457,12 +459,11 @@ pub struct BatchRange {
 }
 
 impl BatchRange {
-    /// Create a new BatchRange with validation
+    /// Create a new `BatchRange` with validation
     pub fn new(start_block: u64, end_block: u64) -> PublisherResult<Self> {
         if end_block < start_block {
             return Err(PublisherError::validation(format!(
-                "End block cannot be less than start block: {} < {}",
-                end_block, start_block
+                "End block cannot be less than start block: {end_block} < {start_block}"
             )));
         }
         Ok(Self {
@@ -472,12 +473,12 @@ impl BatchRange {
     }
 
     /// Get the starting block number
-    pub fn start_block(&self) -> u64 {
+    pub const fn start_block(&self) -> u64 {
         self.start
     }
 
     /// Get the ending block number
-    pub fn end_block(&self) -> u64 {
+    pub const fn end_block(&self) -> u64 {
         self.end
     }
 }
@@ -513,10 +514,7 @@ pub fn group_headers_by_hour(headers: Vec<BlockHeader>) -> Vec<(i64, Vec<BlockHe
                 if !current_group.is_empty() {
                     // Find timestamp closest to the hour
                     let representative_timestamp = h * 3600;
-                    info!(
-                        "Representative timestamp for hour {} is: {}",
-                        h, representative_timestamp
-                    );
+                    info!("Representative timestamp for hour {h} is: {representative_timestamp}");
                     grouped_headers
                         .push((representative_timestamp, std::mem::take(&mut current_group)));
                 }
@@ -559,7 +557,7 @@ impl Drop for CleanupGuard {
     }
 }
 
-fn defer_cleanup(path: PathBuf) -> CleanupGuard {
+const fn defer_cleanup(path: PathBuf) -> CleanupGuard {
     CleanupGuard { path }
 }
 

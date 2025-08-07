@@ -1,3 +1,4 @@
+/// Helper functions and utilities for testing
 pub mod helpers;
 /// Test utilities and helpers for the publisher crate
 ///
@@ -52,14 +53,23 @@ pub fn create_test_mmr_snapshot() -> starknet_handler::MmrSnapshot {
 
 /// Test constants commonly used across tests
 pub mod constants {
+    /// Default RPC URL for testing
     pub const TEST_RPC_URL: &str = "http://localhost:8545";
+    /// Default chain ID for testing
     pub const TEST_CHAIN_ID: u64 = 1;
+    /// Default verifier contract address for testing
     pub const TEST_VERIFIER_ADDRESS: &str = "0x1234567890123456789012345678901234567890";
+    /// Default store contract address for testing
     pub const TEST_STORE_ADDRESS: &str = "0x0987654321098765432109876543210987654321";
+    /// Default batch size for testing
     pub const TEST_BATCH_SIZE: u64 = 100;
+    /// Default start block number for testing
     pub const TEST_START_BLOCK: u64 = 1;
+    /// Default private key for testing (not a real key)
     pub const TEST_PRIVATE_KEY: &str = "0xprivatekey123456789";
+    /// Default account address for testing
     pub const TEST_ADDRESS: &str = "0xaddress123456789";
+    /// Default block hash for testing
     pub const TEST_BLOCK_HASH: &str =
         "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
 }

@@ -3,10 +3,12 @@
 /// These tests verify that the publisher components work correctly
 /// together and maintain backward compatibility.
 use publisher::{
-    api::operations::{get_block_hash_inclusion_proof, prove_mmr_update, update_mmr},
+    api::operations::get_block_hash_inclusion_proof,
     config::{AccountConfig, PublisherConfig},
     error::PublisherError,
+    prove_mmr_update_with_config,
     service::ProofService,
+    update_mmr_with_config, ProveMMRUpdateConfigBuilder, UpdateMMRConfigBuilder,
 };
 use starknet_handler::provider::LatestRelayBlock;
 
@@ -48,36 +50,40 @@ async fn test_api_backward_compatibility() {
     let (private_key, address) = utils::create_test_account();
     let latest_relay_block = utils::create_mock_latest_relay_block();
 
-    // Test prove_mmr_update API compatibility
-    let result = prove_mmr_update(
-        &rpc_url,
-        chain_id,
-        &verifier_address,
-        &store_address,
-        &private_key,
-        &address,
-        batch_size,
-        1, // start_block
-        latest_relay_block.clone(),
-    )
-    .await;
+    // Test prove_mmr_update_with_config API compatibility
+    let config = ProveMMRUpdateConfigBuilder::new()
+        .rpc_url(&rpc_url)
+        .chain_id(chain_id)
+        .verifier_address(&verifier_address)
+        .store_address(&store_address)
+        .account_private_key(&private_key)
+        .account_address(&address)
+        .batch_size(batch_size)
+        .start_block(1)
+        .latest_relayed_block(latest_relay_block.clone())
+        .build()
+        .expect("Config build should succeed");
+
+    let result = prove_mmr_update_with_config(config).await;
 
     // We expect this to fail in test environment, but the API should be callable
     assert!(result.is_err());
 
-    // Test update_mmr API compatibility
-    let result = update_mmr(
-        &rpc_url,
-        chain_id,
-        &verifier_address,
-        &store_address,
-        &private_key,
-        &address,
-        batch_size,
-        1, // start_block
-        latest_relay_block,
-    )
-    .await;
+    // Test update_mmr_with_config API compatibility
+    let config = UpdateMMRConfigBuilder::new()
+        .rpc_url(&rpc_url)
+        .chain_id(chain_id)
+        .verifier_address(&verifier_address)
+        .store_address(&store_address)
+        .account_private_key(&private_key)
+        .account_address(&address)
+        .batch_size(batch_size)
+        .start_block(1)
+        .latest_relayed_block(latest_relay_block)
+        .build()
+        .expect("Config build should succeed");
+
+    let result = update_mmr_with_config(config).await;
 
     // We expect this to fail in test environment, but the API should be callable
     assert!(result.is_err());

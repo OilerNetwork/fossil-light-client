@@ -11,28 +11,27 @@ use crate::{
 
 /// Builder for MMR accumulator operations, managing batch processing and proof generation
 pub struct AccumulatorBuilder<'a> {
-    starknet_rpc_url: &'a String,
+    starknet_rpc_url: &'a str,
     chain_id: u64,
-    verifier_address: &'a String,
+    verifier_address: &'a str,
     batch_processor: BatchProcessor<'a>,
     current_batch: u64,
     total_batches: u64,
 }
 
 impl<'a> AccumulatorBuilder<'a> {
-    /// Create a new AccumulatorBuilder with the specified configuration
+    /// Create a new `AccumulatorBuilder` with the specified configuration
     pub async fn new(
-        starknet_rpc_url: &'a String,
+        starknet_rpc_url: &'a str,
         chain_id: u64,
-        verifier_address: &'a String,
+        verifier_address: &'a str,
         batch_processor: BatchProcessor<'a>,
         current_batch: u64,
         total_batches: u64,
     ) -> PublisherResult<Self> {
         if verifier_address.trim().is_empty() {
             return Err(PublisherError::validation(format!(
-                "Verifier address cannot be empty: {}",
-                verifier_address
+                "Verifier address cannot be empty: {verifier_address}"
             )));
         }
 
@@ -48,66 +47,113 @@ impl<'a> AccumulatorBuilder<'a> {
 
     /// Build the MMR using a specified number of batches
     pub async fn build_with_num_batches(&mut self, num_batches: u64) -> PublisherResult<()> {
-        if num_batches == 0 {
-            return Err(PublisherError::validation(format!(
-                "Number of batches must be greater than 0: {}",
-                num_batches
-            )));
-        }
+        self.validate_batch_count(num_batches)?;
+        let finalized_block_number = self.get_finalized_block_number().await?;
+        self.initialize_batch_processing(num_batches);
 
-        let (finalized_block_number, _) = get_finalized_block_hash().await.map_err(|e| {
-            error!(error = %e, "Failed to get finalized block hash");
-            PublisherError::validation(format!("Failed to get finalized block: {}", e))
-        })?;
-
-        self.total_batches = num_batches;
-        self.current_batch = 0;
         let mut current_end = finalized_block_number;
-
         for batch_num in 0..num_batches {
-            if current_end == 0 {
-                warn!("Reached block 0 before completing all batches");
+            if let Some(new_end) = self
+                .process_single_batch(batch_num, current_end, finalized_block_number, num_batches)
+                .await?
+            {
+                current_end = new_end;
+            } else {
                 break;
             }
-
-            let start_block = self.batch_processor.calculate_start_block(current_end)?;
-            debug!(batch_num, start_block, current_end, "Processing batch");
-
-            info!(
-                finalized_block_number,
-                num_batches,
-                start_block,
-                current_end,
-                "Starting MMR build with specified number of batches"
-            );
-            let result = self
-                .batch_processor
-                .process_batch(self.chain_id, start_block, current_end, None)
-                .await
-                .map_err(|e| {
-                    error!(
-                        error = %e,
-                        batch_num,
-                        start_block,
-                        current_end,
-                        "Failed to process batch"
-                    );
-                    e
-                })?;
-
-            if let Some(batch_result) = result {
-                self.handle_batch_result(&batch_result, true).await?;
-                self.current_batch += 1;
-                info!(
-                    progress = format!("{}/{}", self.current_batch, self.total_batches),
-                    "Batch processed successfully"
-                );
-            }
-
-            current_end = start_block.saturating_sub(1);
         }
 
         info!("MMR build completed successfully");
+        Ok(())
+    }
+
+    fn validate_batch_count(&self, num_batches: u64) -> PublisherResult<()> {
+        if num_batches == 0 {
+            return Err(PublisherError::validation(format!(
+                "Number of batches must be greater than 0: {num_batches}"
+            )));
+        }
+        Ok(())
+    }
+
+    async fn get_finalized_block_number(&self) -> PublisherResult<u64> {
+        let (finalized_block_number, _) = get_finalized_block_hash().await.map_err(|e| {
+            error!(error = %e, "Failed to get finalized block hash");
+            PublisherError::validation(format!("Failed to get finalized block: {e}"))
+        })?;
+        Ok(finalized_block_number)
+    }
+
+    const fn initialize_batch_processing(&mut self, num_batches: u64) {
+        self.total_batches = num_batches;
+        self.current_batch = 0;
+    }
+
+    async fn process_single_batch(
+        &mut self,
+        batch_num: u64,
+        current_end: u64,
+        finalized_block_number: u64,
+        num_batches: u64,
+    ) -> PublisherResult<Option<u64>> {
+        if current_end == 0 {
+            warn!("Reached block 0 before completing all batches");
+            return Ok(None);
+        }
+
+        let start_block = self.batch_processor.calculate_start_block(current_end)?;
+        debug!(batch_num, start_block, current_end, "Processing batch");
+
+        info!(
+            finalized_block_number,
+            num_batches,
+            start_block,
+            current_end,
+            "Starting MMR build with specified number of batches"
+        );
+
+        let result = self
+            .execute_batch_processing(batch_num, start_block, current_end)
+            .await?;
+
+        if let Some(batch_result) = result {
+            self.handle_successful_batch(batch_result).await?;
+        }
+
+        Ok(Some(start_block.saturating_sub(1)))
+    }
+
+    async fn execute_batch_processing(
+        &self,
+        batch_num: u64,
+        start_block: u64,
+        current_end: u64,
+    ) -> PublisherResult<Option<crate::utils::BatchResult>> {
+        self.batch_processor
+            .process_batch(self.chain_id, start_block, current_end, None)
+            .await
+            .map_err(|e| {
+                error!(
+                    error = %e,
+                    batch_num,
+                    start_block,
+                    current_end,
+                    "Failed to process batch"
+                );
+                e
+            })
+    }
+
+    async fn handle_successful_batch(
+        &mut self,
+        batch_result: crate::utils::BatchResult,
+    ) -> PublisherResult<()> {
+        self.handle_batch_result(&batch_result, true).await?;
+        self.current_batch += 1;
+        info!(
+            progress = format!("{}/{}", self.current_batch, self.total_batches),
+            "Batch processed successfully"
+        );
         Ok(())
     }
 
@@ -115,8 +161,7 @@ impl<'a> AccumulatorBuilder<'a> {
     pub async fn build_from_finalized(&mut self) -> PublisherResult<()> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
         debug!(
-            "Building MMR from finalized block {} with batch size {}",
-            finalized_block_number,
+            "Building MMR from finalized block {finalized_block_number} with batch size {}",
             self.batch_processor.batch_size()
         );
 
@@ -140,6 +185,7 @@ impl<'a> AccumulatorBuilder<'a> {
     }
 
     /// Update the MMR with new block headers from the specified range
+    #[allow(clippy::cognitive_complexity)]
     pub async fn update_mmr_with_new_headers(
         &mut self,
         start_block: u64,
@@ -148,8 +194,8 @@ impl<'a> AccumulatorBuilder<'a> {
     ) -> PublisherResult<()> {
         if latest_relayed_block_and_hash.block_number < start_block {
             return Err(PublisherError::validation(format!(
-                "End block cannot be less than start block: {} < {}",
-                latest_relayed_block_and_hash.block_number, start_block
+                "End block cannot be less than start block: {} < {start_block}",
+                latest_relayed_block_and_hash.block_number
             )));
         }
 
@@ -168,7 +214,7 @@ impl<'a> AccumulatorBuilder<'a> {
 
         info!(
             start_batch_index,
-            end_batch_index, total_batches, "Updating Light Client with {} batches", total_batches
+            end_batch_index, total_batches, "Updating Light Client with {total_batches} batches"
         );
 
         // Process each batch in sequence
@@ -203,8 +249,7 @@ impl<'a> AccumulatorBuilder<'a> {
                 .await?
                 .ok_or_else(|| {
                     PublisherError::validation(format!(
-                        "No batch result returned for blocks {}-{}",
-                        effective_start, effective_end
+                        "No batch result returned for blocks {effective_start}-{effective_end}"
                     ))
                 })?;
 
@@ -214,13 +259,13 @@ impl<'a> AccumulatorBuilder<'a> {
             self.current_batch += 1;
             info!(
                 progress = format!("{}/{}", batch_index - start_batch_index + 1, total_batches),
-                "Batch processed successfully for blocks {}-{}", effective_start, effective_end
+                "Batch processed successfully for blocks {effective_start}-{effective_end}"
             );
         }
 
         info!(
-            "MMR update completed successfully for all blocks {}-{}",
-            start_block, latest_relayed_block_and_hash.block_number
+            "MMR update completed successfully for all blocks {start_block}-{}",
+            latest_relayed_block_and_hash.block_number
         );
 
         Ok(())
@@ -237,8 +282,7 @@ impl<'a> AccumulatorBuilder<'a> {
                 .await?;
         } else {
             return Err(PublisherError::validation(format!(
-                "No proof available for verification for batch: {:?}",
-                batch_result
+                "No proof available for verification for batch: {batch_result:?}"
             )));
         }
         Ok(())
@@ -252,9 +296,9 @@ impl<'a> AccumulatorBuilder<'a> {
     ) -> PublisherResult<()> {
         let starknet_account = self.batch_processor.mmr_state_manager().account();
 
-        info!("Verifying MMR proof (is_build: {})", is_build);
+        info!("Verifying MMR proof (is_build: {is_build})");
         starknet_account
-            .verify_mmr_proof(&self.verifier_address, calldata, ipfs_hash, is_build)
+            .verify_mmr_proof(self.verifier_address, calldata, ipfs_hash, is_build)
             .await
             .map_err(|e| {
                 error!(error = %e, "Failed to verify MMR proof");
@@ -270,7 +314,7 @@ impl<'a> AccumulatorBuilder<'a> {
         start_block: u64,
         is_build: bool,
     ) -> PublisherResult<()> {
-        info!("Building MMR from block {}", start_block);
+        info!("Building MMR from block {start_block}");
         self.process_blocks_from(start_block, is_build).await
     }
 
@@ -281,30 +325,21 @@ impl<'a> AccumulatorBuilder<'a> {
         num_batches: u64,
         is_build: bool,
     ) -> PublisherResult<()> {
-        info!(
-            "Building MMR from block {} with {} batches",
-            start_block, num_batches
-        );
+        info!("Building MMR from block {start_block} with {num_batches} batches");
         self.process_blocks_from_with_limit(start_block, num_batches, is_build)
             .await
     }
 
-    async fn process_blocks_from(
-        &mut self,
-        start_block: u64,
-        is_build: bool,
-    ) -> PublisherResult<()> {
+    async fn process_blocks_from(&self, start_block: u64, is_build: bool) -> PublisherResult<()> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
         if start_block > finalized_block_number {
             return Err(PublisherError::validation(format!(
-                "Start block cannot be greater than finalized block: {} > {}",
-                start_block, finalized_block_number
+                "Start block cannot be greater than finalized block: {start_block} > {finalized_block_number}"
             )));
         }
 
         debug!(
-            "Processing blocks from {} with batch size {}",
-            start_block,
+            "Processing blocks from {start_block} with batch size {}",
             self.batch_processor.batch_size()
         );
 
@@ -327,6 +362,7 @@ impl<'a> AccumulatorBuilder<'a> {
         Ok(())
     }
 
+    #[allow(clippy::cognitive_complexity)]
     async fn process_blocks_from_with_limit(
         &mut self,
         start_block: u64,
@@ -335,19 +371,17 @@ impl<'a> AccumulatorBuilder<'a> {
     ) -> PublisherResult<()> {
         if num_batches == 0 {
             return Err(PublisherError::validation(format!(
-                "Number of batches must be greater than 0: {}",
-                num_batches
+                "Number of batches must be greater than 0: {num_batches}"
             )));
         }
 
         let (finalized_block_number, _) = get_finalized_block_hash().await.map_err(|e| {
-            PublisherError::validation(format!("Failed to get finalized block: {}", e))
+            PublisherError::validation(format!("Failed to get finalized block: {e}"))
         })?;
 
         if start_block > finalized_block_number {
             return Err(PublisherError::validation(format!(
-                "Start block cannot be greater than finalized block: {} > {}",
-                start_block, finalized_block_number
+                "Start block cannot be greater than finalized block: {start_block} > {finalized_block_number}"
             )));
         }
 
@@ -397,21 +431,18 @@ impl<'a> AccumulatorBuilder<'a> {
 
     /// Build MMR from the latest available block
     pub async fn build_from_latest(&mut self, is_build: bool) -> PublisherResult<()> {
-        let provider = StarknetProvider::new(&self.starknet_rpc_url).map_err(|e| {
-            PublisherError::validation(format!("Failed to create Starknet provider: {}", e))
+        let provider = StarknetProvider::new(self.starknet_rpc_url).map_err(|e| {
+            PublisherError::validation(format!("Failed to create Starknet provider: {e}"))
         })?;
 
         let latest_mmr_block = provider
-            .get_min_mmr_block(&self.batch_processor.mmr_state_manager().store_address())
+            .get_min_mmr_block(self.batch_processor.mmr_state_manager().store_address())
             .await
             .map_err(|e| {
-                PublisherError::validation(format!("Failed to get latest MMR block: {}", e))
+                PublisherError::validation(format!("Failed to get latest MMR block: {e}"))
             })?;
 
-        info!(
-            "Building MMR from minimum MMR block {} - 1",
-            latest_mmr_block
-        );
+        info!("Building MMR from minimum MMR block {latest_mmr_block} - 1");
         self.process_blocks_from(latest_mmr_block - 1, is_build)
             .await
     }
@@ -422,15 +453,15 @@ impl<'a> AccumulatorBuilder<'a> {
         num_batches: u64,
         is_build: bool,
     ) -> PublisherResult<()> {
-        let provider = StarknetProvider::new(&self.starknet_rpc_url).map_err(|e| {
-            PublisherError::validation(format!("Failed to create Starknet provider: {}", e))
+        let provider = StarknetProvider::new(self.starknet_rpc_url).map_err(|e| {
+            PublisherError::validation(format!("Failed to create Starknet provider: {e}"))
         })?;
 
         let min_mmr_block = provider
-            .get_min_mmr_block(&self.batch_processor.mmr_state_manager().store_address())
+            .get_min_mmr_block(self.batch_processor.mmr_state_manager().store_address())
             .await
             .map_err(|e| {
-                PublisherError::validation(format!("Failed to get minimum MMR block: {}", e))
+                PublisherError::validation(format!("Failed to get minimum MMR block: {e}"))
             })?;
 
         if min_mmr_block == 0 {
@@ -439,9 +470,8 @@ impl<'a> AccumulatorBuilder<'a> {
         }
 
         info!(
-            "Building MMR from latest MMR block {} with {} batches",
-            min_mmr_block - 1,
-            num_batches
+            "Building MMR from latest MMR block {} with {num_batches} batches",
+            min_mmr_block - 1
         );
         self.process_blocks_from_with_limit(min_mmr_block - 1, num_batches, is_build)
             .await

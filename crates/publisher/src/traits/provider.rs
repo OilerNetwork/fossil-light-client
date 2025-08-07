@@ -6,7 +6,7 @@ pub trait StarknetProviderTrait: Send + Sync {
     // Concrete implementation is handled by the StarknetProvider type directly
 }
 
-/// Implementation of StarknetProviderTrait for the concrete StarknetProvider
+/// Implementation of `StarknetProviderTrait` for the concrete `StarknetProvider`
 impl StarknetProviderTrait for StarknetProvider {
     // Concrete implementation is handled by the StarknetProvider type directly
 }

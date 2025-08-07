@@ -39,31 +39,49 @@ pub struct Args {
 
 /// Run the MMR building process with the specified arguments
 pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize environment with specified file
-    dotenv::from_path(&args.env_file)?;
-    initialize_logger()?;
+    initialize_environment(&args)?;
+    validate_arguments(&args)?;
 
     let chain_id = get_env_var("CHAIN_ID")?.parse::<u64>()?;
     let rpc_url = get_env_var("STARKNET_RPC_URL")?;
     let verifier_address = get_env_var("FOSSIL_VERIFIER")?;
     let store_address = get_env_var("FOSSIL_STORE")?;
+
+    let mut builder =
+        create_builder_components(&args, &rpc_url, chain_id, &verifier_address, &store_address)
+            .await?;
+    execute_build_strategy(&args, &mut builder).await?;
+    Ok(())
+}
+
+fn initialize_environment(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
+    dotenv::from_path(&args.env_file)?;
+    initialize_logger()?;
+    Ok(())
+}
+
+async fn create_builder_components<'a>(
+    args: &Args,
+    rpc_url: &'a str,
+    chain_id: u64,
+    verifier_address: &'a str,
+    store_address: &'a str,
+) -> Result<AccumulatorBuilder<'a>, Box<dyn std::error::Error>> {
     let private_key = get_env_var("STARKNET_PRIVATE_KEY")?;
     let account_address = get_env_var("STARKNET_ACCOUNT_ADDRESS")?;
 
-    let starknet_provider = StarknetProvider::new(&rpc_url)?;
+    let starknet_provider = StarknetProvider::new(rpc_url)?;
     let starknet_account =
         StarknetAccount::new(starknet_provider.provider(), &private_key, &account_address)?;
 
-    // Create the batch processor first
     let proof_generator = ProofGenerator::new(MMR_BUILD_ELF, MMR_BUILD_ID)?;
-    let mmr_state_manager = MMRStateManager::new(starknet_account, &store_address, &rpc_url);
+    let mmr_state_manager = MMRStateManager::new(starknet_account, store_address, rpc_url);
     let batch_processor = BatchProcessor::new(args.batch_size, proof_generator, mmr_state_manager)?;
 
-    // Then create the accumulator builder
-    let mut builder = AccumulatorBuilder::new(
-        &rpc_url,
+    AccumulatorBuilder::new(
+        rpc_url,
         chain_id,
-        &verifier_address,
+        verifier_address,
         batch_processor,
         0, // current_batch
         0, // total_batches
@@ -71,74 +89,83 @@ pub async fn run(args: Args) -> Result<(), Box<dyn std::error::Error>> {
     .await
     .map_err(|e| {
         tracing::error!(error = %e, "Failed to create AccumulatorBuilder");
-        e
-    })?;
+        Box::new(e) as Box<dyn std::error::Error>
+    })
+}
 
-    // Validate CLI arguments
-    let result: Result<(), Box<dyn std::error::Error>> =
-        match (args.resume, args.from_latest, args.start_block) {
-            (true, true, _) => Err("Cannot specify both --resume and --from-latest".into()),
-            (true, _, Some(_)) => Err("Cannot specify both --resume and --start-block".into()),
-            (false, true, Some(_)) => {
-                Err("Cannot specify both --from-latest and --start-block".into())
-            }
-            _ => Ok(()),
-        };
-
-    if let Err(e) = result {
-        return Err(e);
+fn validate_arguments(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
+    match (args.resume, args.from_latest, args.start_block) {
+        (true, true, _) => Err("Cannot specify both --resume and --from-latest".into()),
+        (true, _, Some(_)) => Err("Cannot specify both --resume and --start-block".into()),
+        (false, true, Some(_)) => Err("Cannot specify both --from-latest and --start-block".into()),
+        _ => Ok(()),
     }
+}
 
-    // Handle resume option
+async fn execute_build_strategy(
+    args: &Args,
+    builder: &mut AccumulatorBuilder<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
     if args.resume {
-        // Get the minimum MMR block from the Starknet contract
-        let min_mmr_block = starknet_provider.get_min_mmr_block(&store_address).await?;
-
-        if min_mmr_block == 0 {
-            tracing::warn!("No minimum MMR block found on-chain, starting from finalized block");
-            builder.build_from_finalized().await?;
-        } else {
-            // Start from min_mmr_block - 1 to ensure proper overlap
-            let start_block = min_mmr_block.saturating_sub(1);
-            tracing::info!(
-                min_mmr_block,
-                start_block,
-                "Resuming from minimum MMR block minus 1"
-            );
-
-            match args.num_batches {
-                Some(num_batches) => {
-                    builder
-                        .build_from_block_with_batches(start_block, num_batches, true)
-                        .await?
-                }
-                None => builder.build_from_block(start_block, true).await?,
-            }
-        }
+        handle_resume_build(args, builder).await
     } else {
-        // Handle other options as before
-        match (args.from_latest, args.start_block, args.num_batches) {
-            (true, Some(_), _) => {
-                // This case should never happen due to earlier validation
-                unreachable!("Cannot specify both --from-latest and --start-block")
-            }
-            (true, None, Some(num_batches)) => {
-                builder
-                    .build_from_latest_with_batches(num_batches, true)
-                    .await?
-            }
-            (true, None, None) => builder.build_from_latest(true).await?,
-            (false, Some(start_block), Some(num_batches)) => {
+        handle_regular_build(args, builder).await
+    }
+}
+
+async fn handle_resume_build(
+    args: &Args,
+    builder: &mut AccumulatorBuilder<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let store_address = get_env_var("FOSSIL_STORE")?;
+    let rpc_url = get_env_var("STARKNET_RPC_URL")?;
+    let starknet_provider = StarknetProvider::new(&rpc_url)?;
+    let min_mmr_block = starknet_provider.get_min_mmr_block(&store_address).await?;
+
+    if min_mmr_block == 0 {
+        tracing::warn!("No minimum MMR block found on-chain, starting from finalized block");
+        builder.build_from_finalized().await?;
+    } else {
+        let start_block = min_mmr_block.saturating_sub(1);
+        tracing::info!(
+            min_mmr_block,
+            start_block,
+            "Resuming from minimum MMR block minus 1"
+        );
+
+        match args.num_batches {
+            Some(num_batches) => {
                 builder
                     .build_from_block_with_batches(start_block, num_batches, true)
                     .await?
             }
-            (false, Some(start_block), None) => builder.build_from_block(start_block, true).await?,
-            (false, None, Some(num_batches)) => builder.build_with_num_batches(num_batches).await?,
-            (false, None, None) => builder.build_from_finalized().await?,
+            None => builder.build_from_block(start_block, true).await?,
         }
     }
+    Ok(())
+}
 
+async fn handle_regular_build(
+    args: &Args,
+    builder: &mut AccumulatorBuilder<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    match (args.from_latest, args.start_block, args.num_batches) {
+        (true, Some(_), _) => unreachable!("Cannot specify both --from-latest and --start-block"),
+        (true, None, Some(num_batches)) => {
+            builder
+                .build_from_latest_with_batches(num_batches, true)
+                .await?
+        }
+        (true, None, None) => builder.build_from_latest(true).await?,
+        (false, Some(start_block), Some(num_batches)) => {
+            builder
+                .build_from_block_with_batches(start_block, num_batches, true)
+                .await?
+        }
+        (false, Some(start_block), None) => builder.build_from_block(start_block, true).await?,
+        (false, None, Some(num_batches)) => builder.build_with_num_batches(num_batches).await?,
+        (false, None, None) => builder.build_from_finalized().await?,
+    }
     Ok(())
 }
 

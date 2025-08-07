@@ -5,8 +5,7 @@ pub fn validate_u256_hex(hex: &str) -> PublisherResult<()> {
     if !hex.starts_with("0x") || hex.len() <= 2 {
         // Check for "0x" prefix and ensure there's data after it
         return Err(PublisherError::validation(format!(
-            "Invalid U256 hex string: {}",
-            hex
+            "Invalid U256 hex string: {hex}"
         )));
     }
 
@@ -14,16 +13,14 @@ pub fn validate_u256_hex(hex: &str) -> PublisherResult<()> {
     let hex_value = &hex[2..];
     if !hex_value.chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(PublisherError::validation(format!(
-            "Invalid U256 hex string: {}",
-            hex
+            "Invalid U256 hex string: {hex}"
         )));
     }
 
     // Check length - maximum 64 hex chars (256 bits = 64 hex digits)
     if hex_value.len() > 64 {
         return Err(PublisherError::validation(format!(
-            "Invalid U256 hex string: {}",
-            hex
+            "Invalid U256 hex string: {hex}"
         )));
     }
 

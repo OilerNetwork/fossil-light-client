@@ -29,40 +29,47 @@
 //!
 //! ### Basic Configuration
 //!
-//! ```rust
-//! use publisher::{PublisherConfig, AccountConfig, ProofService};
+//! ```rust,no_run
+//! use publisher::{PublisherConfig, service::ProofService};
 //!
-//! Create configuration using builder pattern
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! // Create configuration using builder pattern
 //! let config = PublisherConfig::builder()
-//! .rpc_url("http://localhost:8545")
-//! .chain_id(1)
-//! .verifier_address("0x1234567890123456789012345678901234567890")
-//! .store_address("0x0987654321098765432109876543210987654321")
-//! .batch_size(100)
-//! .build()?;
+//!     .rpc_url("http://localhost:8545")
+//!     .chain_id(1)
+//!     .verifier_address("0x1234567890123456789012345678901234567890")
+//!     .store_address("0x0987654321098765432109876543210987654321")
+//!     .batch_size(100)
+//!     .build()?;
 //!
-//! Create service instance
+//! // Create service instance
 //! let service = ProofService::with_config(config);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Generating Block Hash Proofs
 //!
-//! ```rust
+//! ```rust,no_run
 //! use publisher::get_block_hash_inclusion_proof;
 //!
+//! # #[tokio::main]
+//! # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let block_hash = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
 //! let rpc_url = "http://localhost:8545";
 //! let store_address = "0x0987654321098765432109876543210987654321";
 //! let batch_size = 100;
 //!
 //! let proof_response = get_block_hash_inclusion_proof(
-//! block_hash.to_string(),
-//! rpc_url.to_string(),
-//! store_address.to_string(),
-//! batch_size,
+//!     block_hash.to_string(),
+//!     rpc_url.to_string(),
+//!     store_address.to_string(),
+//!     batch_size,
 //! ).await?;
 //!
 //! println!("Proof generated for batch: {}", proof_response.batch_index);
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Error Handling
@@ -73,15 +80,15 @@
 //! use publisher::{PublisherResult, PublisherError};
 //!
 //! fn handle_publisher_operation() -> PublisherResult<()> {
-//! Operation that might fail
-//! Err(PublisherError::database("Connection failed"))
+//!     // Operation that might fail
+//!     Err(PublisherError::database("Connection failed"))
 //! }
 //!
 //! match handle_publisher_operation() {
-//! Ok(()) => println!("Operation succeeded"),
-//! Err(PublisherError::Database(msg)) => println!("Database error: {}", msg),
-//! Err(PublisherError::Ipfs(msg)) => println!("IPFS error: {}", msg),
-//! Err(err) => println!("Other error: {}", err),
+//!     Ok(()) => println!("Operation succeeded"),
+//!     Err(PublisherError::Database(msg)) => println!("Database error: {}", msg),
+//!     Err(PublisherError::Ipfs(msg)) => println!("IPFS error: {}", msg),
+//!     Err(err) => println!("Other error: {}", err),
 //! }
 //! ```
 //!
@@ -100,17 +107,18 @@
 //!
 //! The crate includes comprehensive testing utilities:
 //!
-//! ```rust
+//! ```rust,no_run
 //! #[cfg(test)]
 //! mod tests {
-//! use publisher::testing::{create_test_config, create_test_account_config};
+//!     use publisher::testing::{create_test_config, create_test_account_config};
+//!     use publisher::service::ProofService;
 //!
-//! #[tokio::test]
-//! async fn test_service_creation() {
-//! let config = create_test_config();
-//! let service = ProofService::with_config(config);
-//! Test logic here...
-//! }
+//!     #[tokio::test]
+//!     async fn test_service_creation() {
+//!         let config = create_test_config();
+//!         let service = ProofService::with_config(config);
+//!         // Test logic here...
+//!     }
 //! }
 //! ```
 //!
@@ -142,6 +150,7 @@ pub mod error;
 /// Service layer for business logic
 pub mod service;
 #[cfg(test)]
+/// Testing utilities and mock implementations for the publisher crate
 pub mod testing;
 /// Trait abstractions for dependency injection
 pub mod traits;
@@ -149,6 +158,11 @@ pub mod traits;
 pub mod utils;
 // Note: validator module is not included as it has dependency issues and is not currently used
 
-pub use api::operations::{get_block_hash_inclusion_proof, prove_mmr_update};
+pub use api::{
+    operations::{
+        get_block_hash_inclusion_proof, prove_mmr_update_with_config, update_mmr_with_config,
+    },
+    ProveMMRUpdateConfig, ProveMMRUpdateConfigBuilder, UpdateMMRConfig, UpdateMMRConfigBuilder,
+};
 pub use config::{AccountConfig, PublisherConfig, PublisherConfigBuilder};
 pub use error::{PublisherError, PublisherResult, Result, ValidatorError};

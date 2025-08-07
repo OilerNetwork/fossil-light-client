@@ -7,6 +7,7 @@ use garaga_rs::{
 use risc0_ethereum_contracts::encode_seal;
 use risc0_zkvm::{compute_image_id, default_prover, ExecutorEnv, ProverOpts, VerifierContext};
 use serde::Deserialize;
+use starknet_crypto::Felt;
 use tokio::{
     task,
     time::{sleep, Duration},
@@ -29,23 +30,25 @@ pub struct ProofGenerator<T> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+// Explicitly implement Send and Sync since all fields are Send + Sync
+unsafe impl<T> Send for ProofGenerator<T> where T: Send {}
+unsafe impl<T> Sync for ProofGenerator<T> where T: Sync {}
+
 impl<T> ProofGenerator<T>
 where
-    T: serde::Serialize + Clone + Send + 'static,
+    T: serde::Serialize + Clone + Send + Sync + 'static,
 {
     /// Create a new proof generator with method ELF and ID
     pub fn new(method_elf: &'static [u8], method_id: [u32; 8]) -> PublisherResult<Self> {
         if method_elf.is_empty() {
             return Err(PublisherError::proof_generation(format!(
-                "Method ELF cannot be empty: {:?}",
-                method_elf
+                "Method ELF cannot be empty: {method_elf:?}"
             )));
         }
 
         if method_id.iter().all(|&x| x == 0) {
             return Err(PublisherError::proof_generation(format!(
-                "Method ID cannot be all zeros: {:?}",
-                method_id
+                "Method ID cannot be all zeros: {method_id:?}"
             )));
         }
 
@@ -71,21 +74,20 @@ where
             let method_id = self.method_id;
             let input = input.clone();
 
+            #[allow(clippy::cognitive_complexity)]
             move || -> PublisherResult<Stark> {
                 debug!("Building executor environment");
                 let env = ExecutorEnv::builder()
                     .write(&input)
                     .map_err(|e| {
                         PublisherError::proof_generation(format!(
-                            "Failed to write input to executor env: {}",
-                            e
+                            "Failed to write input to executor env: {e}"
                         ))
                     })?
                     .build()
                     .map_err(|e| {
                         PublisherError::proof_generation(format!(
-                            "Failed to build executor env: {}",
-                            e
+                            "Failed to build executor env: {e}"
                         ))
                     })?;
 
@@ -94,15 +96,14 @@ where
                     .prove(env, method_elf)
                     .map_err(|e| {
                         PublisherError::proof_generation(format!(
-                            "Failed to generate STARK proof: {}",
-                            e
+                            "Failed to generate STARK proof: {e}"
                         ))
                     })?
                     .receipt;
 
                 debug!("Computing image ID");
                 let image_id = compute_image_id(method_elf).map_err(|e| {
-                    PublisherError::proof_generation(format!("Failed to compute image ID: {}", e))
+                    PublisherError::proof_generation(format!("Failed to compute image ID: {e}"))
                 })?;
 
                 info!("Successfully generated STARK proof");
@@ -111,7 +112,7 @@ where
         })
         .await?
         .map_err(|e| {
-            PublisherError::proof_generation(format!("Failed to spawn blocking task: {}", e))
+            PublisherError::proof_generation(format!("Failed to spawn blocking task: {e}"))
         })?;
 
         Ok(proof)
@@ -165,8 +166,7 @@ where
 
         Err(last_error.unwrap_or_else(|| {
             PublisherError::proof_generation(format!(
-                "Failed to generate Groth16 proof after {} attempts",
-                MAX_RETRIES
+                "Failed to generate Groth16 proof after {MAX_RETRIES} attempts"
             ))
         }))
     }
@@ -183,77 +183,94 @@ where
         let input = input.clone();
 
         let proof = task::spawn_blocking(move || -> PublisherResult<Groth16> {
-            debug!("Building executor environment");
-            let env = ExecutorEnv::builder()
-                .write(&input)
-                .map_err(|e| {
-                    PublisherError::proof_generation(format!(
-                        "Failed to write input to executor env: {}",
-                        e
-                    ))
-                })?
-                .build()
-                .map_err(|e| {
-                    PublisherError::proof_generation(format!("Failed to build executor env: {}", e))
-                })?;
-
-            debug!("Generating proof with Groth16 options");
-            let receipt = default_prover()
-                .prove_with_ctx(
-                    env,
-                    &VerifierContext::default(),
-                    method_elf,
-                    &ProverOpts::groth16(),
-                )
-                .map_err(|e| {
-                    PublisherError::proof_generation(format!(
-                        "Failed to generate Groth16 proof: {}",
-                        e
-                    ))
-                })?
-                .receipt;
-
-            debug!("Encoding seal");
-            let encoded_seal = encode_seal(&receipt).map_err(|e| {
-                PublisherError::proof_generation(format!("Failed to encode seal: {}", e))
-            })?;
-
-            debug!("Computing image ID");
-            let image_id = compute_image_id(method_elf).map_err(|e| {
-                PublisherError::proof_generation(format!("Failed to compute image ID: {}", e))
-            })?;
-
-            let journal = receipt.journal.bytes.clone();
-
-            debug!("Converting to Groth16 proof");
-            let groth16_proof = Groth16Proof::from_risc0(
-                encoded_seal,
-                image_id.as_bytes().to_vec(),
-                journal.clone(),
-            );
-
-            debug!("Generating calldata");
-            let calldata =
-                get_groth16_calldata_felt(&groth16_proof, &get_risc0_vk(), CurveID::BN254)
-                    .map_err(|e| {
-                        PublisherError::proof_generation(format!(
-                            "Failed to generate calldata: {}",
-                            e
-                        ))
-                    })?;
-
-            info!("Successfully generated Groth16 proof and calldata.");
-            Ok(Groth16::new(receipt, calldata))
+            Self::generate_groth16_proof_internal_blocking(input, method_elf)
         })
         .await?
         .map_err(|e| {
-            PublisherError::proof_generation(format!("Failed to spawn blocking task: {}", e))
+            PublisherError::proof_generation(format!("Failed to spawn blocking task: {e}"))
         })?;
 
         Ok(proof)
     }
 
+    fn generate_groth16_proof_internal_blocking(
+        input: T,
+        method_elf: &[u8],
+    ) -> PublisherResult<Groth16> {
+        let env = Self::build_executor_environment(&input)?;
+        let receipt = Self::generate_proof_receipt(env, method_elf)?;
+        let proof_components = Self::process_proof_receipt(&receipt, method_elf)?;
+        let calldata = Self::generate_proof_calldata(&proof_components)?;
+
+        info!("Successfully generated Groth16 proof and calldata.");
+        Ok(Groth16::new(receipt, calldata))
+    }
+
+    fn build_executor_environment(input: &T) -> PublisherResult<ExecutorEnv<'static>> {
+        debug!("Building executor environment");
+        ExecutorEnv::builder()
+            .write(input)
+            .map_err(|e| {
+                PublisherError::proof_generation(format!(
+                    "Failed to write input to executor env: {e}"
+                ))
+            })?
+            .build()
+            .map_err(|e| {
+                PublisherError::proof_generation(format!("Failed to build executor env: {e}"))
+            })
+    }
+
+    fn generate_proof_receipt(
+        env: ExecutorEnv<'_>,
+        method_elf: &[u8],
+    ) -> PublisherResult<risc0_zkvm::Receipt> {
+        debug!("Generating proof with Groth16 options");
+        default_prover()
+            .prove_with_ctx(
+                env,
+                &VerifierContext::default(),
+                method_elf,
+                &ProverOpts::groth16(),
+            )
+            .map_err(|e| {
+                PublisherError::proof_generation(format!("Failed to generate Groth16 proof: {e}"))
+            })
+            .map(|prove_info| prove_info.receipt)
+    }
+
+    fn process_proof_receipt(
+        receipt: &risc0_zkvm::Receipt,
+        method_elf: &[u8],
+    ) -> PublisherResult<Groth16Proof> {
+        debug!("Encoding seal");
+        let encoded_seal = encode_seal(receipt)
+            .map_err(|e| PublisherError::proof_generation(format!("Failed to encode seal: {e}")))?;
+
+        debug!("Computing image ID");
+        let image_id = compute_image_id(method_elf).map_err(|e| {
+            PublisherError::proof_generation(format!("Failed to compute image ID: {e}"))
+        })?;
+
+        let journal = receipt.journal.bytes.clone();
+
+        debug!("Converting to Groth16 proof");
+        Ok(Groth16Proof::from_risc0(
+            encoded_seal,
+            image_id.as_bytes().to_vec(),
+            journal,
+        ))
+    }
+
+    fn generate_proof_calldata(groth16_proof: &Groth16Proof) -> PublisherResult<Vec<Felt>> {
+        debug!("Generating calldata");
+        get_groth16_calldata_felt(groth16_proof, &get_risc0_vk(), CurveID::BN254).map_err(|e| {
+            PublisherError::proof_generation(format!("Failed to generate calldata: {e}"))
+        })
+    }
+
     #[cfg(test)]
+    /// Creates a mock proof generator for testing purposes
     pub fn mock_for_tests() -> Self {
         Self {
             method_elf: &[],

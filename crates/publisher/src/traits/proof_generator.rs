@@ -4,7 +4,7 @@ pub trait ProofGeneratorTrait: Send + Sync {
     // For now, we define it as a marker trait that the concrete type implements
 }
 
-/// Implementation of ProofGeneratorTrait for the concrete ProofGenerator
+/// Implementation of `ProofGeneratorTrait` for the concrete `ProofGenerator`
 impl<T: Send + Sync> ProofGeneratorTrait for crate::core::ProofGenerator<T> {
     // Concrete implementation is handled by the ProofGenerator type directly
 }

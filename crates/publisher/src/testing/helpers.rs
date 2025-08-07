@@ -4,7 +4,7 @@
 /// across multiple test modules.
 use crate::{
     config::{AccountConfig, PublisherConfig},
-    error::{PublisherError, PublisherResult},
+    error::PublisherResult,
 };
 
 /// Creates a test configuration with custom values
@@ -77,7 +77,6 @@ pub mod assertions {
 
 /// Mock data generators
 pub mod generators {
-    use super::*;
 
     /// Generates a sequence of test block hashes
     pub fn generate_block_hashes(count: usize) -> Vec<String> {

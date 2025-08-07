@@ -14,7 +14,7 @@ pub struct Groth16 {
 
 impl Groth16 {
     /// Create a new Groth16 proof
-    pub fn new(receipt: Receipt, calldata: Vec<Felt>) -> Self {
+    pub const fn new(receipt: Receipt, calldata: Vec<Felt>) -> Self {
         Self { receipt, calldata }
     }
 
@@ -39,9 +39,9 @@ pub struct Stark {
 
 impl Stark {
     /// Create a new STARK proof
-    pub fn new(receipt: Receipt, image_id: Vec<u8>, method_id: [u32; 8]) -> Self {
+    pub const fn new(receipt: Receipt, image_id: Vec<u8>, method_id: [u32; 8]) -> Self {
         Self {
-            receipt: receipt.clone(),
+            receipt,
             image_id,
             method_id,
         }
@@ -79,8 +79,8 @@ pub struct BatchResult {
 }
 
 impl BatchResult {
-    /// Create a new BatchResult
-    pub fn new(
+    /// Create a new `BatchResult`
+    pub const fn new(
         start_block: u64,
         end_block: u64,
         new_mmr_state: MmrState,
@@ -97,12 +97,12 @@ impl BatchResult {
     }
 
     /// Get the starting block number of the batch
-    pub fn start_block(&self) -> u64 {
+    pub const fn start_block(&self) -> u64 {
         self.start_block
     }
 
     /// Get the ending block number of the batch
-    pub fn end_block(&self) -> u64 {
+    pub const fn end_block(&self) -> u64 {
         self.end_block
     }
 

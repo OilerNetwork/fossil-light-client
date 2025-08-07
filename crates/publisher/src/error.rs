@@ -140,7 +140,7 @@ pub type PublisherResult<T> = std::result::Result<T, PublisherError>;
 
 // Helper function for converting PublisherError to eyre::Error
 impl PublisherError {
-    /// Convert PublisherError into an eyre::Error for easier error handling
+    /// Convert `PublisherError` into an `eyre::Error` for easier error handling
     pub fn into_eyre(self) -> eyre::Error {
         eyre::Error::new(self)
     }
@@ -150,54 +150,54 @@ impl PublisherError {
 impl From<eyre::Error> for PublisherError {
     fn from(err: eyre::Error) -> Self {
         // Try to downcast to see if it's already a PublisherError
-        if let Some(publisher_err) = err.downcast_ref::<PublisherError>() {
+        if let Some(publisher_err) = err.downcast_ref::<Self>() {
             return publisher_err.clone();
         }
 
         // Otherwise, wrap it as a generic error
-        PublisherError::Network(err.to_string())
+        Self::Network(err.to_string())
     }
 }
 
 // From trait implementations for common error types
 impl From<sqlx::Error> for PublisherError {
     fn from(err: sqlx::Error) -> Self {
-        PublisherError::Database(err.to_string())
+        Self::Database(err.to_string())
     }
 }
 
 impl From<std::io::Error> for PublisherError {
     fn from(err: std::io::Error) -> Self {
-        PublisherError::Io(err.to_string())
+        Self::Io(err.to_string())
     }
 }
 
 impl From<store::StoreError> for PublisherError {
     fn from(err: store::StoreError) -> Self {
-        PublisherError::Database(err.to_string())
+        Self::Database(err.to_string())
     }
 }
 
 impl From<mmr::MMRError> for PublisherError {
     fn from(err: mmr::MMRError) -> Self {
-        PublisherError::MmrOperation(err.to_string())
+        Self::MmrOperation(err.to_string())
     }
 }
 
 impl From<tokio::task::JoinError> for PublisherError {
     fn from(err: tokio::task::JoinError) -> Self {
-        PublisherError::Network(format!("Task execution failed: {}", err))
+        Self::Network(format!("Task execution failed: {err}"))
     }
 }
 
 impl From<risc0_zkvm::serde::Error> for PublisherError {
     fn from(err: risc0_zkvm::serde::Error) -> Self {
-        PublisherError::Serialization(err.to_string())
+        Self::Serialization(err.to_string())
     }
 }
 
 impl From<crate::config::ConfigError> for PublisherError {
     fn from(err: crate::config::ConfigError) -> Self {
-        PublisherError::Configuration(err.to_string())
+        Self::Configuration(err.to_string())
     }
 }

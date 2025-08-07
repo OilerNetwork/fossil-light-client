@@ -14,42 +14,55 @@
 //!
 //! ### Basic Configuration
 //!
-//! ```rust
+//! ```rust,no_run
 //! use publisher::config::{PublisherConfig, AccountConfig};
 //!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let config = PublisherConfig {
-//! rpc_url: "http://localhost:8545".to_string(),
-//! chain_id: 1,
-//! verifier_address: "0x1234567890123456789012345678901234567890".to_string(),
-//! store_address: "0x0987654321098765432109876543210987654321".to_string(),
-//! batch_size: 100,
+//!     rpc_url: "http://localhost:8545".to_string(),
+//!     chain_id: 1,
+//!     verifier_address: "0x1234567890123456789012345678901234567890".to_string(),
+//!     store_address: "0x0987654321098765432109876543210987654321".to_string(),
+//!     batch_size: 100,
 //! };
 //!
-//! Validate configuration
+//! // Validate configuration
 //! config.validate()?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Using Builder Pattern
 //!
-//! ```rust
+//! ```rust,no_run
+//! use publisher::config::PublisherConfig;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let config = PublisherConfig::builder()
-//! .rpc_url("http://localhost:8545")
-//! .chain_id(1)
-//! .verifier_address("0x1234567890123456789012345678901234567890")
-//! .store_address("0x0987654321098765432109876543210987654321")
-//! .batch_size(100)
-//! .build()?;
+//!     .rpc_url("http://localhost:8545")
+//!     .chain_id(1)
+//!     .verifier_address("0x1234567890123456789012345678901234567890")
+//!     .store_address("0x0987654321098765432109876543210987654321")
+//!     .batch_size(100)
+//!     .build()?;
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! ### Account Configuration
 //!
-//! ```rust
+//! ```rust,no_run
+//! use publisher::config::AccountConfig;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! let account = AccountConfig::new(
-//! "0xprivate_key".to_string(),
-//! "0xaddress".to_string(),
+//!     "0xprivate_key".to_string(),
+//!     "0xaddress".to_string(),
 //! );
 //!
 //! account.validate()?;
+//! # Ok(())
+//! # }
 //! ```
 
 use std::fmt;
@@ -89,13 +102,13 @@ pub struct PublisherConfig {
 }
 
 impl PublisherConfig {
-    /// Create a new builder for PublisherConfig
+    /// Create a new builder for `PublisherConfig`
     pub fn builder() -> PublisherConfigBuilder {
         PublisherConfigBuilder::default()
     }
 
     /// Validate the configuration
-    pub fn validate(&self) -> Result<(), ConfigError> {
+    pub const fn validate(&self) -> Result<(), ConfigError> {
         if self.rpc_url.is_empty() {
             return Err(ConfigError::MissingField("rpc_url"));
         }
@@ -114,16 +127,17 @@ impl PublisherConfig {
     }
 }
 
-/// Builder for PublisherConfig using the builder pattern
+/// Builder for `PublisherConfig` using the builder pattern
 ///
 /// Provides a fluent interface for constructing [`PublisherConfig`] instances
 /// with validation and default values.
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,no_run
 /// use publisher::config::PublisherConfig;
 ///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let config = PublisherConfig::builder()
 ///     .rpc_url("http://localhost:8545")
 ///     .chain_id(1)
@@ -131,6 +145,8 @@ impl PublisherConfig {
 ///     .store_address("0x0987654321098765432109876543210987654321")
 ///     .batch_size(100)
 ///     .build()?;
+/// # Ok(())
+/// # }
 /// #
 /// # Ok::<(), publisher::config::ConfigError>(())
 /// ```
@@ -151,7 +167,7 @@ impl PublisherConfigBuilder {
     }
 
     /// Set the chain ID for blockchain operations
-    pub fn chain_id(mut self, chain_id: u64) -> Self {
+    pub const fn chain_id(mut self, chain_id: u64) -> Self {
         self.chain_id = Some(chain_id);
         self
     }
@@ -169,12 +185,12 @@ impl PublisherConfigBuilder {
     }
 
     /// Set the batch size for processing
-    pub fn batch_size(mut self, batch_size: u64) -> Self {
+    pub const fn batch_size(mut self, batch_size: u64) -> Self {
         self.batch_size = Some(batch_size);
         self
     }
 
-    /// Build the final PublisherConfig, validating all required fields
+    /// Build the final `PublisherConfig`, validating all required fields
     pub fn build(self) -> Result<PublisherConfig, ConfigError> {
         let config = PublisherConfig {
             rpc_url: self.rpc_url.ok_or(ConfigError::MissingField("rpc_url"))?,
@@ -225,7 +241,7 @@ pub struct AccountConfig {
 
 impl AccountConfig {
     /// Create a new account configuration with private key and address
-    pub fn new(private_key: String, address: String) -> Self {
+    pub const fn new(private_key: String, address: String) -> Self {
         Self {
             private_key,
             address,
@@ -233,7 +249,7 @@ impl AccountConfig {
     }
 
     /// Validate that the account configuration has all required fields
-    pub fn validate(&self) -> Result<(), ConfigError> {
+    pub const fn validate(&self) -> Result<(), ConfigError> {
         if self.private_key.is_empty() {
             return Err(ConfigError::MissingField("private_key"));
         }
@@ -259,8 +275,8 @@ pub enum ConfigError {
 impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ConfigError::MissingField(field) => write!(f, "Missing required field: {}", field),
-            ConfigError::InvalidValue(msg) => write!(f, "Invalid configuration value: {}", msg),
+            Self::MissingField(field) => write!(f, "Missing required field: {field}"),
+            Self::InvalidValue(msg) => write!(f, "Invalid configuration value: {msg}"),
         }
     }
 }

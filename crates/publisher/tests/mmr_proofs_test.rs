@@ -137,8 +137,9 @@ async fn test_mmr_proof_invalid_cases() {
         .await
         .expect("Failed to generate proof");
 
-    // Test with wrong hash
-    let wrong_hash = "0xwronghash".to_string();
+    // Test with wrong hash (valid hex format but wrong value)
+    let wrong_hash =
+        "0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef".to_string();
     let verification_result = mmr
         .verify_proof(proof.clone(), wrong_hash, None)
         .await

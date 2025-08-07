@@ -72,9 +72,7 @@ impl DbConnection {
             .acquire_timeout(std::time::Duration::from_secs(30))
             .connect(&database_url)
             .await
-            .map_err(|e| {
-                PublisherError::database(format!("Failed to connect to database: {}", e))
-            })?;
+            .map_err(|e| PublisherError::database(format!("Failed to connect to database: {e}")))?;
 
         Ok(Arc::new(Self { pool }))
     }
@@ -87,18 +85,17 @@ impl DbConnection {
     ) -> PublisherResult<Vec<BlockHeader>> {
         if start_block > end_block {
             return Err(PublisherError::database(format!(
-                "Invalid block range: start block {} is greater than end block {}",
-                start_block, end_block
+                "Invalid block range: start block {start_block} is greater than end block {end_block}"
             )));
         }
         let temp_headers = sqlx::query_as!(
             TempBlockHeader,
             r#"
-            SELECT block_hash, number, gas_limit, gas_used, nonce, 
-                   transaction_root, receipts_root, state_root, 
-                   base_fee_per_gas, parent_hash, miner, logs_bloom, 
-                   difficulty, totaldifficulty, sha3_uncles, timestamp, 
-                   extra_data, mix_hash, withdrawals_root, 
+            SELECT block_hash, number, gas_limit, gas_used, nonce,
+                   transaction_root, receipts_root, state_root,
+                   base_fee_per_gas, parent_hash, miner, logs_bloom,
+                   difficulty, totaldifficulty, sha3_uncles, timestamp,
+                   extra_data, mix_hash, withdrawals_root,
                    blob_gas_used, excess_blob_gas, parent_beacon_block_root,
                    requests_hash
             FROM public.blockheaders
@@ -111,8 +108,9 @@ impl DbConnection {
         .fetch_all(&self.pool)
         .await?;
 
-        let headers: Vec<BlockHeader> =
+        let headers: Result<Vec<BlockHeader>, PublisherError> =
             temp_headers.into_iter().map(temp_to_block_header).collect();
+        let headers = headers?;
 
         Ok(headers)
     }
@@ -125,11 +123,11 @@ impl DbConnection {
         let temp_header = sqlx::query_as!(
             TempBlockHeader,
             r#"
-            SELECT block_hash, number, gas_limit, gas_used, nonce, 
-                   transaction_root, receipts_root, state_root, 
-                   base_fee_per_gas, parent_hash, miner, logs_bloom, 
-                   difficulty, totaldifficulty, sha3_uncles, timestamp, 
-                   extra_data, mix_hash, withdrawals_root, 
+            SELECT block_hash, number, gas_limit, gas_used, nonce,
+                   transaction_root, receipts_root, state_root,
+                   base_fee_per_gas, parent_hash, miner, logs_bloom,
+                   difficulty, totaldifficulty, sha3_uncles, timestamp,
+                   extra_data, mix_hash, withdrawals_root,
                    blob_gas_used, excess_blob_gas, parent_beacon_block_root,
                    requests_hash
             FROM public.blockheaders
@@ -141,12 +139,11 @@ impl DbConnection {
         .await?
         .ok_or_else(|| {
             PublisherError::database(format!(
-                "Block header not found for block number: {}",
-                block_number
+                "Block header not found for block number: {block_number}"
             ))
         })?;
 
-        Ok(temp_to_block_header(temp_header))
+        temp_to_block_header(temp_header)
     }
 
     /// Fetches a single block header by block hash
@@ -154,11 +151,11 @@ impl DbConnection {
         let temp_header = sqlx::query_as!(
             TempBlockHeader,
             r#"
-            SELECT block_hash, number, gas_limit, gas_used, nonce, 
-                   transaction_root, receipts_root, state_root, 
-                   base_fee_per_gas, parent_hash, miner, logs_bloom, 
-                   difficulty, totaldifficulty, sha3_uncles, timestamp, 
-                   extra_data, mix_hash, withdrawals_root, 
+            SELECT block_hash, number, gas_limit, gas_used, nonce,
+                   transaction_root, receipts_root, state_root,
+                   base_fee_per_gas, parent_hash, miner, logs_bloom,
+                   difficulty, totaldifficulty, sha3_uncles, timestamp,
+                   extra_data, mix_hash, withdrawals_root,
                    blob_gas_used, excess_blob_gas, parent_beacon_block_root,
                    requests_hash
             FROM public.blockheaders
@@ -170,12 +167,11 @@ impl DbConnection {
         .await?
         .ok_or_else(|| {
             PublisherError::database(format!(
-                "Block header not found for block hash: {}",
-                block_hash
+                "Block header not found for block hash: {block_hash}"
             ))
         })?;
 
-        Ok(temp_to_block_header(temp_header))
+        temp_to_block_header(temp_header)
     }
 
     /// Fetches hourly block headers in a given range
@@ -186,8 +182,7 @@ impl DbConnection {
     ) -> PublisherResult<Vec<BlockHeader>> {
         if start_block > end_block {
             return Err(PublisherError::database(format!(
-                "Invalid block range: start block {} is greater than end block {}",
-                start_block, end_block
+                "Invalid block range: start block {start_block} is greater than end block {end_block}"
             )));
         }
 
@@ -196,18 +191,18 @@ impl DbConnection {
             TempBlockHeader,
             r#"
             WITH hourly_blocks AS (
-                SELECT 
-                    *, 
+                SELECT
+                    *,
                     ROW_NUMBER() OVER (PARTITION BY DATE_TRUNC('hour', TO_TIMESTAMP(timestamp::numeric)) ORDER BY number) as row_num
                 FROM public.blockheaders
                 WHERE number BETWEEN $1 AND $2
             )
-            SELECT 
-                block_hash, number, gas_limit, gas_used, nonce, 
-                transaction_root, receipts_root, state_root, 
-                base_fee_per_gas, parent_hash, miner, logs_bloom, 
-                difficulty, totaldifficulty, sha3_uncles, timestamp, 
-                extra_data, mix_hash, withdrawals_root, 
+            SELECT
+                block_hash, number, gas_limit, gas_used, nonce,
+                transaction_root, receipts_root, state_root,
+                base_fee_per_gas, parent_hash, miner, logs_bloom,
+                difficulty, totaldifficulty, sha3_uncles, timestamp,
+                extra_data, mix_hash, withdrawals_root,
                 blob_gas_used, excess_blob_gas, parent_beacon_block_root,
                 requests_hash
             FROM hourly_blocks
@@ -220,8 +215,9 @@ impl DbConnection {
         .fetch_all(&self.pool)
         .await?;
 
-        let headers: Vec<BlockHeader> =
+        let headers: Result<Vec<BlockHeader>, PublisherError> =
             temp_headers.into_iter().map(temp_to_block_header).collect();
+        let headers = headers?;
         Ok(headers)
     }
 }
@@ -253,16 +249,18 @@ struct TempBlockHeader {
     pub requests_hash: Option<String>,    // character varying(66), nullable
 }
 
-fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
-    BlockHeader {
-        block_hash: temp.block_hash.unwrap(), // String (not Option<String>)
-        number: temp.number,                  // i64 (not Option<i64>)
-        gas_limit: temp.gas_limit,            // i64 (not Option<i64>)
-        gas_used: temp.gas_used,              // i64 (not Option<i64>)
-        nonce: temp.nonce,                    // String (not Option<String>)
+fn temp_to_block_header(temp: TempBlockHeader) -> Result<BlockHeader, PublisherError> {
+    Ok(BlockHeader {
+        block_hash: temp
+            .block_hash
+            .ok_or_else(|| PublisherError::database("Block hash is null"))?, /* String (not Option<String>) */
+        number: temp.number,                     // i64 (not Option<i64>)
+        gas_limit: temp.gas_limit,               // i64 (not Option<i64>)
+        gas_used: temp.gas_used,                 // i64 (not Option<i64>)
+        nonce: temp.nonce,                       // String (not Option<String>)
         transaction_root: temp.transaction_root, // Option<String>
-        receipts_root: temp.receipts_root,    // Option<String>
-        state_root: temp.state_root,          // Option<String>
+        receipts_root: temp.receipts_root,       // Option<String>
+        state_root: temp.state_root,             // Option<String>
         base_fee_per_gas: temp.base_fee_per_gas, // Option<String>
 
         // Only assign fields that exist in EthBlockHeader
@@ -279,9 +277,7 @@ fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
         // Convert timestamp from decimal to hex string format
         timestamp: temp.timestamp.map(|ts| {
             // Parse the decimal string to u64, then format as hex
-            ts.parse::<u64>()
-                .map(|t| format!("0x{:x}", t))
-                .unwrap_or(ts)
+            ts.parse::<u64>().map(|t| format!("0x{t:x}")).unwrap_or(ts)
         }),
         extra_data: temp.extra_data,
         mix_hash: temp.mix_hash,
@@ -290,7 +286,7 @@ fn temp_to_block_header(temp: TempBlockHeader) -> BlockHeader {
         excess_blob_gas: temp.excess_blob_gas,
         parent_beacon_block_root: temp.parent_beacon_block_root,
         request_hash: temp.requests_hash,
-    }
+    })
 }
 
 /// Get the path for storing database files
