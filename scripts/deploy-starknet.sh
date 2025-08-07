@@ -223,3 +223,6 @@ if [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ]; then
         "$ORIGINAL_DIR/.env.docker" \
         "$ORIGINAL_DIR/.env"
 fi
+
+# Create completion flag for healthcheck
+touch /app/deployment_complete.flag

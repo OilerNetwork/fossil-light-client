@@ -27,6 +27,7 @@ services:
     # image: ametelnethermind/fossil-deploy:latest
     # image: fossil-deploy:latest
     platform: linux/amd64
+    user: "${UID:-1000}:${GID:-1000}"
     networks:
       - fossil
     env_file:
@@ -83,6 +84,7 @@ services:
     # image: ametelnethermind/fossil-deploy:latest
     # image: fossil-deploy:latest
     platform: linux/amd64
+    user: "${UID:-1000}:${GID:-1000}"
     networks:
       - fossil
     env_file:
@@ -98,6 +100,11 @@ services:
       katana:
         condition: service_healthy
     command: sh -c 'if [ -n "$NO_BUILD" ]; then ./scripts/deploy-starknet.sh --no-build docker; else ./scripts/deploy-starknet.sh docker; fi'
+    healthcheck:
+      test: ["CMD", "test", "-f", "/app/deployment_complete.flag"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
 
   ipfs:
     image: ipfs/go-ipfs:latest
