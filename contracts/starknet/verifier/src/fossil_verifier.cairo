@@ -115,6 +115,7 @@ mod FossilVerifier {
             }
 
             let verifier_caller = starknet::get_caller_address();
+
             fossil_store.update_store_state(verifier_caller, journal, avg_fees.span(), ipfs_hash);
 
             self

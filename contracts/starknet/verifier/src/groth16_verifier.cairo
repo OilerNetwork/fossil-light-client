@@ -68,7 +68,7 @@ mod Risc0Groth16VerifierBN254 {
             msm_calldata.append(0);
             msm_calldata.append(claim_digest.high.into());
             msm_calldata.append(0);
-            // Complete with the curve indentifier (0 for BN254):
+            // Complete with the curve identifier (0 for BN254):
             msm_calldata.append(0);
             // Add the hint array.
             for x in msm_hint {
@@ -99,7 +99,7 @@ mod Risc0Groth16VerifierBN254 {
                 mpcheck_hint,
                 small_Q,
             );
-            if check == true {
+            if check {
                 return Option::Some(journal);
             } else {
                 return Option::None;
