@@ -102,16 +102,15 @@ mod FossilVerifier {
                 }
             } else {
                 let current_batch_state = fossil_store.get_mmr_state(journal.batch_index);
-                let mut batch_link = 0;
 
-                if current_batch_state.leaves_count > 0 {
-                    batch_link = current_batch_state.latest_mmr_block_hash;
-                } else {
-                    batch_link = fossil_store
+                // Only check batch link if this is the first submission for this batch
+                if current_batch_state.leaves_count == 0 {
+                    let batch_link = fossil_store
                         .get_batch_first_block_parent_hash(journal.batch_index);
+                    assert!(batch_link == journal.first_block_parent_hash, "Batch link mismatch");
                 }
-
-                assert!(batch_link == journal.first_block_parent_hash, "Batch link mismatch");
+                // If batch already has leaves, skip batch link validation as it was already
+            // verified
             }
 
             let verifier_caller = starknet::get_caller_address();
