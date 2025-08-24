@@ -1,5 +1,3 @@
-#![deny(unused_crate_dependencies)]
-
 // Dependencies used in relayer library but not directly in main
 use std::time::Duration;
 

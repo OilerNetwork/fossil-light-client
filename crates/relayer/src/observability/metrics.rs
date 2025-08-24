@@ -178,7 +178,7 @@ pub struct MetricsSnapshot {
     pub uptime_seconds: u64,
     /// Number of successful transactions
     pub successful_transactions: u64,
-    /// Number of failed transactions  
+    /// Number of failed transactions
     pub failed_transactions: u64,
     /// Total retry attempts
     pub total_retries: u64,
@@ -227,7 +227,7 @@ pub fn init_metrics_exporter(
 
     let builder = PrometheusBuilder::new();
     let handle = builder
-        .with_http_listener(bind_address.parse()?)
+        .with_http_listener(bind_address.parse::<std::net::SocketAddr>()?)
         .install()?;
 
     tracing::info!(
