@@ -23,6 +23,7 @@ impl DbConnection {
     const MAX_RETRY_DELAY: Duration = Duration::from_secs(30);
 
     /// Creates a new database connection with exponential backoff retries
+    #[allow(clippy::cognitive_complexity)]
     pub async fn new() -> PublisherResult<Arc<Self>> {
         let mut attempt = 0;
 

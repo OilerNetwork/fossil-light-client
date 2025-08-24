@@ -184,10 +184,21 @@ impl<'a> MMRStateManager<'a> {
     async fn verify_mmr_state(mmr: &MMR, guest_output: &GuestOutput) -> PublisherResult<()> {
         debug!("Verifying MMR state");
 
+        Self::verify_leaves_count(mmr, guest_output).await?;
+        let new_root_hash = Self::calculate_and_verify_root_hash(mmr, guest_output).await?;
+        validate_u256_hex(&new_root_hash)?;
+
+        debug!("MMR state verified successfully");
+        Ok(())
+    }
+
+    /// Verifies that the MMR leaves count matches the expected count
+    async fn verify_leaves_count(mmr: &MMR, guest_output: &GuestOutput) -> PublisherResult<()> {
         let leaves_count = mmr.leaves_count.get().await.map_err(|e| {
             error!(error = %e, "Failed to get leaves count");
             e
         })?;
+
         if leaves_count != guest_output.leaves_count() {
             error!(
                 actual_leaves = leaves_count,
@@ -201,14 +212,24 @@ impl<'a> MMRStateManager<'a> {
             )));
         }
 
+        Ok(())
+    }
+
+    /// Calculates the current MMR root hash and verifies it matches expected value
+    async fn calculate_and_verify_root_hash(
+        mmr: &MMR,
+        guest_output: &GuestOutput,
+    ) -> PublisherResult<String> {
         let new_element_count = mmr.elements_count.get().await.map_err(|e| {
             error!(error = %e, "Failed to get elements count");
             e
         })?;
+
         let bag = mmr.bag_the_peaks(None).await.map_err(|e| {
             error!(error = %e, "Failed to bag the peaks");
             e
         })?;
+
         let new_root_hash = mmr
             .calculate_root_hash(&bag, new_element_count)
             .map_err(|e| {
@@ -216,22 +237,28 @@ impl<'a> MMRStateManager<'a> {
                 e
             })?;
 
-        if new_root_hash != guest_output.root_hash() {
+        Self::verify_root_hash_match(&new_root_hash, guest_output)?;
+
+        Ok(new_root_hash)
+    }
+
+    /// Verifies that the calculated root hash matches the expected hash
+    fn verify_root_hash_match(
+        actual_root_hash: &str,
+        guest_output: &GuestOutput,
+    ) -> PublisherResult<()> {
+        if actual_root_hash != guest_output.root_hash() {
             error!(
-                actual_root = new_root_hash,
+                actual_root = actual_root_hash,
                 expected_root = guest_output.root_hash(),
                 "Invalid state transition: root_hash mismatch"
             );
             return Err(PublisherError::mmr_operation(format!(
                 "Invalid state transition: root_hash mismatch: {} != {}",
-                new_root_hash,
+                actual_root_hash,
                 guest_output.root_hash()
             )));
         }
-
-        validate_u256_hex(&new_root_hash)?;
-
-        debug!("MMR state verified successfully");
         Ok(())
     }
 

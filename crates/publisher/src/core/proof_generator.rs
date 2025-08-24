@@ -72,20 +72,34 @@ where
     /// Validate input data before proof generation
     fn validate_input(input: &T) -> PublisherResult<()> {
         let input_size = std::mem::size_of_val(input);
+        let debug_str = format!("{input:?}");
+        let type_name = std::any::type_name::<T>();
 
-        // Check if the input has zero memory size (primitive types with zero value)
+        Self::validate_memory_size(input_size)?;
+        Self::validate_debug_content(&debug_str)?;
+        Self::validate_large_collections(input_size, &debug_str, type_name)?;
+
+        debug!(
+            "Input validation passed for type {}: {} bytes, content: {}",
+            type_name, input_size, debug_str
+        );
+        Ok(())
+    }
+
+    /// Validates that input has non-zero memory size
+    fn validate_memory_size(input_size: usize) -> PublisherResult<()> {
         if input_size == 0 {
             error!("Input has zero memory size");
             return Err(PublisherError::proof_generation(
                 "Input cannot have zero memory size",
             ));
         }
+        Ok(())
+    }
 
-        // Use debug format to check for empty collections
-        let debug_str = format!("{:?}", input);
-
-        // Check for common empty patterns in debug output
-        if debug_str.trim() == "[]" || debug_str.trim() == "{}" || debug_str.trim() == "()" {
+    /// Validates debug string content for empty patterns and minimal content
+    fn validate_debug_content(debug_str: &str) -> PublisherResult<()> {
+        if Self::is_empty_pattern(debug_str) {
             error!("Input appears to be empty: {}", debug_str.trim());
             return Err(PublisherError::proof_generation(format!(
                 "Input appears to be empty: {}",
@@ -93,33 +107,44 @@ where
             )));
         }
 
-        // Check for very short debug strings that might indicate minimal content
-        if debug_str.len() <= 4 {
+        if Self::has_minimal_content(debug_str) {
             error!("Input appears to have minimal content: {}", debug_str);
             return Err(PublisherError::proof_generation(format!(
-                "Input appears to have minimal content: {}",
-                debug_str
+                "Input appears to have minimal content: {debug_str}"
             )));
         }
 
+        Ok(())
+    }
+
+    /// Checks for common empty patterns in debug output
+    fn is_empty_pattern(debug_str: &str) -> bool {
+        let trimmed = debug_str.trim();
+        trimmed == "[]" || trimmed == "{}" || trimmed == "()"
+    }
+
+    /// Checks if debug string indicates minimal content
+    const fn has_minimal_content(debug_str: &str) -> bool {
+        debug_str.len() <= 4
+    }
+
+    /// Validates large collections to ensure they have meaningful content
+    fn validate_large_collections(
+        input_size: usize,
+        debug_str: &str,
+        type_name: &str,
+    ) -> PublisherResult<()> {
         // For types with larger memory footprint, ensure they have meaningful size
         // Vec<u8> with empty content still has Vec metadata (24 bytes on 64-bit)
-        let type_name = std::any::type_name::<T>();
         if input_size >= 24 && debug_str.trim() == "[]" {
             error!(
                 "Large empty collection detected for type {}: {}",
                 type_name, debug_str
             );
             return Err(PublisherError::proof_generation(format!(
-                "Large empty collection detected for type {}",
-                type_name
+                "Large empty collection detected for type {type_name}"
             )));
         }
-
-        debug!(
-            "Input validation passed for type {}: {} bytes, content: {}",
-            type_name, input_size, debug_str
-        );
         Ok(())
     }
 

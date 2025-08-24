@@ -1,4 +1,4 @@
-use starknet_handler::provider::StarknetProvider;
+use starknet_handler::provider::{LatestRelayBlock, StarknetProvider};
 use tokio::time::Duration;
 use tracing::{debug, info};
 
@@ -123,21 +123,61 @@ impl LightClient {
 
     /// Processes new events from the Starknet store contract.
     pub async fn process_new_events(&mut self) -> Result<()> {
-        // Create context for structured logging
-        let context = ClientContext::with_operation("process_new_events").with_chain_info(
-            self.config.chain_id.value(),
-            self.config.starknet_account_address.value().to_string(),
-        );
-
+        let context = self.create_logging_context("process_new_events");
         let logger = PerformanceLogger::start_operation("process_new_events", context);
 
-        // First check if processing should be skipped by checking MMR state
+        let (latest_relayed_block, latest_mmr_block) = self.fetch_mmr_state(&logger).await?;
+
+        if self.should_skip_processing(&latest_relayed_block, latest_mmr_block, logger) {
+            return Ok(());
+        }
+
+        let logger = PerformanceLogger::start_operation(
+            "process_new_events",
+            self.create_logging_context("process_new_events"),
+        );
+        let event_count = self.process_events(&latest_relayed_block, &logger).await?;
+
+        if event_count > 0 {
+            self.handle_processed_events(
+                event_count,
+                &latest_relayed_block,
+                latest_mmr_block,
+                logger,
+            )
+            .await?;
+        } else {
+            self.log_no_events(logger);
+        }
+
+        Ok(())
+    }
+
+    /// Creates a logging context for client operations.
+    fn create_logging_context(&self, operation: &str) -> ClientContext {
+        ClientContext::with_operation(operation).with_chain_info(
+            self.config.chain_id.value(),
+            self.config.starknet_account_address.value().to_string(),
+        )
+    }
+
+    /// Fetches the current MMR state (latest relayed and MMR blocks).
+    async fn fetch_mmr_state(&self, logger: &PerformanceLogger) -> Result<(LatestRelayBlock, u64)> {
         let latest_relayed_block = self.mmr_manager.get_latest_relayed_block().await?;
         let latest_mmr_block = self.mmr_manager.get_latest_mmr_block().await?;
 
         logger.log_milestone("fetched MMR state", None);
 
-        // Skip processing if the latest relayed block has already been processed in MMR
+        Ok((latest_relayed_block, latest_mmr_block))
+    }
+
+    /// Determines if processing should be skipped based on MMR state.
+    fn should_skip_processing(
+        &self,
+        latest_relayed_block: &LatestRelayBlock,
+        latest_mmr_block: u64,
+        logger: PerformanceLogger,
+    ) -> bool {
         if latest_relayed_block.block_number <= latest_mmr_block {
             debug!(
                 relayed_block = latest_relayed_block.block_number,
@@ -145,46 +185,65 @@ impl LightClient {
                 "Block already processed in MMR, skipping"
             );
             logger.log_success(Some("skipped - already processed"));
-            return Ok(());
+            true
+        } else {
+            debug!(
+                "Processing: latest_block={}, latest_mmr_block={}",
+                latest_relayed_block.block_number, latest_mmr_block
+            );
+            false
         }
+    }
 
-        debug!(
-            "Processing: latest_block={}, latest_mmr_block={}",
-            latest_relayed_block.block_number, latest_mmr_block
-        );
-
-        // Process events using the event processor
+    /// Processes events for the given block range.
+    async fn process_events(
+        &mut self,
+        latest_relayed_block: &LatestRelayBlock,
+        logger: &PerformanceLogger,
+    ) -> Result<usize> {
         let event_count = self
             .event_processor
             .process_events(latest_relayed_block.block_number)
             .await?;
+
         logger.log_milestone(
             "events processed",
             Some(&format!("{event_count} events found")),
         );
 
-        if event_count > 0 {
-            // If events were found, handle them with MMR manager
-            self.mmr_manager
-                .handle_events(
-                    self.config.private_key(),
-                    self.config.starknet_account_address.value(),
-                )
-                .await?;
+        Ok(event_count)
+    }
 
-            info!(
-                "Batch processed: {} events for blocks {}-{}",
-                event_count,
-                latest_mmr_block + 1,
-                latest_relayed_block.block_number
-            );
-            logger.log_success(Some(&format!("processed {event_count} events")));
-        } else {
-            debug!("No events to process");
-            logger.log_success(Some("no events to process"));
-        }
+    /// Handles successfully processed events by updating MMR.
+    async fn handle_processed_events(
+        &self,
+        event_count: usize,
+        latest_relayed_block: &LatestRelayBlock,
+        latest_mmr_block: u64,
+        logger: PerformanceLogger,
+    ) -> Result<()> {
+        self.mmr_manager
+            .handle_events(
+                self.config.private_key(),
+                self.config.starknet_account_address.value(),
+            )
+            .await?;
 
+        info!(
+            "Batch processed: {} events for blocks {}-{}",
+            event_count,
+            latest_mmr_block + 1,
+            latest_relayed_block.block_number
+        );
+
+        logger.log_success(Some(&format!("processed {event_count} events")));
         Ok(())
+    }
+
+    /// Logs when no events are found to process.
+    fn log_no_events(&self, logger: PerformanceLogger) {
+        debug!("No events to process");
+        logger.log_success(Some("no events to process"));
     }
 
     /// Starts the main event processing loop.
