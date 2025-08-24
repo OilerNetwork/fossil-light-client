@@ -133,6 +133,7 @@
 
 use clap as _;
 use dotenv as _;
+use eth_rlp_verify as _;
 use guest_mmr as _;
 use pyo3 as _;
 use tracing_subscriber as _;

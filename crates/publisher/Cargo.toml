@@ -22,6 +22,7 @@ common = { path = "../common" }
 guest-mmr = { path = "../guest-mmr" }
 dotenv = { workspace = true }
 eth-rlp-types = { workspace = true }
+eth-rlp-verify = { workspace = true }
 ethereum = { path = "../ethereum" }
 eyre = { workspace = true }
 garaga_rs = { workspace = true }

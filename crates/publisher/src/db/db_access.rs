@@ -5,7 +5,7 @@ use eth_rlp_types::BlockHeader;
 use mmr_utils::{create_database_file, ensure_directory_exists};
 use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
 use tokio::time::{sleep, Duration};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use crate::error::{PublisherError, PublisherResult};
 
@@ -18,10 +18,11 @@ pub struct DbConnection {
 
 // Use Arc to allow thread-safe cloning
 impl DbConnection {
-    const MAX_RETRIES: u32 = 3;
-    const RETRY_DELAY: Duration = Duration::from_secs(5);
+    const MAX_RETRIES: u32 = 5;
+    const INITIAL_RETRY_DELAY: Duration = Duration::from_secs(2);
+    const MAX_RETRY_DELAY: Duration = Duration::from_secs(30);
 
-    /// Creates a new database connection with retries
+    /// Creates a new database connection with exponential backoff retries
     pub async fn new() -> PublisherResult<Arc<Self>> {
         let mut attempt = 0;
 
@@ -39,14 +40,24 @@ impl DbConnection {
                 Err(e) => {
                     attempt += 1;
                     if attempt < Self::MAX_RETRIES {
-                        error!(
+                        let delay = std::cmp::min(
+                            Self::INITIAL_RETRY_DELAY * 2u32.pow(attempt.saturating_sub(1)),
+                            Self::MAX_RETRY_DELAY,
+                        );
+                        warn!(
                             error = %e,
                             attempt,
+                            max_retries = Self::MAX_RETRIES,
                             "Database connection failed, retrying in {} seconds...",
-                            Self::RETRY_DELAY.as_secs()
+                            delay.as_secs()
                         );
-                        sleep(Self::RETRY_DELAY).await;
+                        sleep(delay).await;
                     } else {
+                        error!(
+                            error = %e,
+                            attempts = Self::MAX_RETRIES,
+                            "Database connection failed after all retry attempts"
+                        );
                         return Err(PublisherError::database(format!(
                             "Failed to connect after {} attempts: {}",
                             Self::MAX_RETRIES,
@@ -77,6 +88,80 @@ impl DbConnection {
         Ok(Arc::new(Self { pool }))
     }
 
+    /// Execute a database operation with retry logic
+    pub async fn with_retry<F, Fut, T>(
+        &self,
+        operation: F,
+        operation_name: &str,
+    ) -> PublisherResult<T>
+    where
+        F: Fn() -> Fut,
+        Fut: std::future::Future<Output = Result<T, sqlx::Error>>,
+    {
+        let mut attempt = 0;
+        let max_retries = 3;
+        let initial_delay = Duration::from_millis(500);
+
+        loop {
+            match operation().await {
+                Ok(result) => return Ok(result),
+                Err(e) => {
+                    if attempt >= max_retries {
+                        error!(
+                            operation = operation_name,
+                            attempts = attempt + 1,
+                            error = %e,
+                            "Database operation failed after all retry attempts"
+                        );
+                        return Err(PublisherError::database(format!(
+                            "Operation '{}' failed after {} attempts: {}",
+                            operation_name,
+                            attempt + 1,
+                            e
+                        )));
+                    }
+
+                    let delay = initial_delay * 2u32.pow(attempt);
+                    warn!(
+                        operation = operation_name,
+                        attempt = attempt + 1,
+                        max_retries = max_retries,
+                        error = %e,
+                        "Database operation failed, retrying in {}ms...",
+                        delay.as_millis()
+                    );
+
+                    sleep(delay).await;
+                    attempt += 1;
+                }
+            }
+        }
+    }
+
+    /// Get block hash by block number
+    pub async fn get_block_hash_by_number(
+        &self,
+        block_number: u64,
+    ) -> PublisherResult<Option<String>> {
+        self.with_retry(
+            || async {
+                sqlx::query!(
+                    r#"
+                    SELECT block_hash
+                    FROM public.blockheaders
+                    WHERE number = $1
+                    "#,
+                    block_number as i64
+                )
+                .fetch_optional(&self.pool)
+                .await
+            },
+            "get_block_hash_by_number",
+        )
+        .await
+        .map(|result| result.and_then(|row| row.block_hash))
+    }
+
     /// Get block headers within a specific block range
     pub async fn get_block_headers_by_block_range(
         &self,
@@ -88,25 +173,32 @@ impl DbConnection {
                 "Invalid block range: start block {start_block} is greater than end block {end_block}"
             )));
         }
-        let temp_headers = sqlx::query_as!(
-            TempBlockHeader,
-            r#"
-            SELECT block_hash, number, gas_limit, gas_used, nonce,
-                   transaction_root, receipts_root, state_root,
-                   base_fee_per_gas, parent_hash, miner, logs_bloom,
-                   difficulty, totaldifficulty, sha3_uncles, timestamp,
-                   extra_data, mix_hash, withdrawals_root,
-                   blob_gas_used, excess_blob_gas, parent_beacon_block_root,
-                   requests_hash
-            FROM public.blockheaders
-            WHERE number BETWEEN $1 AND $2
-            ORDER BY number ASC
-            "#,
-            start_block as i64,
-            end_block as i64
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let temp_headers = self
+            .with_retry(
+                || async {
+                    sqlx::query_as!(
+                        TempBlockHeader,
+                        r#"
+                    SELECT block_hash, number, gas_limit, gas_used, nonce,
+                           transaction_root, receipts_root, state_root,
+                           base_fee_per_gas, parent_hash, miner, logs_bloom,
+                           difficulty, totaldifficulty, sha3_uncles, timestamp,
+                           extra_data, mix_hash, withdrawals_root,
+                           blob_gas_used, excess_blob_gas, parent_beacon_block_root,
+                           requests_hash
+                    FROM public.blockheaders
+                    WHERE number BETWEEN $1 AND $2
+                    ORDER BY number ASC
+                    "#,
+                        start_block as i64,
+                        end_block as i64
+                    )
+                    .fetch_all(&self.pool)
+                    .await
+                },
+                "get_block_headers_by_block_range",
+            )
+            .await?;
 
         let headers: Result<Vec<BlockHeader>, PublisherError> =
             temp_headers.into_iter().map(temp_to_block_header).collect();
@@ -120,56 +212,70 @@ impl DbConnection {
         &self,
         block_number: u64,
     ) -> PublisherResult<BlockHeader> {
-        let temp_header = sqlx::query_as!(
-            TempBlockHeader,
-            r#"
-            SELECT block_hash, number, gas_limit, gas_used, nonce,
-                   transaction_root, receipts_root, state_root,
-                   base_fee_per_gas, parent_hash, miner, logs_bloom,
-                   difficulty, totaldifficulty, sha3_uncles, timestamp,
-                   extra_data, mix_hash, withdrawals_root,
-                   blob_gas_used, excess_blob_gas, parent_beacon_block_root,
-                   requests_hash
-            FROM public.blockheaders
-            WHERE number = $1
-            "#,
-            block_number as i64
-        )
-        .fetch_optional(&self.pool)
-        .await?
-        .ok_or_else(|| {
-            PublisherError::database(format!(
-                "Block header not found for block number: {block_number}"
-            ))
-        })?;
+        let temp_header = self
+            .with_retry(
+                || async {
+                    sqlx::query_as!(
+                        TempBlockHeader,
+                        r#"
+                    SELECT block_hash, number, gas_limit, gas_used, nonce,
+                           transaction_root, receipts_root, state_root,
+                           base_fee_per_gas, parent_hash, miner, logs_bloom,
+                           difficulty, totaldifficulty, sha3_uncles, timestamp,
+                           extra_data, mix_hash, withdrawals_root,
+                           blob_gas_used, excess_blob_gas, parent_beacon_block_root,
+                           requests_hash
+                    FROM public.blockheaders
+                    WHERE number = $1
+                    "#,
+                        block_number as i64
+                    )
+                    .fetch_optional(&self.pool)
+                    .await
+                },
+                "get_block_header_by_number",
+            )
+            .await?
+            .ok_or_else(|| {
+                PublisherError::database(format!(
+                    "Block header not found for block number: {block_number}"
+                ))
+            })?;
 
         temp_to_block_header(temp_header)
     }
 
     /// Fetches a single block header by block hash
     pub async fn get_block_header_by_hash(&self, block_hash: &str) -> PublisherResult<BlockHeader> {
-        let temp_header = sqlx::query_as!(
-            TempBlockHeader,
-            r#"
-            SELECT block_hash, number, gas_limit, gas_used, nonce,
-                   transaction_root, receipts_root, state_root,
-                   base_fee_per_gas, parent_hash, miner, logs_bloom,
-                   difficulty, totaldifficulty, sha3_uncles, timestamp,
-                   extra_data, mix_hash, withdrawals_root,
-                   blob_gas_used, excess_blob_gas, parent_beacon_block_root,
-                   requests_hash
-            FROM public.blockheaders
-            WHERE block_hash = $1
-            "#,
-            block_hash
-        )
-        .fetch_optional(&self.pool)
-        .await?
-        .ok_or_else(|| {
-            PublisherError::database(format!(
-                "Block header not found for block hash: {block_hash}"
-            ))
-        })?;
+        let temp_header = self
+            .with_retry(
+                || async {
+                    sqlx::query_as!(
+                        TempBlockHeader,
+                        r#"
+                    SELECT block_hash, number, gas_limit, gas_used, nonce,
+                           transaction_root, receipts_root, state_root,
+                           base_fee_per_gas, parent_hash, miner, logs_bloom,
+                           difficulty, totaldifficulty, sha3_uncles, timestamp,
+                           extra_data, mix_hash, withdrawals_root,
+                           blob_gas_used, excess_blob_gas, parent_beacon_block_root,
+                           requests_hash
+                    FROM public.blockheaders
+                    WHERE block_hash = $1
+                    "#,
+                        block_hash
+                    )
+                    .fetch_optional(&self.pool)
+                    .await
+                },
+                "get_block_header_by_hash",
+            )
+            .await?
+            .ok_or_else(|| {
+                PublisherError::database(format!(
+                    "Block header not found for block hash: {block_hash}"
+                ))
+            })?;
 
         temp_to_block_header(temp_header)
     }
@@ -187,33 +293,38 @@ impl DbConnection {
         }
 
         // Get the first block of each hour within the range
-        let temp_headers = sqlx::query_as!(
-            TempBlockHeader,
-            r#"
-            WITH hourly_blocks AS (
-                SELECT
-                    *,
-                    ROW_NUMBER() OVER (PARTITION BY DATE_TRUNC('hour', TO_TIMESTAMP(timestamp::numeric)) ORDER BY number) as row_num
-                FROM public.blockheaders
-                WHERE number BETWEEN $1 AND $2
-            )
-            SELECT
-                block_hash, number, gas_limit, gas_used, nonce,
-                transaction_root, receipts_root, state_root,
-                base_fee_per_gas, parent_hash, miner, logs_bloom,
-                difficulty, totaldifficulty, sha3_uncles, timestamp,
-                extra_data, mix_hash, withdrawals_root,
-                blob_gas_used, excess_blob_gas, parent_beacon_block_root,
-                requests_hash
-            FROM hourly_blocks
-            WHERE row_num = 1
-            ORDER BY number ASC
-            "#,
-            start_block as i64,
-            end_block as i64
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let temp_headers = self.with_retry(
+            || async {
+                sqlx::query_as!(
+                    TempBlockHeader,
+                    r#"
+                    WITH hourly_blocks AS (
+                        SELECT
+                            *,
+                            ROW_NUMBER() OVER (PARTITION BY DATE_TRUNC('hour', TO_TIMESTAMP(timestamp::numeric)) ORDER BY number) as row_num
+                        FROM public.blockheaders
+                        WHERE number BETWEEN $1 AND $2
+                    )
+                    SELECT
+                        block_hash, number, gas_limit, gas_used, nonce,
+                        transaction_root, receipts_root, state_root,
+                        base_fee_per_gas, parent_hash, miner, logs_bloom,
+                        difficulty, totaldifficulty, sha3_uncles, timestamp,
+                        extra_data, mix_hash, withdrawals_root,
+                        blob_gas_used, excess_blob_gas, parent_beacon_block_root,
+                        requests_hash
+                    FROM hourly_blocks
+                    WHERE row_num = 1
+                    ORDER BY number ASC
+                    "#,
+                    start_block as i64,
+                    end_block as i64
+                )
+                .fetch_all(&self.pool)
+                .await
+            },
+            "get_hourly_block_headers_in_range"
+        ).await?;
 
         let headers: Result<Vec<BlockHeader>, PublisherError> =
             temp_headers.into_iter().map(temp_to_block_header).collect();

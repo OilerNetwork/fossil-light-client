@@ -60,7 +60,7 @@ impl ProofService {
             .create_accumulator_builder(&account_config, batch_size)
             .await?;
 
-        tracing::info!("Starting MMR update and proof generation");
+        tracing::debug!("Starting MMR update and proof generation");
 
         self.execute_mmr_update(&mut builder, start_block, latest_relayed_block_and_hash)
             .await?;

@@ -53,6 +53,7 @@ impl<'a> MMRStateManager<'a> {
         headers: &Vec<String>,
     ) -> PublisherResult<MmrState> {
         if headers.is_empty() {
+            error!(headers = ?headers, "Headers list cannot be empty");
             return Err(PublisherError::mmr_operation(format!(
                 "Headers list cannot be empty: {headers:?}"
             )));
@@ -83,7 +84,7 @@ impl<'a> MMRStateManager<'a> {
                     e
                 })?;
 
-            info!("MMR state updated successfully");
+            debug!("MMR state updated successfully");
             Ok(new_mmr_state)
         } else {
             debug!("No guest output provided, creating state from MMR directly");
@@ -158,6 +159,7 @@ impl<'a> MMRStateManager<'a> {
 
         for hash in headers {
             if hash.trim().is_empty() {
+                error!(hash = ?hash, "Header hash cannot be empty");
                 return Err(PublisherError::mmr_operation(format!(
                     "Header hash cannot be empty: {hash:?}"
                 )));
@@ -187,6 +189,11 @@ impl<'a> MMRStateManager<'a> {
             e
         })?;
         if leaves_count != guest_output.leaves_count() {
+            error!(
+                actual_leaves = leaves_count,
+                expected_leaves = guest_output.leaves_count(),
+                "Invalid state transition: leaves_count mismatch"
+            );
             return Err(PublisherError::mmr_operation(format!(
                 "Invalid state transition: leaves_count mismatch: {} != {}",
                 leaves_count,
@@ -210,6 +217,11 @@ impl<'a> MMRStateManager<'a> {
             })?;
 
         if new_root_hash != guest_output.root_hash() {
+            error!(
+                actual_root = new_root_hash,
+                expected_root = guest_output.root_hash(),
+                "Invalid state transition: root_hash mismatch"
+            );
             return Err(PublisherError::mmr_operation(format!(
                 "Invalid state transition: root_hash mismatch: {} != {}",
                 new_root_hash,
@@ -231,6 +243,7 @@ impl<'a> MMRStateManager<'a> {
 
         let root_hash = guest_output.root_hash().trim_start_matches("0x");
         if root_hash.is_empty() {
+            error!(root_hash, "Root hash cannot be empty");
             return Err(PublisherError::mmr_operation("Root hash cannot be empty"));
         }
 

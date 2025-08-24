@@ -91,7 +91,7 @@ impl MmrService {
             .create_accumulator_builder(account_private_key, account_address, batch_size)
             .await?;
 
-        tracing::info!("Starting MMR update with proof generation");
+        tracing::debug!("Starting MMR update with proof generation");
 
         builder
             .update_mmr_with_new_headers(start_block, latest_relayed_block_and_hash, false)
@@ -103,35 +103,6 @@ impl MmrService {
             })?;
 
         tracing::debug!("Successfully updated MMR with proof generation");
-
-        Ok(())
-    }
-
-    /// Update MMR with new headers without generating proofs
-    pub async fn update_without_proof_generation(
-        &self,
-        account_private_key: &str,
-        account_address: &str,
-        batch_size: u64,
-        start_block: u64,
-        latest_relayed_block_and_hash: LatestRelayBlock,
-    ) -> PublisherResult<()> {
-        let mut builder = self
-            .create_accumulator_builder(account_private_key, account_address, batch_size)
-            .await?;
-
-        tracing::info!("Starting MMR update without proof generation");
-
-        builder
-            .update_mmr_with_new_headers(start_block, latest_relayed_block_and_hash, true)
-            .await
-            .map_err(|e| {
-                PublisherError::mmr_operation(format!(
-                    "Failed to update MMR without proof generation: {e}"
-                ))
-            })?;
-
-        tracing::debug!("Successfully updated MMR without proof generation");
 
         Ok(())
     }
