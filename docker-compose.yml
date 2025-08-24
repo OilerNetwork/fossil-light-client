@@ -27,7 +27,6 @@ services:
     # image: ametelnethermind/fossil-deploy:latest
     # image: fossil-deploy:latest
     platform: linux/amd64
-    user: "${UID:-1000}:${GID:-1000}"
     networks:
       - fossil
     env_file:
@@ -84,7 +83,6 @@ services:
     # image: ametelnethermind/fossil-deploy:latest
     # image: fossil-deploy:latest
     platform: linux/amd64
-    user: "${UID:-1000}:${GID:-1000}"
     networks:
       - fossil
     env_file:
@@ -112,9 +110,9 @@ services:
     networks:
       - fossil
     ports:
-      - "4001:4001"   # Swarm port
-      - "5001:5001"   # API port
-      - "8080:8080"   # Gateway port
+      - "4001:4001" # Swarm port
+      - "5001:5001" # API port
+      - "8080:8080" # Gateway port
     volumes:
       - ipfs_data:/data/ipfs
     environment:

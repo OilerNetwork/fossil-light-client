@@ -16,6 +16,7 @@ cargo clippy \
     -p starknet-handler \
     -p guest-mmr \
     -- \
+    -W clippy::cognitive_complexity \
     -W clippy::branches_sharing_code \
     -W clippy::clear_with_drain \
     -W clippy::derive_partial_eq_without_eq \
@@ -84,6 +85,7 @@ RISC0_SKIP_BUILD=1 cargo clippy \
     -p publisher \
     -p client \
     -- \
+    -W clippy::cognitive_complexity \
     -W clippy::branches_sharing_code \
     -W clippy::clear_with_drain \
     -W clippy::derive_partial_eq_without_eq \

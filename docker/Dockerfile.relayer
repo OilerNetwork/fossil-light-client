@@ -21,8 +21,9 @@ ENV OPENSSL_INCLUDE_DIR=/usr/include/openssl
 # Copy Cargo.toml and Cargo.lock
 COPY Cargo.toml Cargo.lock ./
 
-# Copy all workspace crates
+# Copy all workspace crates and the size-of-patch directory
 COPY crates ./crates
+COPY size-of-patch ./size-of-patch
 
 # Build only relayer
 RUN cargo build --release --package relayer
@@ -34,7 +35,7 @@ WORKDIR /app
 
 # Update repositories and install SSL certificates
 RUN apk update && \
-    apk add --no-cache ca-certificates openssl bash
+    apk add --no-cache ca-certificates openssl-dev bash
 
 # Copy the compiled binary from the builder stage to /usr/local/bin
 COPY --from=builder /app/target/release/relayer /usr/local/bin/relayer

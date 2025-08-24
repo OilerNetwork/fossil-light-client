@@ -73,23 +73,23 @@ update_json_config() {
     local json_file=$1
     local contract_address=$2
     local block_number=$3
-    
+
     # Create temp file in the same directory to avoid permission issues
     local tmp_file="${json_file}.tmp"
-    
+
     if ! jq --arg addr "$contract_address" --arg block "$block_number" \
         '.contract_address = $addr | .from_block = ($block|tonumber)' "$json_file" > "$tmp_file"; then
         echo -e "${RED}Failed to update JSON file${NC}"
         rm -f "$tmp_file"
         return 1
     fi
-    
+
     if ! mv "$tmp_file" "$json_file"; then
         echo -e "${RED}Failed to replace JSON file${NC}"
         rm -f "$tmp_file"
         return 1
     fi
-    
+
     echo -e "${BLUE}Updated contract address and from_block in $json_file${NC}"
 }
 
@@ -103,16 +103,16 @@ deploy_contracts() {
 
     while [ $attempt -le $max_attempts ]; do
         echo -e "${BLUE}${BOLD}Deploying Ethereum contracts using $script_path (Attempt $attempt/$max_attempts)...${NC}"
-        
+
         if forge script $script_path --broadcast --rpc-url $ETH_RPC_URL; then
             return 0
         fi
-        
+
         if [ $attempt -lt $max_attempts ]; then
             echo -e "${YELLOW}Deployment failed, retrying in ${wait_time}s...${NC}"
             sleep $wait_time
         fi
-        
+
         attempt=$((attempt + 1))
     done
 
@@ -146,7 +146,7 @@ echo -e "${YELLOW}Looking for file: $OUTPUT_FILE${NC}"
 # Read values from the JSON file and update env vars
 if [ -f "$OUTPUT_FILE" ]; then
   echo -e "${YELLOW}Found $OUTPUT_FILE${NC}"
-  
+
   if [[ "$ENV_TYPE" == "local" || "$ENV_TYPE" == "docker" ]]; then
     SN_MESSAGING=$(jq -r '.snMessaging_address' "$OUTPUT_FILE")
     echo -e "${YELLOW}Updated SN_MESSAGING: $SN_MESSAGING${NC}"
@@ -171,7 +171,7 @@ fi
 if [ "$ENV_TYPE" = "docker" ]; then
     # Use cast to get the current block number
     BLOCK_NUMBER=$(cast block-number --rpc-url "$ETH_RPC_URL")
-    
+
     if [ -n "$BLOCK_NUMBER" ]; then
         echo -e "${YELLOW}Found fork block number: $BLOCK_NUMBER${NC}"
         update_json_config "${ROOT_DIR}/${CONFIG_DIR}/anvil.messaging.docker.json" "$SN_MESSAGING" "$BLOCK_NUMBER"
@@ -213,7 +213,7 @@ if [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ]; then
             chown -R $HOST_UID:$HOST_GID "$dir"
         fi
     done
-    
+
     # Handle env files separately
     for file in \
         "$ROOT_DIR/.env.local" \
@@ -223,4 +223,4 @@ if [ -n "$HOST_UID" ] && [ -n "$HOST_GID" ]; then
             chown $HOST_UID:$HOST_GID "$file"
         fi
     done
-fi 
+fi

@@ -6,8 +6,7 @@ ENV RUSTUP_HOME=/usr/local/rustup
 RUN rustup default stable
 RUN curl -L https://foundry.paradigm.xyz | bash
 ENV PATH="/root/.foundry/bin:$CARGO_HOME/bin:$PATH"
-RUN /root/.foundry/bin/foundryup
-RUN chmod +x /root/.foundry/bin/*
+RUN foundryup
 RUN mkdir -p /root/.local/bin
 ENV PATH="/root/.local/bin:$CARGO_HOME/bin:/root/.foundry/bin:$PATH"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh -s -- -v 2.12.0
@@ -18,14 +17,11 @@ FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates jq git build-essential && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /usr/local/cargo /usr/local/cargo
 COPY --from=builder /usr/local/rustup /usr/local/rustup
-COPY --from=builder /root/.foundry /usr/local/foundry
-COPY --from=builder /root/.local /usr/local/scarb
-COPY --from=builder /root/.starkli /usr/local/starkli
-RUN chmod -R 755 /usr/local/foundry /usr/local/scarb /usr/local/starkli
-RUN rm /usr/local/scarb/bin/scarb && ln -s /usr/local/scarb/share/scarb-install/2.11.4/bin/scarb /usr/local/scarb/bin/scarb
-RUN mkdir -p /.cache && chmod 777 /.cache
+COPY --from=builder /root/.foundry /root/.foundry
+COPY --from=builder /root/.local /root/.local
+COPY --from=builder /root/.starkli /root/.starkli
 ENV CARGO_HOME=/usr/local/cargo
 ENV RUSTUP_HOME=/usr/local/rustup
-ENV PATH="$CARGO_HOME/bin:/usr/local/foundry/bin:/usr/local/scarb/bin:/usr/local/starkli/bin:$PATH"
+ENV PATH="$CARGO_HOME/bin:/root/.foundry/bin:/root/.local/bin:/root/.starkli/bin:$PATH"
 WORKDIR /app
 CMD ["bash"]

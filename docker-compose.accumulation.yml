@@ -1,7 +1,7 @@
 services:
   build-mmr:
-    image: ametelnethermind/fossil-build-mmr:latest
-    # image: fossil-build-mmr
+    # image: ametelnethermind/fossil-build-mmr:latest
+    image: fossil-build-mmr
     container_name: fossil-build-mmr
     volumes:
       - ./:/app
@@ -10,6 +10,7 @@ services:
       /bin/sh -c "
       build-mmr --env-file ${ENV_FILE:-/app/.env.docker}
       ${NUM_BATCHES:+--num-batches ${NUM_BATCHES}}
+      ${BATCH_SIZE:+--batch-size ${BATCH_SIZE}}
       ${START_BLOCK:+--start-block ${START_BLOCK}}
       ${RESUME:+--resume}
       "
