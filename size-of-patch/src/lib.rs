@@ -1,5 +1,5 @@
 //! Linux-compatible version of size-of crate
-//! 
+//!
 //! This is a minimal implementation that provides the SizeOf trait
 //! without the problematic ABI implementations that don't work on Linux.
 
@@ -18,7 +18,7 @@ pub trait SizeOf {
     fn size_of(&self) -> usize {
         std::mem::size_of_val(self)
     }
-    
+
     /// Calculate size of children (default implementation does nothing)
     fn size_of_children(&self, _context: &mut Context) {}
 }
@@ -65,7 +65,10 @@ impl<T0: SizeOf, T1: SizeOf> SizeOf for (T0, T1) {}
 impl<T0: SizeOf, T1: SizeOf, T2: SizeOf> SizeOf for (T0, T1, T2) {}
 impl<T0: SizeOf, T1: SizeOf, T2: SizeOf, T3: SizeOf> SizeOf for (T0, T1, T2, T3) {}
 impl<T0: SizeOf, T1: SizeOf, T2: SizeOf, T3: SizeOf, T4: SizeOf> SizeOf for (T0, T1, T2, T3, T4) {}
-impl<T0: SizeOf, T1: SizeOf, T2: SizeOf, T3: SizeOf, T4: SizeOf, T5: SizeOf> SizeOf for (T0, T1, T2, T3, T4, T5) {}
+impl<T0: SizeOf, T1: SizeOf, T2: SizeOf, T3: SizeOf, T4: SizeOf, T5: SizeOf> SizeOf
+    for (T0, T1, T2, T3, T4, T5)
+{
+}
 
 // Implement for Options and Results
 impl<T: SizeOf> SizeOf for Option<T> {}
