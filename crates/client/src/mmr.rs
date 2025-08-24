@@ -69,7 +69,7 @@ impl MmrManager {
     /// * `ClientError::StarknetProvider` - If blockchain interactions fail
     /// * `ClientError::Publisher` - If MMR update operations fail
     /// * Network connectivity issues
-    #[instrument(skip(self, private_key))]
+    #[instrument(skip(self, private_key, account_address), level = "debug")]
     pub async fn handle_events(&self, private_key: &str, account_address: &str) -> Result<()> {
         // Fetch the latest stored blockhash from L1
         let latest_relayed_block = self
@@ -115,7 +115,10 @@ impl MmrManager {
     ///
     /// * `ClientError::MissingEnvironmentVariable` - If STARKNET_RPC_URL is missing
     /// * `ClientError::Publisher` - If the publisher operation fails
-    #[instrument(skip(self, private_key))]
+    #[instrument(
+        skip(self, private_key, account_address, latest_relayed_block_and_hash),
+        level = "debug"
+    )]
     pub async fn update_mmr(
         &self,
         latest_mmr_block: u64,

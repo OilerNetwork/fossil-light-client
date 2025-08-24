@@ -148,6 +148,11 @@ impl LightClient {
             return Ok(());
         }
 
+        debug!(
+            "Processing: latest_block={}, latest_mmr_block={}",
+            latest_relayed_block.block_number, latest_mmr_block
+        );
+
         // Process events using the event processor
         let event_count = self
             .event_processor
@@ -167,8 +172,15 @@ impl LightClient {
                 )
                 .await?;
 
+            info!(
+                "Batch processed: {} events for blocks {}-{}",
+                event_count,
+                latest_mmr_block + 1,
+                latest_relayed_block.block_number
+            );
             logger.log_success(Some(&format!("processed {event_count} events")));
         } else {
+            debug!("No events to process");
             logger.log_success(Some("no events to process"));
         }
 
@@ -178,7 +190,7 @@ impl LightClient {
     /// Starts the main event processing loop.
     pub async fn run(&mut self) -> Result<()> {
         info!(
-            "Starting from block {} (poll: {}s)",
+            "Fossil Light Client started: monitoring from block {} (polling interval: {}s)",
             self.event_processor.latest_processed_block() + 1,
             self.polling_interval.as_secs()
         );

@@ -5,7 +5,7 @@ use std::{env, fs, io::Write, path::Path, str};
 use dotenv::dotenv;
 use eyre::{eyre, Result};
 use tokio::task;
-use tracing::{info, warn};
+use tracing::warn;
 
 // Define constant for max file size (50MB)
 pub const DEFAULT_MAX_FILE_SIZE: usize = 50 * 1024 * 1024;
@@ -117,7 +117,7 @@ impl IpfsManager {
             .ok_or_else(|| eyre!("No hash in response"))?
             .to_string();
 
-        info!("IPFS upload completed successfully, CID: {}", hash);
+        tracing::debug!("IPFS upload completed successfully, CID: {}", hash);
         Ok(hash)
     }
 

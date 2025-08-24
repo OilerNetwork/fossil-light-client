@@ -98,7 +98,7 @@ impl PerformanceLogger {
         let operation = operation.into();
         let start_time = Instant::now();
 
-        tracing::info!(
+        tracing::debug!(
             operation = %operation,
             current_block = context.current_block,
             latest_network_block = context.latest_network_block,
@@ -142,7 +142,7 @@ impl PerformanceLogger {
     pub fn log_success(self, result_context: Option<&str>) {
         let elapsed = self.start_time.elapsed();
 
-        tracing::info!(
+        tracing::debug!(
             operation = %self.operation,
             elapsed_ms = elapsed.as_millis() as u64,
             current_block = self.context.current_block,
@@ -293,7 +293,7 @@ pub fn log_event_processing(
     context: &ClientContext,
 ) {
     if event_count > 0 {
-        tracing::info!(
+        tracing::debug!(
             from_block = from_block,
             to_block = to_block,
             event_count = event_count,
@@ -339,7 +339,7 @@ pub fn log_mmr_operation(
     context: &ClientContext,
 ) {
     if success {
-        tracing::info!(
+        tracing::debug!(
             operation = operation,
             block_number = block_number,
             batch_size = batch_size,
