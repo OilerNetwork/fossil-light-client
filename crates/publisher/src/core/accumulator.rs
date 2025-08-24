@@ -5,6 +5,7 @@ use tracing::{debug, error, info, warn};
 
 use super::BatchProcessor;
 use crate::{
+    db::DbConnection,
     error::{PublisherError, PublisherResult},
     utils::BatchResult,
 };
@@ -30,6 +31,7 @@ impl<'a> AccumulatorBuilder<'a> {
         total_batches: u64,
     ) -> PublisherResult<Self> {
         if verifier_address.trim().is_empty() {
+            error!(verifier_address, "Verifier address cannot be empty");
             return Err(PublisherError::validation(format!(
                 "Verifier address cannot be empty: {verifier_address}"
             )));
@@ -69,6 +71,10 @@ impl<'a> AccumulatorBuilder<'a> {
 
     fn validate_batch_count(&self, num_batches: u64) -> PublisherResult<()> {
         if num_batches == 0 {
+            error!(
+                num_batches,
+                "Number of batches must be greater than 0 in validate_batch_count"
+            );
             return Err(PublisherError::validation(format!(
                 "Number of batches must be greater than 0: {num_batches}"
             )));
@@ -129,19 +135,82 @@ impl<'a> AccumulatorBuilder<'a> {
         start_block: u64,
         current_end: u64,
     ) -> PublisherResult<Option<crate::utils::BatchResult>> {
-        self.batch_processor
-            .process_batch(self.chain_id, start_block, current_end, None)
+        self.process_batch_with_retry(batch_num, start_block, current_end, true, None)
             .await
-            .map_err(|e| {
-                error!(
-                    error = %e,
-                    batch_num,
+    }
+
+    /// Process a batch with extensive retry logic to ensure no batches are ever skipped
+    async fn process_batch_with_retry(
+        &self,
+        batch_num: u64,
+        start_block: u64,
+        current_end: u64,
+        is_build: bool,
+        previous_block_hash: Option<String>,
+    ) -> PublisherResult<Option<crate::utils::BatchResult>> {
+        const BATCH_MAX_RETRIES: u32 = 5;
+        const BATCH_INITIAL_DELAY_MS: u64 = 10000; // 10 seconds
+
+        let mut retries = 0;
+        let mut last_error = None;
+
+        while retries <= BATCH_MAX_RETRIES {
+            match self
+                .batch_processor
+                .process_batch(
+                    self.chain_id,
                     start_block,
                     current_end,
-                    "Failed to process batch"
-                );
-                e
-            })
+                    is_build,
+                    previous_block_hash.clone(),
+                )
+                .await
+            {
+                Ok(result) => return Ok(result),
+                Err(e) => {
+                    last_error = Some(e);
+                    retries += 1;
+
+                    if retries <= BATCH_MAX_RETRIES {
+                        let delay = BATCH_INITIAL_DELAY_MS * (2_u64.pow(retries.saturating_sub(1)));
+                        if let Some(ref error) = last_error {
+                            warn!(
+                                error = %error,
+                                batch_num,
+                                start_block,
+                                current_end,
+                                "Failed to process batch, retrying in {}ms (attempt {}/{})",
+                                delay,
+                                retries,
+                                BATCH_MAX_RETRIES + 1
+                            );
+                        }
+                        tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
+                    }
+                }
+            }
+        }
+
+        last_error.map_or_else(|| {
+            error!(
+                batch_num,
+                start_block,
+                current_end,
+                "Failed to process batch after {} attempts - no error recorded",
+                BATCH_MAX_RETRIES + 1
+            );
+            Err(PublisherError::validation("Unknown batch processing error"))
+        }, |error| {
+            error!(
+                error = %error,
+                batch_num,
+                start_block,
+                current_end,
+                "Failed to process batch after {} attempts - this should never happen as batches must be sequential",
+                BATCH_MAX_RETRIES + 1
+            );
+            Err(error)
+        })
     }
 
     async fn handle_successful_batch(
@@ -171,7 +240,7 @@ impl<'a> AccumulatorBuilder<'a> {
             let start_block = self.batch_processor.calculate_start_block(current_end)?;
             let batch_result = self
                 .batch_processor
-                .process_batch(self.chain_id, start_block, current_end, None)
+                .process_batch(self.chain_id, start_block, current_end, true, None)
                 .await?;
 
             if let Some(result) = batch_result {
@@ -193,13 +262,17 @@ impl<'a> AccumulatorBuilder<'a> {
         is_build: bool,
     ) -> PublisherResult<()> {
         if latest_relayed_block_and_hash.block_number < start_block {
+            error!(
+                end_block = latest_relayed_block_and_hash.block_number,
+                start_block, "End block cannot be less than start block"
+            );
             return Err(PublisherError::validation(format!(
                 "End block cannot be less than start block: {} < {start_block}",
                 latest_relayed_block_and_hash.block_number
             )));
         }
 
-        info!(
+        debug!(
             total_blocks = latest_relayed_block_and_hash.block_number - start_block + 1,
             start_block,
             latest_relayed_block_and_hash.block_number,
@@ -212,10 +285,74 @@ impl<'a> AccumulatorBuilder<'a> {
             latest_relayed_block_and_hash.block_number / self.batch_processor.batch_size();
         let total_batches = end_batch_index - start_batch_index + 1;
 
-        info!(
+        debug!(
             start_batch_index,
             end_batch_index, total_batches, "Updating Light Client with {total_batches} batches"
         );
+
+        // Get previous block hash for chain continuity validation in CLIENT mode
+        // For CLIENT mode, we get the latest MMR block from the contract and fetch its hash from the database
+        let previous_block_hash = if !is_build {
+            let provider = StarknetProvider::new(self.starknet_rpc_url).map_err(|e| {
+                error!(error = %e, "Failed to create Starknet provider");
+                PublisherError::starknet_provider(format!(
+                    "Failed to create Starknet provider: {e}"
+                ))
+            })?;
+
+            match provider
+                .get_latest_mmr_block(self.batch_processor.mmr_state_manager().store_address())
+                .await
+            {
+                Ok(latest_mmr_block) => {
+                    debug!(
+                        "Retrieved latest MMR block from contract: {}",
+                        latest_mmr_block
+                    );
+
+                    // Get the block hash for the latest MMR block from the database
+                    let db_connection = DbConnection::new().await?;
+
+                    match db_connection
+                        .get_block_hash_by_number(latest_mmr_block)
+                        .await
+                    {
+                        Ok(Some(block_hash)) => {
+                            debug!(
+                                "Retrieved block hash for MMR block {}: {}",
+                                latest_mmr_block, block_hash
+                            );
+                            Some(block_hash)
+                        }
+                        Ok(None) => {
+                            warn!("No block hash found for MMR block {}", latest_mmr_block);
+                            None
+                        }
+                        Err(e) => {
+                            warn!(error = %e, "Failed to fetch block hash for MMR block {}", latest_mmr_block);
+                            return Err(PublisherError::database(format!(
+                                "Failed to fetch block hash for MMR block {latest_mmr_block}: {e}"
+                            )));
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!(error = %e, "Failed to get latest MMR block from contract");
+                    return Err(PublisherError::starknet_provider(format!(
+                        "Failed to get latest MMR block from contract: {e}"
+                    )));
+                }
+            }
+        } else {
+            None
+        };
+
+        if let Some(ref prev_hash) = previous_block_hash {
+            debug!(
+                "Retrieved previous block hash for chain continuity: {}",
+                prev_hash
+            );
+        }
 
         // Process each batch in sequence
         for batch_index in start_batch_index..=end_batch_index {
@@ -239,9 +376,10 @@ impl<'a> AccumulatorBuilder<'a> {
                     self.chain_id,
                     effective_start,
                     effective_end,
-                    // Only pass the block hash for the last batch
-                    if batch_index == end_batch_index {
-                        Some(latest_relayed_block_and_hash.block_hash.clone())
+                    is_build,
+                    // Only pass previous block hash for the first batch in CLIENT mode
+                    if batch_index == start_batch_index {
+                        previous_block_hash.clone()
                     } else {
                         None
                     },
@@ -257,16 +395,11 @@ impl<'a> AccumulatorBuilder<'a> {
             self.handle_batch_result(&batch_result, is_build).await?;
 
             self.current_batch += 1;
-            info!(
+            debug!(
                 progress = format!("{}/{}", batch_index - start_batch_index + 1, total_batches),
                 "Batch processed successfully for blocks {effective_start}-{effective_end}"
             );
         }
-
-        info!(
-            "MMR update completed successfully for all blocks {start_block}-{}",
-            latest_relayed_block_and_hash.block_number
-        );
 
         Ok(())
     }
@@ -281,6 +414,10 @@ impl<'a> AccumulatorBuilder<'a> {
             self.verify_proof(proof.calldata(), batch_result.ipfs_hash(), is_build)
                 .await?;
         } else {
+            error!(
+                batch_result = ?batch_result,
+                "No proof available for verification - batch processing failed"
+            );
             return Err(PublisherError::validation(format!(
                 "No proof available for verification for batch: {batch_result:?}"
             )));
@@ -296,7 +433,7 @@ impl<'a> AccumulatorBuilder<'a> {
     ) -> PublisherResult<()> {
         let starknet_account = self.batch_processor.mmr_state_manager().account();
 
-        info!("Verifying MMR proof (is_build: {is_build})");
+        debug!("Verifying MMR proof (is_build: {is_build})");
         starknet_account
             .verify_mmr_proof(self.verifier_address, calldata, ipfs_hash, is_build)
             .await
@@ -333,6 +470,11 @@ impl<'a> AccumulatorBuilder<'a> {
     async fn process_blocks_from(&self, start_block: u64, is_build: bool) -> PublisherResult<()> {
         let (finalized_block_number, _) = get_finalized_block_hash().await?;
         if start_block > finalized_block_number {
+            error!(
+                start_block,
+                finalized_block_number,
+                "Start block cannot be greater than finalized block in process_blocks_from"
+            );
             return Err(PublisherError::validation(format!(
                 "Start block cannot be greater than finalized block: {start_block} > {finalized_block_number}"
             )));
@@ -349,7 +491,7 @@ impl<'a> AccumulatorBuilder<'a> {
             let start = self.batch_processor.calculate_start_block(current_end)?;
             let batch_result = self
                 .batch_processor
-                .process_batch(self.chain_id, start, current_end, None)
+                .process_batch(self.chain_id, start, current_end, is_build, None)
                 .await?;
 
             if let Some(result) = batch_result {
@@ -370,6 +512,10 @@ impl<'a> AccumulatorBuilder<'a> {
         is_build: bool,
     ) -> PublisherResult<()> {
         if num_batches == 0 {
+            error!(
+                num_batches,
+                "Number of batches must be greater than 0 in process_blocks_from_with_limit"
+            );
             return Err(PublisherError::validation(format!(
                 "Number of batches must be greater than 0: {num_batches}"
             )));
@@ -380,6 +526,11 @@ impl<'a> AccumulatorBuilder<'a> {
         })?;
 
         if start_block > finalized_block_number {
+            error!(
+                start_block,
+                finalized_block_number,
+                "Start block cannot be greater than finalized block in process_blocks_from_with_limit"
+            );
             return Err(PublisherError::validation(format!(
                 "Start block cannot be greater than finalized block: {start_block} > {finalized_block_number}"
             )));
@@ -399,19 +550,8 @@ impl<'a> AccumulatorBuilder<'a> {
             debug!(batch_num, start, current_end, "Processing batch");
 
             let result = self
-                .batch_processor
-                .process_batch(self.chain_id, start, current_end, None)
-                .await
-                .map_err(|e| {
-                    error!(
-                        error = %e,
-                        batch_num,
-                        start,
-                        current_end,
-                        "Failed to process batch"
-                    );
-                    e
-                })?;
+                .process_batch_with_retry(batch_num, start, current_end, is_build, None)
+                .await?;
 
             if let Some(batch_result) = result {
                 self.handle_batch_result(&batch_result, is_build).await?;

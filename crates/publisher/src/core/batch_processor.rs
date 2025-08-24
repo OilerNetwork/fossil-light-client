@@ -2,12 +2,13 @@ use std::path::PathBuf;
 
 use common::get_or_create_db_path;
 use eth_rlp_types::BlockHeader;
+use eth_rlp_verify;
 use guest_types::{CombinedInput, GuestOutput, MMRInput};
 use ipfs_utils::IpfsManager;
 use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
 use starknet_handler::{provider::StarknetProvider, u256_from_hex};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, warn};
 use uuid;
 
 use crate::{
@@ -73,7 +74,8 @@ impl<'a> BatchProcessor<'a> {
         chain_id: u64,
         start_block: u64,
         end_block: u64,
-        latest_relayed_block_and_hash: Option<String>,
+        is_build: bool,
+        previous_block_hash: Option<String>,
     ) -> PublisherResult<Option<BatchResult>> {
         if end_block < start_block {
             return Err(PublisherError::validation(format!(
@@ -82,7 +84,7 @@ impl<'a> BatchProcessor<'a> {
         }
 
         let batch_index = start_block / self.batch_size;
-        info!("Processing batch index: {batch_index}");
+        debug!("Processing batch index: {batch_index}");
         let (batch_start, batch_end) = self.calculate_batch_bounds(batch_index)?;
 
         if start_block < batch_start {
@@ -92,7 +94,7 @@ impl<'a> BatchProcessor<'a> {
         }
 
         let adjusted_end_block = std::cmp::min(end_block, batch_end);
-        info!(
+        debug!(
             "Batch start: {batch_start}, Batch end: {batch_end}, Adjusted end block: {adjusted_end_block}"
         );
 
@@ -164,7 +166,7 @@ impl<'a> BatchProcessor<'a> {
                                     return Ok(Some(batch_result));
                                 }
 
-                                info!(
+                                debug!(
                                     "Loaded existing batch {batch_index} database with {leaves_count} leaves (incomplete)"
                                 );
                                 (sm, m, p)
@@ -227,41 +229,51 @@ impl<'a> BatchProcessor<'a> {
             )));
         }
 
-        // Validate the latest block hash if provided
-        if let Some(expected_hash) = &latest_relayed_block_and_hash {
-            let last_header = headers.last().ok_or_else(|| {
-                PublisherError::Validation("No headers found in batch".to_string())
-            })?;
-            info!(
-                "Validating latest block hash: expected={expected_hash}, actual={}",
-                last_header.block_hash
-            );
+        // Validate block headers using eth_rlp_verify
+        debug!(
+            "Validating {} block headers using eth_rlp_verify",
+            headers.len()
+        );
+        if !eth_rlp_verify::are_blocks_and_chain_valid(&headers, chain_id) {
+            error!("Block header validation failed for block range {start_block} to {adjusted_end_block}");
+            return Err(PublisherError::validation(format!(
+                "Block header validation failed for block range {start_block} to {adjusted_end_block}"
+            )));
+        }
 
-            // Normalize both hashes by stripping '0x' prefix and leading zeros
-            let normalized_expected = expected_hash
-                .strip_prefix("0x")
-                .unwrap_or(expected_hash)
-                .trim_start_matches('0');
-            let normalized_actual = last_header
-                .block_hash
-                .strip_prefix("0x")
-                .unwrap_or(&last_header.block_hash)
-                .trim_start_matches('0');
+        // In CLIENT mode, validate chain continuity with previous block hash
+        if !is_build {
+            if let Some(ref prev_hash) = previous_block_hash {
+                let first_header = headers.first().ok_or_else(|| {
+                    PublisherError::Validation("No headers found in batch".to_string())
+                })?;
 
-            if normalized_actual != normalized_expected {
-                return Err(PublisherError::validation(format!(
-                    "Latest block hash mismatch: expected {expected_hash}, got {}",
-                    last_header.block_hash
-                )));
-            } else {
-                info!("Latest block hash validation successful");
+                let empty_string = String::new();
+                let first_parent_hash = first_header.parent_hash.as_ref().unwrap_or(&empty_string);
+
+                if first_parent_hash != prev_hash {
+                    error!(
+                        "Chain continuity validation failed: first header parent hash {} does not match previous block hash {}",
+                        first_parent_hash, prev_hash
+                    );
+                    return Err(PublisherError::validation(format!(
+                        "Chain continuity validation failed: first header parent hash {first_parent_hash} does not match previous block hash {prev_hash}"
+                    )));
+                }
+
+                debug!("Chain continuity validation successful: first header parent hash matches previous block hash");
             }
         }
+
+        // Note: We don't validate the latest relayed block hash here because:
+        // 1. The latest relayed block from L1 may not be the last block in our current batch
+        // 2. Chain continuity is already validated above by checking first_block.parent_hash == previous_block_hash
+        // 3. The MMR will validate the correct sequence of blocks when building the proof
 
         let new_headers: Vec<String> = headers.iter().map(|h| h.block_hash.clone()).collect();
         let grouped_headers = group_headers_by_hour(headers);
 
-        info!(
+        debug!(
             "Grouped {} headers into {} hourly groups",
             new_headers.len(),
             grouped_headers.len()
@@ -300,7 +312,7 @@ impl<'a> BatchProcessor<'a> {
 
         // Generate proof
         let (guest_output, proof) = {
-            info!("Generating proof for blocks {start_block}-{end_block}");
+            debug!("Generating proof for blocks {start_block}-{end_block}");
 
             // Generate the proof with better error handling
             let result = match self
@@ -514,7 +526,7 @@ pub fn group_headers_by_hour(headers: Vec<BlockHeader>) -> Vec<(i64, Vec<BlockHe
                 if !current_group.is_empty() {
                     // Find timestamp closest to the hour
                     let representative_timestamp = h * 3600;
-                    info!("Representative timestamp for hour {h} is: {representative_timestamp}");
+                    debug!("Representative timestamp for hour {h} is: {representative_timestamp}");
                     grouped_headers
                         .push((representative_timestamp, std::mem::take(&mut current_group)));
                 }
@@ -528,10 +540,7 @@ pub fn group_headers_by_hour(headers: Vec<BlockHeader>) -> Vec<(i64, Vec<BlockHe
     if !current_group.is_empty() {
         if let Some(h) = current_hour {
             let representative_timestamp = h * 3600;
-            info!(
-                "Representative timestamp for hour {} is: {}",
-                h, representative_timestamp
-            );
+
             grouped_headers.push((representative_timestamp, current_group));
         }
     }
@@ -665,7 +674,7 @@ mod tests {
         let mmr_state_manager = MMRStateManager::mock();
         let proof_generator = ProofGenerator::mock_for_tests();
         let processor = BatchProcessor::new(100, proof_generator, mmr_state_manager).unwrap();
-        let result = processor.process_batch(1, 200, 100, None).await;
+        let result = processor.process_batch(1, 200, 100, false, None).await;
         assert!(
             matches!(result, Err(e) if e.to_string().contains("End block cannot be less than start block"))
         );
