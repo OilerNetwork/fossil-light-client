@@ -1,77 +1,77 @@
-name: Build and Push Docker Images
+# name: Build and Push Docker Images
 
-on:
-  push:
-    branches: ['main', 'sepolia-deployment']
-    paths:
-      - '**/Cargo.toml'
-      - 'Cargo.lock'
-  pull_request:
-    branches: ['main', 'sepolia-deployment']
-    paths:
-      - '**/Cargo.toml'
-      - 'Cargo.lock'
-  # Allow manual trigger
-  workflow_dispatch:
+# on:
+#   push:
+#     branches: ["main", "sepolia-deployment"]
+#     paths:
+#       - "**/Cargo.toml"
+#       - "Cargo.lock"
+#   pull_request:
+#     branches: ["main", "sepolia-deployment"]
+#     paths:
+#       - "**/Cargo.toml"
+#       - "Cargo.lock"
+#   # Allow manual trigger
+#   workflow_dispatch:
 
-env:
-  CARGO_TERM_COLOR: always
-  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-  DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-  DATABASE_URL: ${{ secrets.DATABASE_URL }}
+# env:
+#   CARGO_TERM_COLOR: always
+#   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+#   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+#   DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+# jobs:
+#   build-and-push:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+#       - name: Set up Docker Buildx
+#         uses: docker/setup-buildx-action@v3
 
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: 1.85.0
-          override: true
+#       - name: Install Rust
+#         uses: actions-rs/toolchain@v1
+#         with:
+#           toolchain: stable
+#           override: true
 
-      - name: Install RISC Zero toolchain
-        run: |
-          curl -L https://risczero.com/install | bash
-          export PATH="$HOME/.risc0/bin:$PATH"
-          rzup install
+#       - name: Install RISC Zero toolchain
+#         run: |
+#           curl -L https://risczero.com/install | bash
+#           export PATH="$HOME/.risc0/bin:$PATH"
+#           rzup install
 
-      - name: Login to DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+#       - name: Login to DockerHub
+#         uses: docker/login-action@v3
+#         with:
+#           username: ${{ secrets.DOCKERHUB_USERNAME }}
+#           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build client Docker image
-        run: |
-          chmod +x scripts/build-client-image.sh
-          ./scripts/build-client-image.sh
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+#       - name: Build client Docker image
+#         run: |
+#           chmod +x scripts/build-client-image.sh
+#           ./scripts/build-client-image.sh
+#         env:
+#           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-      - name: Build MMR Docker image
-        run: |
-          chmod +x scripts/build-mmr-image.sh
-          ./scripts/build-mmr-image.sh
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+#       - name: Build MMR Docker image
+#         run: |
+#           chmod +x scripts/build-mmr-image.sh
+#           ./scripts/build-mmr-image.sh
+#         env:
+#           DATABASE_URL: ${{ secrets.DATABASE_URL }}
 
-      - name: Tag and push client image
-        run: |
-          # Tag with DockerHub repository
-          docker tag fossil-client:latest ${{ secrets.DOCKERHUB_USERNAME }}/fossil-client:latest
-          # Push to DockerHub
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/fossil-client:latest
+#       - name: Tag and push client image
+#         run: |
+#           # Tag with DockerHub repository
+#           docker tag fossil-client:latest ${{ secrets.DOCKERHUB_USERNAME }}/fossil-client:latest
+#           # Push to DockerHub
+#           docker push ${{ secrets.DOCKERHUB_USERNAME }}/fossil-client:latest
 
-      - name: Tag and push MMR image
-        run: |
-          # Tag with DockerHub repository
-          docker tag fossil-build-mmr:latest ${{ secrets.DOCKERHUB_USERNAME }}/fossil-build-mmr:latest
-          # Push to DockerHub
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/fossil-build-mmr:latest 
+#       - name: Tag and push MMR image
+#         run: |
+#           # Tag with DockerHub repository
+#           docker tag fossil-build-mmr:latest ${{ secrets.DOCKERHUB_USERNAME }}/fossil-build-mmr:latest
+#           # Push to DockerHub
+#           docker push ${{ secrets.DOCKERHUB_USERNAME }}/fossil-build-mmr:latest

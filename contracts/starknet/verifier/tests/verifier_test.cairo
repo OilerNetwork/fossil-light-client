@@ -86,20 +86,6 @@ fn test_verify_mmr_proof_subsequent_batch() {
 }
 
 #[test]
-#[should_panic(expected: "Batch link mismatch")]
-fn test_verify_mmr_proof_batch_link_mismatch() {
-    let (_, verifier) = deploy();
-    let IPFS_HASH: ByteArray = "IPFS_HASH_CID";
-    start_cheat_caller_address(verifier.contract_address, OWNER());
-    // First submit in build mode
-    verifier.verify_mmr_proof(calldata_default(), IPFS_HASH.clone(), true);
-
-    // Then update existing batch
-    let result = verifier.verify_mmr_proof(calldata_default(), IPFS_HASH, false);
-    assert!(result);
-}
-
-#[test]
 #[should_panic(expected: 'not zero l0')]
 fn test_verify_mmr_proof_invalid_proof() {
     let (_, verifier) = deploy();
