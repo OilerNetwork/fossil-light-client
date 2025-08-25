@@ -94,6 +94,15 @@ done
 # Source the primary environment file
 source "${ENV_FILES[0]}"
 
+# Determine if we should use private key based on DEPLOYMENT_VERSION
+if [ "$DEPLOYMENT_VERSION" = "local" ]; then
+    PRIVATE_KEY_FLAG=""
+    echo -e "${BLUE}Using local deployment - omitting --private-key flag for built-in accounts${NC}"
+else
+    PRIVATE_KEY_FLAG="--private-key $STARKNET_PRIVATE_KEY"
+    echo -e "${BLUE}Using remote deployment - including --private-key flag${NC}"
+fi
+
 # Ensure proper ownership and permissions for build artifacts in root directory
 sudo chown -R ametel:ametel "$ORIGINAL_DIR/target/" 2>/dev/null || true
 sudo chmod -R 755 "$ORIGINAL_DIR/target/" 2>/dev/null || true
@@ -128,57 +137,57 @@ echo current directory: $(pwd)
 echo -e "\n${BLUE}${BOLD}Deploying Starknet contracts...${NC}"
 # Declare and deploy Fossil Store contract
 echo -e "\n${YELLOW}Declaring Fossil Store contract...${NC}"
-FOSSILSTORE_HASH=$(starkli declare ./target/dev/fossil_store_Store.contract_class.json --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --compiler-version 2.9.1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+FOSSILSTORE_HASH=$(starkli declare ./target/dev/fossil_store_Store.contract_class.json --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL $PRIVATE_KEY_FLAG -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Class hash declared: ${BOLD}$FOSSILSTORE_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Fossil Store contract...${NC}"
-FOSSILSTORE_ADDRESS=$(starkli deploy $FOSSILSTORE_HASH $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+FOSSILSTORE_ADDRESS=$(starkli deploy $FOSSILSTORE_HASH $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL $PRIVATE_KEY_FLAG -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract address: ${BOLD}$FOSSILSTORE_ADDRESS${NC}"
 echo
 
 # Declare and deploy Fossil L1MessageProxy contract
 echo -e "${YELLOW}Declaring Fossil L1MessageProxy contract...${NC}"
-L1MESSAGEPROXY_HASH=$(starkli declare ./target/dev/l1_message_proxy_L1MessageProxy.contract_class.json --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --compiler-version 2.9.1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+L1MESSAGEPROXY_HASH=$(starkli declare ./target/dev/l1_message_proxy_L1MessageProxy.contract_class.json --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL $PRIVATE_KEY_FLAG -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Class hash declared: ${BOLD}$L1MESSAGEPROXY_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Fossil L1MessageProxy contract...${NC}"
-L1MESSAGEPROXY_ADDRESS=$(starkli deploy $L1MESSAGEPROXY_HASH $L1_MESSAGE_SENDER $FOSSILSTORE_ADDRESS $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+L1MESSAGEPROXY_ADDRESS=$(starkli deploy $L1MESSAGEPROXY_HASH $L1_MESSAGE_SENDER $FOSSILSTORE_ADDRESS $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL $PRIVATE_KEY_FLAG -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract address: ${BOLD}$L1MESSAGEPROXY_ADDRESS${NC}"
 echo
 
 # Declare and deploy Universal ECIP contract
 echo -e "${YELLOW}Declaring Universal ECIP contract...${NC}"
-ECIP_HASH=$(starkli declare ./target/dev/verifier_UniversalECIP.contract_class.json --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --compiler-version 2.9.1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+ECIP_HASH=$(starkli declare ./target/dev/verifier_UniversalECIP.contract_class.json --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL $PRIVATE_KEY_FLAG -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Class hash declared: ${BOLD}$ECIP_HASH${NC}"
 echo
 
 # Declare and deploy Groth16 Verifier contract
 echo -e "${YELLOW}Declaring Groth16 Verifier contract...${NC}"
-VERIFIER_HASH=$(starkli declare ./target/dev/verifier_Risc0Groth16VerifierBN254.contract_class.json --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --compiler-version 2.9.1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+VERIFIER_HASH=$(starkli declare ./target/dev/verifier_Risc0Groth16VerifierBN254.contract_class.json --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL $PRIVATE_KEY_FLAG -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Class hash declared: ${BOLD}$VERIFIER_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Groth16 Verifier contract...${NC}"
-VERIFIER_ADDRESS=$(starkli deploy $VERIFIER_HASH $ECIP_HASH --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+VERIFIER_ADDRESS=$(starkli deploy $VERIFIER_HASH $ECIP_HASH --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL $PRIVATE_KEY_FLAG -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract deployed at: ${BOLD}$VERIFIER_ADDRESS${NC}"
 echo
 
 echo -e "${YELLOW}Declaring Fossil Verifier contract...${NC}"
-FOSSIL_VERIFIER_HASH=$(starkli declare ./target/dev/verifier_FossilVerifier.contract_class.json --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL --compiler-version 2.9.1 -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+FOSSIL_VERIFIER_HASH=$(starkli declare ./target/dev/verifier_FossilVerifier.contract_class.json --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL $PRIVATE_KEY_FLAG -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Class hash declared: ${BOLD}$FOSSIL_VERIFIER_HASH${NC}"
 echo
 
 echo -e "${YELLOW}Deploying Fossil Verifier contract...${NC}"
-FOSSIL_VERIFIER_ADDRESS=$(starkli deploy $FOSSIL_VERIFIER_HASH $VERIFIER_ADDRESS $FOSSILSTORE_ADDRESS $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
+FOSSIL_VERIFIER_ADDRESS=$(starkli deploy $FOSSIL_VERIFIER_HASH $VERIFIER_ADDRESS $FOSSILSTORE_ADDRESS $STARKNET_ACCOUNT_ADDRESS --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL $PRIVATE_KEY_FLAG -w | grep -o '0x[a-fA-F0-9]\{64\}' | head -1)
 echo -e "${GREEN}Contract deployed at: ${BOLD}$FOSSIL_VERIFIER_ADDRESS${NC}"
 echo
 #
 # Only initialize Fossil Store for local and docker environments
 if [ "$ENV_TYPE" = "local" ] || [ "$ENV_TYPE" = "docker" ]; then
     echo -e "${YELLOW}Initializing Fossil Store contract...${NC}"
-    starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS $L1MESSAGEPROXY_ADDRESS $UPDATE_INTERVAL --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL -w
+    starkli invoke $FOSSILSTORE_ADDRESS initialize $FOSSIL_VERIFIER_ADDRESS $L1MESSAGEPROXY_ADDRESS $UPDATE_INTERVAL --account $STARKNET_ACCOUNT --rpc $STARKNET_RPC_URL $PRIVATE_KEY_FLAG -w
     echo -e "${GREEN}Fossil Store contract initialized${NC}"
     echo
 else
