@@ -94,6 +94,10 @@ done
 # Source the primary environment file
 source "${ENV_FILES[0]}"
 
+# Ensure proper ownership and permissions for build artifacts in root directory
+sudo chown -R ametel:ametel "$ORIGINAL_DIR/target/" 2>/dev/null || true
+sudo chmod -R 755 "$ORIGINAL_DIR/target/" 2>/dev/null || true
+
 STARKNET_DIR="$ORIGINAL_DIR/contracts/starknet"
 
 # Define colors
@@ -103,6 +107,10 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 BOLD='\033[1m'
 RED='\033[0;31m'
+
+# Ensure proper ownership and permissions for build artifacts (redundant check)
+sudo chown -R ametel:ametel "$ORIGINAL_DIR/target/" 2>/dev/null || true
+sudo chmod -R 755 "$ORIGINAL_DIR/target/" 2>/dev/null || true
 
 # Conditionally build the contracts
 if [ "$BUILD" = true ]; then
