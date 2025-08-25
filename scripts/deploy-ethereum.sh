@@ -126,6 +126,9 @@ ROOT_DIR=$(pwd)
 # Deploy Ethereum contracts
 cd "$ETHEREUM_DIR"
 
+# Ensure proper permissions for build artifacts
+chmod -R 755 broadcast/ cache/ out/ logs/ 2>/dev/null || true
+
 # Choose the appropriate script based on environment
 if [[ "$ENV_TYPE" == "local" || "$ENV_TYPE" == "docker" ]]; then
     SCRIPT_PATH="script/LocalTesting.s.sol:LocalSetup"
