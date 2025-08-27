@@ -1,39 +1,43 @@
 services:
   build-mmr:
     # image: ametelnethermind/fossil-build-mmr:latest
-    image: fossil-build-mmr
+    image: fossil-build-mmr:latest
     container_name: fossil-build-mmr
-    volumes:
-      - ./:/app
-    entrypoint: []
-    command: >
-      /bin/sh -c "
-      if [ -n \"${ENV_FILE:-}\" ] && [ -f \"${ENV_FILE}\" ]; then
-        build-mmr --env-file ${ENV_FILE}
-        ${NUM_BATCHES:+--num-batches ${NUM_BATCHES}}
-        ${BATCH_SIZE:+--batch-size ${BATCH_SIZE}}
-        ${START_BLOCK:+--start-block ${START_BLOCK}}
-        ${RESUME:+--resume}
-      elif [ -f \"/app/.env.docker\" ]; then
-        build-mmr --env-file /app/.env.docker
-        ${NUM_BATCHES:+--num-batches ${NUM_BATCHES}}
-        ${BATCH_SIZE:+--batch-size ${BATCH_SIZE}}
-        ${START_BLOCK:+--start-block ${START_BLOCK}}
-        ${RESUME:+--resume}
-      else
-        build-mmr
-        ${NUM_BATCHES:+--num-batches ${NUM_BATCHES}}
-        ${BATCH_SIZE:+--batch-size ${BATCH_SIZE}}
-        ${START_BLOCK:+--start-block ${START_BLOCK}}
-        ${RESUME:+--resume}
-      fi
-      "
+
+    # EXACTLY MATCH ECS: remove entrypoint/command to use image's ENTRYPOINT
+    # entrypoint: []
+    # command: []
+
+    # Environment variables sourced from .env.docker (simulating AWS Secrets Manager)
     environment:
-      - ETHEREUM_RPC_URL=http://anvil:8545
+      - NUM_BATCHES=${NUM_BATCHES:-2}
+      - DEPLOYMENT_VERSION=${DEPLOYMENT_VERSION:-local}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - CHAIN_ID=${CHAIN_ID:-11155111}
+      - STARKNET_RPC_URL=${STARKNET_RPC_URL:-http://katana:5050}
+      - STARKNET_PRIVATE_KEY=${STARKNET_PRIVATE_KEY}
+      - STARKNET_ACCOUNT_ADDRESS=${STARKNET_ACCOUNT_ADDRESS}
+      - FOSSIL_VERIFIER=${FOSSIL_VERIFIER}
+      - FOSSIL_STORE=${FOSSIL_STORE}
+      - DATABASE_URL=${DATABASE_URL}
+      - DB_POOL_SIZE=${DB_POOL_SIZE:-10}
+      - DB_TIMEOUT=${DB_TIMEOUT:-30}
+      - IPFS_ADD_URL=${IPFS_ADD_URL}
+      - IPFS_FETCH_BASE_URL=${IPFS_FETCH_BASE_URL}
+      - IPFS_TOKEN=${IPFS_TOKEN}
+      - IPFS_TIMEOUT=${IPFS_TIMEOUT:-60}
       - BONSAI_API_URL=${BONSAI_API_URL:-https://api.bonsai.xyz/}
-      - SQLX_SLOW_STATEMENTS_THRESHOLD=0
+      - ETH_RPC_URL=${ETH_RPC_URL:-http://anvil:8545}
+      - BONSAI_API_KEY=${BONSAI_API_KEY}
+    
+    # Load secrets from .env.docker
     env_file:
-      - ${ENV_FILE:-.env}
+      - .env.docker
+
+    # No volumes (ECS has no volume mounts)
+    # No env_file (ECS uses AWS Secrets Manager, not files)
+    # No ports (ECS task definition has no port mappings)
+
     networks:
       - fossil-network
 

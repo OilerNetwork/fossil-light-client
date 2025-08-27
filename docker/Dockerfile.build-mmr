@@ -39,8 +39,8 @@ if [ $# -eq 0 ]; then
     elif [ -f "/app/.env.docker" ]; then
         exec /usr/local/bin/build-mmr --env-file /app/.env.docker ${NUM_BATCHES:+--num-batches $NUM_BATCHES} ${BATCH_SIZE:+--batch-size $BATCH_SIZE} ${START_BLOCK:+--start-block $START_BLOCK} ${RESUME:+--resume}
     else
-        # ECS mode - no env file, rely on environment variables
-        exec /usr/local/bin/build-mmr ${NUM_BATCHES:+--num-batches $NUM_BATCHES} ${BATCH_SIZE:+--batch-size $BATCH_SIZE} ${START_BLOCK:+--start-block $START_BLOCK} ${RESUME:+--resume}
+        # ECS mode - no env file, rely on environment variables, use /dev/null to avoid default .env lookup
+        exec /usr/local/bin/build-mmr --env-file /dev/null ${NUM_BATCHES:+--num-batches $NUM_BATCHES} ${BATCH_SIZE:+--batch-size $BATCH_SIZE} ${START_BLOCK:+--start-block $START_BLOCK} ${RESUME:+--resume}
     fi
 else
     # Arguments provided, pass them directly to build-mmr
@@ -50,5 +50,5 @@ EOF
 
 RUN chmod +x /usr/local/bin/build-mmr-wrapper.sh
 
-# Define the entrypoint - this will be overridden when we copy the actual binary
-CMD ["/bin/bash", "-c", "echo 'Binary not found. Did you run the build script?' && exit 1"]
+# Use ENTRYPOINT so it runs even with empty entrypoint/command arrays in ECS
+ENTRYPOINT ["/usr/local/bin/build-mmr-wrapper.sh"]

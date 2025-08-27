@@ -77,12 +77,8 @@ echo "Cleaning up second temporary container..."
 docker stop $CONTAINER_ID
 docker rm $CONTAINER_ID
 
-# Update the entrypoint in the final image
-echo "Updating entrypoint in final image..."
-docker build -t fossil-build-mmr:latest - <<EOF
-FROM fossil-build-mmr:latest
-ENTRYPOINT ["/usr/local/bin/build-mmr-wrapper.sh"]
-EOF
+# Keep the CMD from Dockerfile for ECS compatibility
+echo "Final image ready with CMD wrapper..."
 
 # Clean up intermediate images
 echo "Cleaning up intermediate images..."
