@@ -1,0 +1,61 @@
+name: Deploy Fossil Build MMR to ECS
+on:
+  push:
+    branches:
+      - main
+      - deploy-mmr
+
+env:
+  AWS_REGION: us-east-1
+  ECS_SERVICE: fossil-build-mmr-ecs
+  ECS_CLUSTER: fossil-ecs-cluster
+  CONTAINER_NAME: fossil-build-mmr
+  TASK_NAME: fossil-build-mmr-ecs
+  DOCKER_IMAGE: ametelnethermind/fossil-build-mmr:latest
+
+permissions:
+  id-token: write
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::065525255352:role/kyoto-fossil-github-oidc-role
+          role-session-name: Github
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Pull Docker image from Docker Hub
+        run: |
+          docker pull ${{ env.DOCKER_IMAGE }}
+          echo "IMAGE_URI=${{ env.DOCKER_IMAGE }}" >> $GITHUB_ENV
+
+      - name: Download task definition
+        run: |
+          aws ecs describe-task-definition --task-definition ${{ env.TASK_NAME }} --query taskDefinition > task-definition.json
+
+      - name: Log task definition
+        run: cat task-definition.json
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ env.IMAGE_URI }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: ${{ env.ECS_SERVICE }}
+          cluster: ${{ env.ECS_CLUSTER }}
+          wait-for-service-stability: true
