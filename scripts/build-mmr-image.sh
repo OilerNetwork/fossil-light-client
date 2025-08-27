@@ -29,6 +29,10 @@ docker build -t fossil-build-mmr:base -f docker/Dockerfile.build-mmr .
 echo "Creating temporary container..."
 CONTAINER_ID=$(docker create fossil-build-mmr:base)
 
+# Make the binary executable locally first
+echo "Making binary executable locally..."
+chmod +x target/release/build-mmr
+
 # Copy the binary and method ELFs to the container
 echo "Copying binary to container..."
 docker cp target/release/build-mmr $CONTAINER_ID:/usr/local/bin/build-mmr
@@ -44,40 +48,12 @@ else
     rm -rf tmp_methods_out
 fi
 
-# Commit the container with the copied files
-echo "Committing container with copied files..."
-docker commit $CONTAINER_ID fossil-build-mmr:with-files
-
-# Remove the temporary container
-echo "Cleaning up first temporary container..."
-docker rm $CONTAINER_ID
-
-# Create and start a new container to make the binary executable
-echo "Creating and starting a new container to make binary executable..."
-CONTAINER_ID=$(docker run -d fossil-build-mmr:with-files sleep 300)
-
-# Wait a moment for container to fully start
-sleep 1
-
-# Make the binary executable
-echo "Making binary executable..."
-docker exec $CONTAINER_ID chmod +x /usr/local/bin/build-mmr
-
-# Verify the binary exists
-echo "Verifying binary exists in container..."
-docker exec $CONTAINER_ID ls -la /usr/local/bin/build-mmr || echo "Warning: Binary not found in container"
-
-# Check GLIBC version in container
-echo "Checking GLIBC version in container..."
-docker exec $CONTAINER_ID ldd --version || echo "Warning: Could not check GLIBC version"
-
-# Commit the container as the final image
-echo "Committing changes to final image..."
+# Commit the container as the final image directly
+echo "Committing container as final image..."
 docker commit $CONTAINER_ID fossil-build-mmr:latest
 
-# Stop and remove the temporary container
-echo "Cleaning up second temporary container..."
-docker stop $CONTAINER_ID
+# Remove the temporary container
+echo "Cleaning up temporary container..."
 docker rm $CONTAINER_ID
 
 # Keep the CMD from Dockerfile for ECS compatibility
@@ -85,7 +61,6 @@ echo "Final image ready with CMD wrapper..."
 
 # Clean up intermediate images
 echo "Cleaning up intermediate images..."
-docker rmi fossil-build-mmr:with-files || true
 # Don't remove the base image as it might be in use
 # docker rmi fossil-build-mmr:base || true
 
