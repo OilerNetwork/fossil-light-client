@@ -8,11 +8,25 @@ services:
     entrypoint: []
     command: >
       /bin/sh -c "
-      build-mmr --env-file ${ENV_FILE:-/app/.env.docker}
-      ${NUM_BATCHES:+--num-batches ${NUM_BATCHES}}
-      ${BATCH_SIZE:+--batch-size ${BATCH_SIZE}}
-      ${START_BLOCK:+--start-block ${START_BLOCK}}
-      ${RESUME:+--resume}
+      if [ -n \"${ENV_FILE:-}\" ] && [ -f \"${ENV_FILE}\" ]; then
+        build-mmr --env-file ${ENV_FILE}
+        ${NUM_BATCHES:+--num-batches ${NUM_BATCHES}}
+        ${BATCH_SIZE:+--batch-size ${BATCH_SIZE}}
+        ${START_BLOCK:+--start-block ${START_BLOCK}}
+        ${RESUME:+--resume}
+      elif [ -f \"/app/.env.docker\" ]; then
+        build-mmr --env-file /app/.env.docker
+        ${NUM_BATCHES:+--num-batches ${NUM_BATCHES}}
+        ${BATCH_SIZE:+--batch-size ${BATCH_SIZE}}
+        ${START_BLOCK:+--start-block ${START_BLOCK}}
+        ${RESUME:+--resume}
+      else
+        build-mmr
+        ${NUM_BATCHES:+--num-batches ${NUM_BATCHES}}
+        ${BATCH_SIZE:+--batch-size ${BATCH_SIZE}}
+        ${START_BLOCK:+--start-block ${START_BLOCK}}
+        ${RESUME:+--resume}
+      fi
       "
     environment:
       - ETHEREUM_RPC_URL=http://anvil:8545

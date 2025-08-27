@@ -27,5 +27,28 @@ RUN mkdir -p /app/target/release/build/methods/out
 # Set environment variables
 ENV RUST_LOG=info
 
+# Create wrapper script for ECS compatibility
+RUN cat > /usr/local/bin/build-mmr-wrapper.sh << 'EOF'
+#!/bin/bash
+
+# If no arguments are provided, use smart defaults
+if [ $# -eq 0 ]; then
+    # Check if ENV_FILE exists and is readable
+    if [ -n "${ENV_FILE:-}" ] && [ -f "${ENV_FILE}" ]; then
+        exec /usr/local/bin/build-mmr --env-file "${ENV_FILE}" ${NUM_BATCHES:+--num-batches $NUM_BATCHES} ${BATCH_SIZE:+--batch-size $BATCH_SIZE} ${START_BLOCK:+--start-block $START_BLOCK} ${RESUME:+--resume}
+    elif [ -f "/app/.env.docker" ]; then
+        exec /usr/local/bin/build-mmr --env-file /app/.env.docker ${NUM_BATCHES:+--num-batches $NUM_BATCHES} ${BATCH_SIZE:+--batch-size $BATCH_SIZE} ${START_BLOCK:+--start-block $START_BLOCK} ${RESUME:+--resume}
+    else
+        # ECS mode - no env file, rely on environment variables
+        exec /usr/local/bin/build-mmr ${NUM_BATCHES:+--num-batches $NUM_BATCHES} ${BATCH_SIZE:+--batch-size $BATCH_SIZE} ${START_BLOCK:+--start-block $START_BLOCK} ${RESUME:+--resume}
+    fi
+else
+    # Arguments provided, pass them directly to build-mmr
+    exec /usr/local/bin/build-mmr "$@"
+fi
+EOF
+
+RUN chmod +x /usr/local/bin/build-mmr-wrapper.sh
+
 # Define the entrypoint - this will be overridden when we copy the actual binary
 CMD ["/bin/bash", "-c", "echo 'Binary not found. Did you run the build script?' && exit 1"]

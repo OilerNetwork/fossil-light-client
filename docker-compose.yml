@@ -104,19 +104,19 @@ services:
       timeout: 5s
       retries: 30
 
-  ipfs:
-    image: ipfs/go-ipfs:latest
-    platform: linux/amd64
-    networks:
-      - fossil
-    ports:
-      - "4001:4001" # Swarm port
-      - "5001:5001" # API port
-      - "8080:8080" # Gateway port
-    volumes:
-      - ipfs_data:/data/ipfs
-    environment:
-      - IPFS_PROFILE=server
+  # ipfs:
+  #   image: ipfs/go-ipfs:latest
+  #   platform: linux/amd64
+  #   networks:
+  #     - fossil
+  #   ports:
+  #     - "4001:4001" # Swarm port
+  #     - "5001:5001" # API port
+  #     - "8080:8080" # Gateway port
+  #   volumes:
+  #     - ipfs_data:/data/ipfs
+  #   environment:
+  #     - IPFS_PROFILE=server
 
 networks:
   fossil:

@@ -81,7 +81,7 @@ docker rm $CONTAINER_ID
 echo "Updating entrypoint in final image..."
 docker build -t fossil-build-mmr:latest - <<EOF
 FROM fossil-build-mmr:latest
-ENTRYPOINT ["/usr/local/bin/build-mmr"]
+ENTRYPOINT ["/usr/local/bin/build-mmr-wrapper.sh"]
 EOF
 
 # Clean up intermediate images
