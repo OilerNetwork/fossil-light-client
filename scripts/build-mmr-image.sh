@@ -54,7 +54,10 @@ docker rm $CONTAINER_ID
 
 # Create and start a new container to make the binary executable
 echo "Creating and starting a new container to make binary executable..."
-CONTAINER_ID=$(docker run -d fossil-build-mmr:with-files sleep 30)
+CONTAINER_ID=$(docker run -d fossil-build-mmr:with-files sleep 300)
+
+# Wait a moment for container to fully start
+sleep 1
 
 # Make the binary executable
 echo "Making binary executable..."
