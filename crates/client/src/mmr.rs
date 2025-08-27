@@ -113,7 +113,7 @@ impl MmrManager {
     ///
     /// # Errors
     ///
-    /// * `ClientError::MissingEnvironmentVariable` - If STARKNET_RPC_URL is missing
+    /// * `ClientError::MissingEnvironmentVariable` - If `STARKNET_RPC_URL` is missing
     /// * `ClientError::Publisher` - If the publisher operation fails
     #[instrument(
         skip(self, private_key, account_address, latest_relayed_block_and_hash),
