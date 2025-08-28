@@ -50,7 +50,7 @@ fi
 
 # Commit the container as the final image directly
 echo "Committing container as final image..."
-docker commit $CONTAINER_ID fossil-build-mmr:latest
+docker commit $CONTAINER_ID fossil-build-mmr:with-files
 
 # Remove the temporary container
 echo "Cleaning up temporary container..."
@@ -64,4 +64,4 @@ echo "Cleaning up intermediate images..."
 # Don't remove the base image as it might be in use
 # docker rmi fossil-build-mmr:base || true
 
-echo "Done! The fossil-build-mmr:latest image is now ready."
+echo "Done! The fossil-build-mmr:with-files image is now ready."
