@@ -1,0 +1,35 @@
+name: Main CI/CD Pipeline
+
+on:
+  push:
+    branches: ["main", "sepolia-deployment"]
+  pull_request:
+    branches: ["main", "sepolia-deployment"]
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  # Phase 1: Run tests and checks in parallel
+  rust-checks:
+    name: Rust Checks
+    uses: ./.github/workflows/rust.yml
+
+  cairo-checks:
+    name: Cairo Checks  
+    uses: ./.github/workflows/cairo.yml
+
+  # Phase 2: Build and push Docker images (depends on Phase 1)
+  docker-build:
+    name: Docker Build & Push
+    needs: [rust-checks, cairo-checks]
+    uses: ./.github/workflows/docker-build.yml
+    secrets: inherit
+
+  # Phase 3: Deploy to ECS (depends on Phase 2)
+  deploy:
+    name: Deploy MMR to ECS
+    needs: [docker-build]
+    uses: ./.github/workflows/deploy-mmr.yaml
+    secrets: inherit
+    # Only deploy on main and sepolia-deployment branches, not on PRs
+    if: github.event_name != 'pull_request'
