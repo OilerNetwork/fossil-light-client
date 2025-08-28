@@ -5,6 +5,8 @@ on:
     branches: ["main", "sepolia-deployment"]
   pull_request:
     branches: ["main", "sepolia-deployment"]
+  # Allow manual trigger
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
