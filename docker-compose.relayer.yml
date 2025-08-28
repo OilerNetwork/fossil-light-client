@@ -1,7 +1,7 @@
 services:
   relayer:
-    image: ametelnethermind/fossil-relayer:latest
-    # image: fossil-relayer:latest
+    # image: ametelnethermind/fossil-relayer:latest
+    image: fossil-relayer:latest
     container_name: fossil-relayer
     restart: unless-stopped
     volumes:

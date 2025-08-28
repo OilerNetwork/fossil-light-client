@@ -2,15 +2,15 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: ['main', 'sepolia-deployment']
+    branches: ["main", "sepolia-deployment"]
     paths:
-      - '**/Cargo.toml'
-      - 'Cargo.lock'
+      - "**/Cargo.toml"
+      - "Cargo.lock"
   pull_request:
-    branches: ['main', 'sepolia-deployment']
+    branches: ["main", "sepolia-deployment"]
     paths:
-      - '**/Cargo.toml'
-      - 'Cargo.lock'
+      - "**/Cargo.toml"
+      - "Cargo.lock"
   # Allow manual trigger
   workflow_dispatch:
 
@@ -33,7 +33,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.85.0
+          toolchain: stable
           override: true
 
       - name: Install RISC Zero toolchain
@@ -72,6 +72,6 @@ jobs:
       - name: Tag and push MMR image
         run: |
           # Tag with DockerHub repository
-          docker tag fossil-build-mmr:latest ${{ secrets.DOCKERHUB_USERNAME }}/fossil-build-mmr:latest
+          docker tag fossil-build-mmr:with-files ${{ secrets.DOCKERHUB_USERNAME }}/fossil-build-mmr:latest
           # Push to DockerHub
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/fossil-build-mmr:latest 
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/fossil-build-mmr:latest

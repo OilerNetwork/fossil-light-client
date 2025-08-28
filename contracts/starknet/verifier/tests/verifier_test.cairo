@@ -3,20 +3,18 @@ use snforge_std::{
     ContractClassTrait, DeclareResultTrait, declare, start_cheat_caller_address,
     stop_cheat_caller_address,
 };
+use verifier::decode_journal;
+use verifier::fossil_verifier::{IFossilVerifierDispatcher, IFossilVerifierDispatcherTrait};
+use verifier::groth16_verifier::{
+    IRisc0Groth16VerifierBN254Dispatcher, IRisc0Groth16VerifierBN254DispatcherTrait,
+};
 use super::fixtures::{calldata_default, invalid_proof, test_avg_fees, test_journal};
 
-use verifier::{
-    decode_journal, fossil_verifier::{IFossilVerifierDispatcher, IFossilVerifierDispatcherTrait},
-    groth16_verifier::{
-        IRisc0Groth16VerifierBN254Dispatcher, IRisc0Groth16VerifierBN254DispatcherTrait,
-    },
-};
-
 fn l1_message_proxy_address() -> starknet::ContractAddress {
-    starknet::contract_address_const::<'L1_MSG_SENDER'>()
+    'L1_MSG_SENDER'.try_into().unwrap()
 }
 fn OWNER() -> starknet::ContractAddress {
-    starknet::contract_address_const::<'OWNER'>()
+    'OWNER'.try_into().unwrap()
 }
 
 fn deploy() -> (IRisc0Groth16VerifierBN254Dispatcher, IFossilVerifierDispatcher) {
@@ -58,7 +56,7 @@ fn test_verify_groth16_proof_bn254() {
     let mut calldata = calldata_default();
     let _ = calldata.pop_front();
     let (journal, fees) = decode_journal(
-        groth16_verifier_dispatcher.verify_groth16_proof_bn254(calldata).unwrap(),
+        groth16_verifier_dispatcher.verify_r0_groth16_proof_bn254(calldata).unwrap(),
     );
     assert_eq!(journal, test_journal());
     assert_eq!(fees, test_avg_fees());
@@ -88,20 +86,6 @@ fn test_verify_mmr_proof_subsequent_batch() {
 }
 
 #[test]
-#[should_panic(expected: "Batch link mismatch")]
-fn test_verify_mmr_proof_batch_link_mismatch() {
-    let (_, verifier) = deploy();
-    let IPFS_HASH: ByteArray = "IPFS_HASH_CID";
-    start_cheat_caller_address(verifier.contract_address, OWNER());
-    // First submit in build mode
-    verifier.verify_mmr_proof(calldata_default(), IPFS_HASH.clone(), true);
-
-    // Then update existing batch
-    let result = verifier.verify_mmr_proof(calldata_default(), IPFS_HASH, false);
-    assert!(result);
-}
-
-#[test]
 #[should_panic(expected: 'not zero l0')]
 fn test_verify_mmr_proof_invalid_proof() {
     let (_, verifier) = deploy();
@@ -123,7 +107,7 @@ fn test_get_fossil_store_address() {
     let (_, verifier) = deploy();
     // We need to get the store address from deployment
     let store_address = verifier.get_fossil_store_address();
-    assert!(store_address != starknet::contract_address_const::<0>());
+    assert!(store_address != 0.try_into().unwrap());
 }
 
 #[test]

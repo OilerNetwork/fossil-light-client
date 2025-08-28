@@ -6,11 +6,11 @@ members = [
 ]
 
 [workspace.dependencies]
-starknet = "2.9.4"
-assert_macros = "2.9.4"
-openzeppelin_upgrades = "1.0.0"
-openzeppelin_access = "1.0.0"
-
+starknet = "2.12.0"
+assert_macros = "2.12.0"
+openzeppelin_upgrades = "2.0.0"
+openzeppelin_access = "2.0.0"
+snforge_std = "0.48.0"
 
 [[target.starknet-contract]]
 casm = true
@@ -27,4 +27,3 @@ casm = true
 
 [cairo]
 sierra-replace-ids = false
-

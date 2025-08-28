@@ -1,14 +1,14 @@
 services:
   fossil-client:
-    image: ametelnethermind/fossil-client:latest
-    # image: fossil-client:latest
+    # image: ametelnethermind/fossil-client:latest
+    image: fossil-client:latest
     container_name: fossil-client
     volumes:
       - ./:/app
     entrypoint: []
     command: >
       /bin/sh -c "
-      client --env-file ${ENV_FILE:-/app/.env.docker} --polling-interval ${POLLING_INTERVAL:-60} ${START_BLOCK:+--start-block ${START_BLOCK}}
+      client --env-file ${ENV_FILE:-/app/.env.docker} --polling-interval ${POLLING_INTERVAL:-60} ${START_BLOCK:+--start-block ${START_BLOCK} ${START_BLOCK:+--batch-size ${BATCH_SIZE:+--batch-size ${BATCH_SIZE}}}}
       "
     environment:
       - ETHEREUM_RPC_URL=http://anvil:8545

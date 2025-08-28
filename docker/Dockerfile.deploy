@@ -9,8 +9,8 @@ ENV PATH="/root/.foundry/bin:$CARGO_HOME/bin:$PATH"
 RUN foundryup
 RUN mkdir -p /root/.local/bin
 ENV PATH="/root/.local/bin:$CARGO_HOME/bin:/root/.foundry/bin:$PATH"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh -s -- -v 2.9.4
-RUN curl https://get.starkli.sh | sh && /root/.starkli/bin/starkliup 
+RUN curl --proto '=https' --tlsv1.2 -sSf https://docs.swmansion.com/scarb/install.sh | sh -s -- -v 2.12.0
+RUN curl https://get.starkli.sh | sh && /root/.starkli/bin/starkliup
 ENV PATH="/root/.foundry/bin:/root/.local/bin:/root/.starkli/bin:$CARGO_HOME/bin:$PATH"
 
 FROM debian:bookworm-slim
@@ -25,4 +25,3 @@ ENV RUSTUP_HOME=/usr/local/rustup
 ENV PATH="$CARGO_HOME/bin:/root/.foundry/bin:/root/.local/bin:/root/.starkli/bin:$PATH"
 WORKDIR /app
 CMD ["bash"]
-

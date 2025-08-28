@@ -154,7 +154,7 @@ impl StarknetProvider {
                 .await?;
 
             let mmr_block = u64::decode(&data)?;
-            info!(mmr_block, "Retrieved latest MMR block");
+            debug!(mmr_block, "Retrieved latest MMR block");
 
             Ok(mmr_block)
         })
@@ -181,7 +181,7 @@ impl StarknetProvider {
                 .await?;
 
             let min_mmr_block = u64::decode(&data)?;
-            info!(min_mmr_block, "Retrieved minimum MMR block");
+            debug!(min_mmr_block, "Retrieved minimum MMR block");
 
             Ok(min_mmr_block)
         })
@@ -212,7 +212,7 @@ impl StarknetProvider {
                 .await?;
 
             let mmr_state = MmrSnapshot::decode(&data)?;
-            info!("Retrieved On-chain MMR state");
+            debug!("Retrieved On-chain MMR state");
 
             Ok(mmr_state)
         })
@@ -251,8 +251,8 @@ impl StarknetProvider {
                     .to_u128()
                     .ok_or_else(|| eyre::eyre!("Failed to convert Felt to u128"))?,
             );
-            let block_hash = format!("{:#x}", block_hash_u256);
-            info!(block_number, "Retrieved latest relayed block");
+            let block_hash = format!("{block_hash_u256:#x}");
+            debug!(block_number, "Retrieved latest relayed block");
 
             Ok(LatestRelayBlock {
                 block_number,

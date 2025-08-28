@@ -1,26 +1,93 @@
-use std::path::Path;
+//! # API Operations
+//!
+//! This module provides the public API functions for the Publisher crate.
+//! These functions maintain backward compatibility while leveraging the
+//! improved internal architecture.
+//!
+//! ## Functions
+//!
+//! - [`prove_mmr_update_with_config`] - Generate and submit MMR update proofs to Starknet
+//! - [`update_mmr_with_config`] - Update MMR state without generating proofs
+//! - [`get_single_block_hash_proof`] - Get Merkle proof for a specific block hash
+//! - [`get_block_hash_inclusion_proof`] - Get serializable proof structure for a block hash
+//!
+//! ## Examples
+//!
+//! ### Generating MMR Update Proof
+//!
+//! ```rust,no_run
+//! use publisher::{prove_mmr_update_with_config, ProveMMRUpdateConfigBuilder};
+//! use starknet_handler::provider::LatestRelayBlock;
+//!
+//! # async fn example() -> Result<(), eyre::Error> {
+//! let latest_relay_block = LatestRelayBlock {
+//!     block_number: 100,
+//!     block_hash: "0xlatest_hash".to_string(),
+//! };
+//!
+//! let config = ProveMMRUpdateConfigBuilder::new()
+//!     .rpc_url("http://localhost:8545")
+//!     .chain_id(1)
+//!     .verifier_address("0x1234567890123456789012345678901234567890")
+//!     .store_address("0x0987654321098765432109876543210987654321")
+//!     .account_private_key("0xprivate_key")
+//!     .account_address("0xaddress")
+//!     .batch_size(100)
+//!     .start_block(1)
+//!     .latest_relayed_block(latest_relay_block)
+//!     .build()
+//!     .map_err(|e| eyre::eyre!("Config build error: {}", e))?;
+//!
+//! prove_mmr_update_with_config(config).await?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! ### Getting Block Hash Proof
+//!
+//! ```rust,no_run
+//! use publisher::get_block_hash_inclusion_proof;
+//!
+//! # async fn example() -> Result<(), eyre::Error> {
+//! let block_hash = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string();
+//! let rpc_url = "http://localhost:8545".to_string();
+//! let store_address = "0x0987654321098765432109876543210987654321".to_string();
+//! let batch_size = 100;
+//!
+//! let proof = get_block_hash_inclusion_proof(
+//!     block_hash,
+//!     rpc_url,
+//!     store_address,
+//!     batch_size,
+//! ).await?;
+//!
+//! println!("Proof for batch {}: {:?}", proof.batch_index, proof.proof);
+//! # Ok(())
+//! # }
+//! ```
 
 use eyre::Result;
-use guest_mmr::{core::GuestMMR, helper::find_peaks};
+use guest_mmr::core::GuestMMR;
 use guest_types::GuestMMRProof;
-use methods::{MMR_BUILD_ELF, MMR_BUILD_ID};
 use mmr;
 use serde::{Deserialize, Serialize};
-use starknet_handler::{
-    account::StarknetAccount,
-    provider::{LatestRelayBlock, StarknetProvider},
-};
 
-use crate::{
-    core::{AccumulatorBuilder, BatchProcessor, MMRStateManager, ProofGenerator},
-    db::DbConnection,
+pub use super::config::{
+    ProveMMRUpdateConfig, ProveMMRUpdateConfigBuilder, UpdateMMRConfig, UpdateMMRConfigBuilder,
 };
+use crate::{config::PublisherConfig, service::ProofService};
 
-// Define a serializable proof structure for API responses
+/// Serializable proof structure for API responses
+///
+/// This structure contains all the information needed to verify
+/// a block hash inclusion in the MMR.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BlockHashProofResponse {
+    /// The batch index where this block hash is included
     pub batch_index: u64,
+    /// The MMR state at the time of this batch
     pub guest_mmr: GuestMMR,
+    /// The inclusion proof for the block hash
     pub proof: GuestMMRProof,
 }
 
@@ -41,237 +108,260 @@ impl From<(GuestMMR, mmr::Proof, u64)> for BlockHashProofResponse {
     }
 }
 
-pub async fn prove_mmr_update(
-    rpc_url: &String,
-    chain_id: u64,
-    verifier_address: &String,
-    store_address: &String,
-    account_private_key: &String,
-    account_address: &String,
-    batch_size: u64,
-    start_block: u64,
-    latest_relayed_block_and_hash: LatestRelayBlock,
-) -> Result<()> {
-    let starknet_provider = StarknetProvider::new(rpc_url)?;
-    let starknet_account = StarknetAccount::new(
-        starknet_provider.provider(),
-        account_private_key,
-        account_address,
-    )?;
-
-    // Create components for AccumulatorBuilder
-    let proof_generator = ProofGenerator::new(MMR_BUILD_ELF, MMR_BUILD_ID)?;
-    let mmr_state_manager = MMRStateManager::new(starknet_account, store_address, rpc_url);
-    let batch_processor = BatchProcessor::new(batch_size, proof_generator, mmr_state_manager)?;
-
-    let mut builder = AccumulatorBuilder::new(
-        rpc_url,
-        chain_id,
-        verifier_address,
-        batch_processor,
-        0, // current_batch
-        0, // total_batches
-    )
-    .await
-    .map_err(|e| {
-        tracing::error!(error = %e, "Failed to create AccumulatorBuilder");
-        e
-    })?;
-
-    tracing::info!("Starting MMR update and proof generation");
-
-    builder
-        .update_mmr_with_new_headers(start_block, latest_relayed_block_and_hash, false)
-        .await
-        .map_err(|e| {
-            tracing::error!(error = %e, "Failed to update MMR with new headers");
-            e
-        })?;
-
-    tracing::debug!("Successfully generated proof for block range");
-
-    Ok(())
-}
-
-pub async fn update_mmr(
-    rpc_url: &String,
-    chain_id: u64,
-    verifier_address: &String,
-    store_address: &String,
-    account_private_key: &String,
-    account_address: &String,
-    batch_size: u64,
-    start_block: u64,
-    latest_relayed_block_and_hash: LatestRelayBlock,
-) -> Result<()> {
-    let starknet_provider = StarknetProvider::new(rpc_url)?;
-    let starknet_account = StarknetAccount::new(
-        starknet_provider.provider(),
-        account_private_key,
-        account_address,
-    )?;
-
-    // Create components for AccumulatorBuilder
-    let proof_generator = ProofGenerator::new(MMR_BUILD_ELF, MMR_BUILD_ID)?;
-    let mmr_state_manager = MMRStateManager::new(starknet_account, store_address, rpc_url);
-    let batch_processor = BatchProcessor::new(batch_size, proof_generator, mmr_state_manager)?;
-
-    // Use the constructor directly with the correct signature
-    let mut builder = AccumulatorBuilder::new(
-        rpc_url,
-        chain_id,
-        verifier_address,
-        batch_processor,
-        0, // current_batch
-        0, // total_batches
-    )
-    .await?;
-
-    // Always generate and verify proofs (false = don't skip proof verification)
-    builder
-        .update_mmr_with_new_headers(start_block, latest_relayed_block_and_hash, false)
-        .await?;
-
-    Ok(())
-}
-
-/// Verifies a single block hash and returns its Merkle proof
+/// Generate and submit MMR update proof to Starknet using config
 ///
-/// This function:
-/// 1. Fetches the MMR state from onchain for the batch containing the block hash
-/// 2. Downloads the MMR DB file from IPFS
-/// 3. Verifies that the downloaded file matches the onchain MMR root and leaves count
-/// 4. Produces a merkle proof for the block hash
-/// 5. Returns the proof along with the batch number
+/// This function generates a cryptographic proof for updating the MMR state
+/// and submits it to the Starknet verifier contract using a configuration struct.
+///
+/// # Parameters
+///
+/// * `config` - Configuration containing all required parameters
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the proof generation and submission succeeds,
+/// or an error if any step fails.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use publisher::{prove_mmr_update_with_config, ProveMMRUpdateConfigBuilder};
+/// use starknet_handler::provider::LatestRelayBlock;
+///
+/// # async fn example() -> Result<(), eyre::Error> {
+/// let latest_relay_block = LatestRelayBlock {
+///     block_number: 100,
+///     block_hash: "0xlatest_hash".to_string(),
+/// };
+///
+/// let config = ProveMMRUpdateConfigBuilder::new()
+///     .rpc_url("http://localhost:8545")
+///     .chain_id(1)
+///     .verifier_address("0x1234567890123456789012345678901234567890")
+///     .store_address("0x0987654321098765432109876543210987654321")
+///     .account_private_key("0xprivate_key")
+///     .account_address("0xaddress")
+///     .batch_size(100)
+///     .start_block(1)
+///     .latest_relayed_block(latest_relay_block)
+///     .build()
+///     .map_err(|e| eyre::eyre!("Config build error: {}", e))?;
+///
+/// prove_mmr_update_with_config(config).await?;
+/// # Ok(())
+/// # }
+/// ```
+pub async fn prove_mmr_update_with_config(config: ProveMMRUpdateConfig) -> Result<()> {
+    let service = ProofService::new(
+        config.rpc_url,
+        config.chain_id,
+        config.verifier_address,
+        config.store_address,
+    );
+
+    service
+        .prove_mmr_update(
+            &config.account_private_key,
+            &config.account_address,
+            config.batch_size,
+            config.start_block,
+            config.latest_relayed_block,
+        )
+        .await
+        .map_err(|e| e.into_eyre())
+}
+
+/// Update MMR state without generating proofs using config
+///
+/// This function updates the MMR state with new block data but does not
+/// generate or submit proofs to Starknet. Useful for testing or when
+/// proof generation is not required.
+///
+/// # Parameters
+///
+/// * `config` - Configuration containing all required parameters
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the MMR update succeeds, or an error if any step fails.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use publisher::{update_mmr_with_config, UpdateMMRConfigBuilder};
+/// use starknet_handler::provider::LatestRelayBlock;
+///
+/// # async fn example() -> Result<(), eyre::Error> {
+/// let latest_relay_block = LatestRelayBlock {
+///     block_number: 100,
+///     block_hash: "0xlatest_hash".to_string(),
+/// };
+///
+/// let config = UpdateMMRConfigBuilder::new()
+///     .rpc_url("http://localhost:8545")
+///     .chain_id(1)
+///     .verifier_address("0x1234567890123456789012345678901234567890")
+///     .store_address("0x0987654321098765432109876543210987654321")
+///     .account_private_key("0xprivate_key")
+///     .account_address("0xaddress")
+///     .batch_size(100)
+///     .start_block(1)
+///     .latest_relayed_block(latest_relay_block)
+///     .build()
+///     .map_err(|e| eyre::eyre!("Config build error: {}", e))?;
+///
+/// update_mmr_with_config(config).await?;
+/// # Ok(())
+/// # }
+/// ```
+pub async fn update_mmr_with_config(config: UpdateMMRConfig) -> Result<()> {
+    let service = ProofService::new(
+        config.rpc_url,
+        config.chain_id,
+        config.verifier_address,
+        config.store_address,
+    );
+
+    service
+        .update_mmr(
+            &config.account_private_key,
+            &config.account_address,
+            config.batch_size,
+            config.start_block,
+            config.latest_relayed_block,
+        )
+        .await
+        .map_err(|e| e.into_eyre())
+}
+
+/// Get Merkle proof for a single block hash
+///
+/// This function retrieves and verifies a Merkle proof for a specific block hash
+/// by:
+/// 1. Fetching the MMR state from onchain for the batch containing the block hash
+/// 2. Downloading the MMR database file from IPFS
+/// 3. Verifying that the downloaded file matches the onchain MMR root and leaves count
+/// 4. Generating a Merkle proof for the block hash
+/// 5. Returning the proof along with the batch number and MMR state
+///
+/// # Parameters
+///
+/// * `block_hash` - The block hash to generate a proof for (hex-encoded)
+/// * `rpc_url` - RPC endpoint URL for the blockchain network
+/// * `store_address` - Address of the store contract on Starknet
+/// * `batch_size` - Number of blocks processed in each batch
+///
+/// # Returns
+///
+/// Returns a tuple containing:
+/// - `u64` - The batch index where the block hash is located
+/// - `GuestMMR` - The MMR state at the time of the batch
+/// - `mmr::Proof` - The Merkle proof for the block hash
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The block hash is not found in the database
+/// - The IPFS download fails
+/// - The MMR state verification fails
+/// - The proof generation fails
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use publisher::api::operations::get_single_block_hash_proof;
+///
+/// # async fn example() -> Result<(), eyre::Error> {
+/// let (batch_index, guest_mmr, proof) = get_single_block_hash_proof(
+///     "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(),
+///     "http://localhost:8545".to_string(),
+///     "0x0987654321098765432109876543210987654321".to_string(),
+///     100,
+/// ).await?;
+///
+/// println!("Proof generated for batch {}", batch_index);
+/// # Ok(())
+/// # }
+/// ```
 pub async fn get_single_block_hash_proof(
     block_hash: String,
     rpc_url: String,
     store_address: String,
     batch_size: u64,
 ) -> Result<(u64, GuestMMR, mmr::Proof)> {
-    tracing::info!("Looking up proof for block hash: {}", block_hash);
+    let config = PublisherConfig {
+        rpc_url,
+        chain_id: 0,                     // chain_id not needed for this operation
+        verifier_address: String::new(), // verifier_address not needed for this operation
+        store_address,
+        batch_size,
+    };
+    let service = ProofService::with_config(config);
 
-    // Connect to Starknet
-    let provider = StarknetProvider::new(&rpc_url)?;
-
-    // Get the block header to determine which batch it belongs to
-    let db_connection = DbConnection::new().await?;
-    let header = db_connection.get_block_header_by_hash(&block_hash).await?;
-
-    // Calculate the batch index based on the block number and batch size
-    let batch_index = header.number as u64 / batch_size;
-    tracing::info!("Block belongs to batch index: {}", batch_index);
-
-    // Fetch the MMR state from onchain
-    let mmr_state = provider.get_mmr_state(&store_address, batch_index).await?;
-
-    // Get the IPFS hash from the MMR state
-    let ipfs_hash = mmr_state.ipfs_hash();
-    let ipfs_hash_str =
-        String::try_from(ipfs_hash).map_err(|_| eyre::eyre!("Invalid IPFS hash format"))?;
-
-    // Set up temporary file path for the downloaded DB
-    let batch_file_name = common::get_or_create_db_path(&format!("batch_{}.db", batch_index))?;
-
-    // Initialize IPFS manager and download the DB file
-    let ipfs_manager = ipfs_utils::IpfsManager::with_endpoint()?;
-    match ipfs_manager
-        .fetch_db(&ipfs_hash_str, Path::new(&batch_file_name))
+    service
+        .get_single_block_hash_proof(&block_hash, batch_size)
         .await
-    {
-        Ok(_) => {
-            tracing::info!(
-                "Successfully downloaded DB from IPFS for batch {}",
-                batch_index
-            );
-        }
-        Err(e) => {
-            tracing::warn!(
-                error = %e,
-                batch_index = batch_index,
-                "Failed to fetch DB from IPFS, falling back to local file"
-            );
-
-            if !std::path::Path::new(&batch_file_name).exists() {
-                return Err(eyre::eyre!(
-                    "Failed to fetch DB from IPFS and no local file exists"
-                ));
-            }
-        }
-    }
-
-    // Initialize the MMR from the downloaded DB
-    let (store_manager, mmr, pool) = mmr_utils::initialize_mmr(&batch_file_name).await?;
-
-    // Verify that the MMR root in the downloaded DB matches the onchain state
-    let mmr_elements_count = mmr.elements_count.get().await?;
-    let bag = mmr.bag_the_peaks(Some(mmr_elements_count)).await?;
-    let mmr_root_hex = mmr
-        .calculate_root_hash(&bag, mmr_elements_count)?
-        .to_string();
-    let mmr_root = starknet_handler::u256_from_hex(&mmr_root_hex)?;
-
-    if mmr_root != mmr_state.root_hash() {
-        return Err(eyre::eyre!(
-            "MMR root mismatch: expected {} but got {}",
-            mmr_state.root_hash(),
-            mmr_root
-        ));
-    }
-
-    // Verify leaves count
-    let mmr_leaves_count = mmr.leaves_count.get().await?;
-    if mmr_leaves_count as u64 != mmr_state.leaves_count() {
-        return Err(eyre::eyre!(
-            "Leaves count mismatch: expected {} but got {}",
-            mmr_state.leaves_count(),
-            mmr_leaves_count
-        ));
-    }
-
-    let peaks = mmr
-        .retrieve_peaks_hashes(find_peaks(mmr_elements_count), None)
-        .await?;
-
-    tracing::info!("MMR state verification successful");
-
-    // Get the element index for the block hash
-    let element_index = store_manager
-        .get_element_index_for_value(&pool, &block_hash)
-        .await?
-        .ok_or_else(|| eyre::eyre!("Block hash not found in MMR"))?;
-
-    let guest_mmr = GuestMMR::new(peaks, mmr_elements_count, mmr_leaves_count);
-
-    // Get the Merkle proof for the block hash
-    let proof = mmr.get_proof(element_index, None).await?;
-
-    tracing::info!(
-        "Successfully generated Merkle proof for block hash: {}",
-        block_hash
-    );
-
-    Ok((batch_index, guest_mmr, proof))
+        .map_err(|e| e.into_eyre())
 }
 
-/// Convenience function that returns a serializable proof structure
+/// Get serializable block hash inclusion proof
+///
+/// This is a convenience function that returns a serializable proof structure
+/// suitable for JSON serialization and API responses. It internally calls
+/// [`get_single_block_hash_proof`] and wraps the result in a more convenient format.
+///
+/// # Parameters
+///
+/// * `block_hash` - The block hash to generate a proof for (hex-encoded)
+/// * `rpc_url` - RPC endpoint URL for the blockchain network  
+/// * `store_address` - Address of the store contract on Starknet
+/// * `batch_size` - Number of blocks processed in each batch
+///
+/// # Returns
+///
+/// Returns a [`BlockHashProofResponse`] containing the batch index, MMR state,
+/// and serializable proof structure.
+///
+/// # Errors
+///
+/// Returns the same errors as [`get_single_block_hash_proof`].
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use publisher::get_block_hash_inclusion_proof;
+///
+/// # async fn example() -> Result<(), eyre::Error> {
+/// let proof_response = get_block_hash_inclusion_proof(
+///     "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(),
+///     "http://localhost:8545".to_string(),
+///     "0x0987654321098765432109876543210987654321".to_string(),
+///     100,
+/// ).await?;
+///
+/// println!("Proof for batch {}: {:?}", proof_response.batch_index, proof_response.proof);
+/// # Ok(())
+/// # }
+/// ```
 pub async fn get_block_hash_inclusion_proof(
     block_hash: String,
     rpc_url: String,
     store_address: String,
     batch_size: u64,
 ) -> Result<BlockHashProofResponse> {
-    let (batch_index, guest_mmr, proof) =
-        get_single_block_hash_proof(block_hash, rpc_url, store_address, batch_size).await?;
-
-    // Convert mmr::Proof to GuestMMRProof
-    let guest_proof = GuestMMRProof {
-        element_index: proof.element_index,
-        element_hash: proof.element_hash,
-        siblings_hashes: proof.siblings_hashes,
-        peaks_hashes: proof.peaks_hashes,
-        elements_count: proof.elements_count,
+    let config = PublisherConfig {
+        rpc_url,
+        chain_id: 0,                     // chain_id not needed for this operation
+        verifier_address: String::new(), // verifier_address not needed for this operation
+        store_address,
+        batch_size,
     };
+    let service = ProofService::with_config(config);
+
+    let (batch_index, guest_mmr, guest_proof) = service
+        .get_block_hash_inclusion_proof(&block_hash, batch_size)
+        .await
+        .map_err(|e| e.into_eyre())?;
 
     Ok(BlockHashProofResponse {
         batch_index,
@@ -298,7 +388,7 @@ pub async fn get_block_hash_inclusion_proof(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{path::Path, sync::Arc};
 
     use mockall::mock;
 

@@ -1,16 +1,15 @@
 # Builder stage
-FROM debian:trixie AS builder
+FROM rust:slim-bullseye AS builder
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y curl git ca-certificates build-essential pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
+RUN apt-get update && apt-get install -y curl git ca-certificates build-essential pkg-config libssl-dev jq && rm -rf /var/lib/apt/lists/*
 ENV DOJO_PATH=/root/.dojo
 ENV PATH="${DOJO_PATH}/bin:${PATH}"
-RUN curl -L https://install.dojoengine.org | bash && mkdir -p ${DOJO_PATH}/bin && dojoup
+RUN curl -L https://install.dojoengine.org | bash && \
+    mkdir -p ${DOJO_PATH}/bin && \
+    . "/root/.dojo/env" && \
+    dojoup
 # Copy config from the host into the builder stage
 COPY config /app/config
-RUN ls -la /root/.dojo/bin
-RUN /root/.dojo/bin/katana --version
 
 # Final runtime stage
 FROM debian:trixie-slim

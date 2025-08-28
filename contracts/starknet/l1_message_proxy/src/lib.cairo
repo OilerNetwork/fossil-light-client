@@ -72,7 +72,6 @@ pub mod L1MessageProxy {
             from_address == self.l1_messages_sender.read().into(),
             "L1MessagesProxy: unauthorized sender",
         );
-
         let store = self.store_dispatcher.read();
         store.store_latest_blockhash_from_l1(block_number, block_hash);
     }

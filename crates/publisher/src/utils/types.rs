@@ -1,30 +1,36 @@
-use eyre::{eyre, Result};
 use risc0_zkvm::{Journal, Receipt};
 use serde::{Deserialize, Serialize};
 use starknet_crypto::Felt;
 use starknet_handler::MmrState;
 
+use crate::error::{PublisherError, PublisherResult};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// Groth16 proof wrapper containing receipt and calldata
 pub struct Groth16 {
     receipt: Receipt,
     calldata: Vec<Felt>,
 }
 
 impl Groth16 {
-    pub fn new(receipt: Receipt, calldata: Vec<Felt>) -> Self {
+    /// Create a new Groth16 proof
+    pub const fn new(receipt: Receipt, calldata: Vec<Felt>) -> Self {
         Self { receipt, calldata }
     }
 
+    /// Get the RISC Zero receipt for Groth16
     pub fn receipt(&self) -> Receipt {
         self.receipt.clone()
     }
 
+    /// Get the Starknet calldata
     pub fn calldata(&self) -> Vec<Felt> {
         self.calldata.clone()
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+/// STARK proof wrapper containing receipt and method information
 pub struct Stark {
     receipt: Receipt,
     image_id: Vec<u8>,
@@ -32,33 +38,38 @@ pub struct Stark {
 }
 
 impl Stark {
-    pub fn new(receipt: Receipt, image_id: Vec<u8>, method_id: [u32; 8]) -> Self {
+    /// Create a new STARK proof
+    pub const fn new(receipt: Receipt, image_id: Vec<u8>, method_id: [u32; 8]) -> Self {
         Self {
-            receipt: receipt.clone(),
+            receipt,
             image_id,
             method_id,
         }
     }
 
+    /// Get the RISC Zero receipt from the STARK proof
     pub fn receipt(&self) -> Receipt {
         self.receipt.clone()
     }
 
+    /// Get the journal from the receipt
     pub fn journal(&self) -> Journal {
         self.receipt.journal.clone()
     }
 
-    pub fn image_id(&self) -> Result<[u8; 32]> {
+    /// Get the image ID as a 32-byte array
+    pub fn image_id(&self) -> PublisherResult<[u8; 32]> {
         self.image_id.clone().try_into().map_err(|_| {
-            eyre!(
+            PublisherError::serialization(format!(
                 "Failed to convert image ID to [u8; 32]: {:?}",
                 self.image_id
-            )
+            ))
         })
     }
 }
 
 #[derive(Debug, Clone)]
+/// Result of processing a batch of blocks, containing the new MMR state and optional proof
 pub struct BatchResult {
     start_block: u64,
     end_block: u64,
@@ -68,7 +79,8 @@ pub struct BatchResult {
 }
 
 impl BatchResult {
-    pub fn new(
+    /// Create a new `BatchResult`
+    pub const fn new(
         start_block: u64,
         end_block: u64,
         new_mmr_state: MmrState,
@@ -84,22 +96,27 @@ impl BatchResult {
         }
     }
 
-    pub fn start_block(&self) -> u64 {
+    /// Get the starting block number of the batch
+    pub const fn start_block(&self) -> u64 {
         self.start_block
     }
 
-    pub fn end_block(&self) -> u64 {
+    /// Get the ending block number of the batch
+    pub const fn end_block(&self) -> u64 {
         self.end_block
     }
 
+    /// Get the new MMR state after processing the batch
     pub fn new_mmr_state(&self) -> MmrState {
         self.new_mmr_state.clone()
     }
 
+    /// Get the optional Groth16 proof for the batch
     pub fn proof(&self) -> Option<Groth16> {
         self.proof.clone()
     }
 
+    /// Get the IPFS hash of the batch data
     pub fn ipfs_hash(&self) -> String {
         self.ipfs_hash.clone()
     }

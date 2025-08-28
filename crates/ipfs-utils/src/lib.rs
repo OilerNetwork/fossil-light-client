@@ -5,7 +5,7 @@ use std::{env, fs, io::Write, path::Path, str};
 use dotenv::dotenv;
 use eyre::{eyre, Result};
 use tokio::task;
-use tracing::{info, warn};
+use tracing::warn;
 
 // Define constant for max file size (50MB)
 pub const DEFAULT_MAX_FILE_SIZE: usize = 50 * 1024 * 1024;
@@ -117,7 +117,7 @@ impl IpfsManager {
             .ok_or_else(|| eyre!("No hash in response"))?
             .to_string();
 
-        info!("IPFS upload completed successfully, CID: {}", hash);
+        tracing::debug!("IPFS upload completed successfully, CID: {}", hash);
         Ok(hash)
     }
 
@@ -170,13 +170,13 @@ impl IpfsManager {
             .next()
             .ok_or_else(|| eyre!("Invalid IPFS_ADD_URL format: {}", self.add_url))?;
 
-        let version_url = format!("{}/api/v0/version", base_url);
+        let version_url = format!("{base_url}/api/v0/version");
         let token = self.token.clone();
 
         task::spawn_blocking(move || -> Result<()> {
             let mut easy = curl::easy::Easy::new();
             easy.url(&version_url).map_err(|e| eyre!(e.to_string()))?;
-            let header_value = format!("Authorization: Bearer {}", token);
+            let header_value = format!("Authorization: Bearer {token}");
             let mut list = curl::easy::List::new();
             list.append(&header_value)
                 .map_err(|e| eyre!(e.to_string()))?;
@@ -192,6 +192,8 @@ impl IpfsManager {
                     .map_err(|e| eyre!(e.to_string()))?;
                 transfer.perform().map_err(|e| eyre!(e.to_string()))?;
             }
+            // Response data is collected during transfer but not used - this is intentional
+            let _ = response_data;
             Ok(())
         })
         .await

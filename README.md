@@ -166,13 +166,13 @@ This approach connects to existing Ethereum and Starknet networks:
 
    ```bash
    # For testnet (Sepolia)
-   ENV_FILE=.env.sepolia docker-compose -f docker-compose.accumulation.yml up
+   source .env.sepolia docker-compose -f docker-compose.accumulation.yml up
 
    # For mainnet
-   ENV_FILE=.env.mainnet docker-compose -f docker-compose.accumulation.yml up
+   source .env.mainnet docker-compose -f docker-compose.accumulation.yml up
 
    # Optionally specify number of batches
-   ENV_FILE=.env.sepolia NUM_BATCHES=4 docker-compose -f docker-compose.accumulation.yml up
+   source .env.sepolia NUM_BATCHES=4 docker-compose -f docker-compose.accumulation.yml up
    ```
 
 4. Run The Light Client:

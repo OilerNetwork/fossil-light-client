@@ -1,6 +1,9 @@
 services:
   anvil:
-    image: ametelnethermind/fossil-anvil:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.anvil
+    # image: ametelnethermind/fossil-anvil:latest
     # image: fossil-anvil:latest
     platform: linux/amd64
     networks:
@@ -18,7 +21,10 @@ services:
       retries: 5
 
   deploy-ethereum:
-    image: ametelnethermind/fossil-deploy:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.deploy
+    # image: ametelnethermind/fossil-deploy:latest
     # image: fossil-deploy:latest
     platform: linux/amd64
     networks:
@@ -36,7 +42,10 @@ services:
     command: ["./scripts/deploy-ethereum.sh", "docker"]
 
   katana:
-    image: ametelnethermind/fossil-katana:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.katana
+    # image: ametelnethermind/fossil-katana:latest
     # image: fossil-katana:latest
     platform: linux/amd64
     networks:
@@ -68,7 +77,10 @@ services:
       retries: 5
 
   deploy-starknet:
-    image: ametelnethermind/fossil-deploy:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.deploy
+    # image: ametelnethermind/fossil-deploy:latest
     # image: fossil-deploy:latest
     platform: linux/amd64
     networks:
@@ -86,7 +98,29 @@ services:
       katana:
         condition: service_healthy
     command: sh -c 'if [ -n "$NO_BUILD" ]; then ./scripts/deploy-starknet.sh --no-build docker; else ./scripts/deploy-starknet.sh docker; fi'
+    healthcheck:
+      test: ["CMD", "test", "-f", "/app/deployment_complete.flag"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  # ipfs:
+  #   image: ipfs/go-ipfs:latest
+  #   platform: linux/amd64
+  #   networks:
+  #     - fossil
+  #   ports:
+  #     - "4001:4001" # Swarm port
+  #     - "5001:5001" # API port
+  #     - "8080:8080" # Gateway port
+  #   volumes:
+  #     - ipfs_data:/data/ipfs
+  #   environment:
+  #     - IPFS_PROFILE=server
 
 networks:
   fossil:
     name: fossil-network
+
+volumes:
+  ipfs_data:
