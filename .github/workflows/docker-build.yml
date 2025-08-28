@@ -72,6 +72,6 @@ jobs:
       - name: Tag and push MMR image
         run: |
           # Tag with DockerHub repository
-          docker tag fossil-build-mmr:with-files ${{ secrets.DOCKERHUB_USERNAME }}/fossil-build-mmr:latest
+          docker tag fossil-build-mmr:latest ${{ secrets.DOCKERHUB_USERNAME }}/fossil-build-mmr:latest
           # Push to DockerHub
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/fossil-build-mmr:latest
