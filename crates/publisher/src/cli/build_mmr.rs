@@ -106,12 +106,24 @@ async fn execute_build_strategy(
     args: &Args,
     builder: &mut AccumulatorBuilder<'_>,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // Debug logging to trace execution path
+    tracing::info!(
+        resume = args.resume,
+        num_batches = args.num_batches,
+        start_block = args.start_block,
+        from_latest = args.from_latest,
+        "Build strategy conditions check"
+    );
+
     if args.resume {
+        tracing::info!("Executing: handle_resume_build");
         handle_resume_build(args, builder).await
     } else if args.num_batches.is_some() && args.start_block.is_none() && !args.from_latest {
         // Smart restart: check onchain state when NUM_BATCHES is specified but no START_BLOCK
+        tracing::info!("Executing: handle_smart_restart_build (onchain state check)");
         handle_smart_restart_build(args, builder).await
     } else {
+        tracing::info!("Executing: handle_regular_build");
         handle_regular_build(args, builder).await
     }
 }
