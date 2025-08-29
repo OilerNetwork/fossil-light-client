@@ -229,12 +229,16 @@ impl<'a> BatchProcessor<'a> {
             )));
         }
 
+        // Sort block headers by block number to ensure correct parent-child validation order
+        let mut sorted_headers = headers;
+        sorted_headers.sort_by(|a, b| a.number.cmp(&b.number));
+
         // Validate block headers using eth_rlp_verify
         debug!(
-            "Validating {} block headers using eth_rlp_verify",
-            headers.len()
+            "Validating {} sorted block headers using eth_rlp_verify",
+            sorted_headers.len()
         );
-        if !eth_rlp_verify::are_blocks_and_chain_valid(&headers, chain_id) {
+        if !eth_rlp_verify::are_blocks_and_chain_valid(&sorted_headers, chain_id) {
             error!("Block header validation failed for block range {start_block} to {adjusted_end_block}");
             return Err(PublisherError::validation(format!(
                 "Block header validation failed for block range {start_block} to {adjusted_end_block}"
@@ -244,7 +248,7 @@ impl<'a> BatchProcessor<'a> {
         // In CLIENT mode, validate chain continuity with previous block hash
         if !is_build {
             if let Some(ref prev_hash) = previous_block_hash {
-                let first_header = headers.first().ok_or_else(|| {
+                let first_header = sorted_headers.first().ok_or_else(|| {
                     PublisherError::Validation("No headers found in batch".to_string())
                 })?;
 
@@ -270,8 +274,8 @@ impl<'a> BatchProcessor<'a> {
         // 2. Chain continuity is already validated above by checking first_block.parent_hash == previous_block_hash
         // 3. The MMR will validate the correct sequence of blocks when building the proof
 
-        let new_headers: Vec<String> = headers.iter().map(|h| h.block_hash.clone()).collect();
-        let grouped_headers = group_headers_by_hour(headers);
+        let new_headers: Vec<String> = sorted_headers.iter().map(|h| h.block_hash.clone()).collect();
+        let grouped_headers = group_headers_by_hour(sorted_headers);
 
         debug!(
             "Grouped {} headers into {} hourly groups",
