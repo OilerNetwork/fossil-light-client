@@ -13,6 +13,7 @@ jobs:
   rust-checks:
     name: Rust Checks
     uses: ./.github/workflows/rust.yml
+    secrets: inherit
 
   cairo-checks:
     name: Cairo Checks  
