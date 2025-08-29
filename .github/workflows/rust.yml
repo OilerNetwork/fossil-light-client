@@ -39,8 +39,6 @@ jobs:
           components: clippy
 
       - name: Run Clippy
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: ./scripts/clippy.sh
 
   build:
@@ -64,8 +62,6 @@ jobs:
         run: rustup override set stable
 
       - name: Build
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: cargo build --verbose
 
   test:
