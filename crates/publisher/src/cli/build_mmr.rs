@@ -102,11 +102,7 @@ fn validate_arguments(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     }
 }
 
-async fn execute_build_strategy(
-    args: &Args,
-    builder: &mut AccumulatorBuilder<'_>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // Debug logging to trace execution path
+fn log_build_strategy_conditions(args: &Args) {
     tracing::info!(
         resume = args.resume,
         num_batches = args.num_batches,
@@ -114,11 +110,21 @@ async fn execute_build_strategy(
         from_latest = args.from_latest,
         "Build strategy conditions check"
     );
+}
 
+const fn should_use_smart_restart(args: &Args) -> bool {
+    args.num_batches.is_some() && args.start_block.is_none() && !args.from_latest
+}
+
+#[allow(clippy::cognitive_complexity)]
+async fn execute_selected_strategy(
+    args: &Args,
+    builder: &mut AccumulatorBuilder<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
     if args.resume {
         tracing::info!("Executing: handle_resume_build");
         handle_resume_build(args, builder).await
-    } else if args.num_batches.is_some() && args.start_block.is_none() && !args.from_latest {
+    } else if should_use_smart_restart(args) {
         // Smart restart: check onchain state when NUM_BATCHES is specified but no START_BLOCK
         tracing::info!("Executing: handle_smart_restart_build (onchain state check)");
         handle_smart_restart_build(args, builder).await
@@ -126,6 +132,14 @@ async fn execute_build_strategy(
         tracing::info!("Executing: handle_regular_build");
         handle_regular_build(args, builder).await
     }
+}
+
+async fn execute_build_strategy(
+    args: &Args,
+    builder: &mut AccumulatorBuilder<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    log_build_strategy_conditions(args);
+    execute_selected_strategy(args, builder).await
 }
 
 async fn handle_smart_restart_build(
@@ -223,26 +237,41 @@ async fn handle_resume_build(
     let min_mmr_block = starknet_provider.get_min_mmr_block(&store_address).await?;
 
     if min_mmr_block == 0 {
-        tracing::warn!("No minimum MMR block found on-chain, starting from finalized block");
-        builder.build_from_finalized().await?;
+        handle_resume_no_previous_mmr(builder).await
     } else {
-        let start_block = min_mmr_block.saturating_sub(1);
-        tracing::info!(
-            min_mmr_block,
-            start_block,
-            "Resuming from minimum MMR block minus 1"
-        );
-
-        match args.num_batches {
-            Some(num_batches) => {
-                builder
-                    .build_from_block_with_batches(start_block, num_batches, true)
-                    .await?
-            }
-            None => builder.build_from_block(start_block, true).await?,
-        }
+        handle_resume_from_onchain(builder, min_mmr_block, args.num_batches).await
     }
-    Ok(())
+}
+
+async fn handle_resume_no_previous_mmr(
+    builder: &mut AccumulatorBuilder<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    tracing::warn!("No minimum MMR block found on-chain, starting from finalized block");
+    builder.build_from_finalized().await.map_err(Into::into)
+}
+
+async fn handle_resume_from_onchain(
+    builder: &mut AccumulatorBuilder<'_>,
+    min_mmr_block: u64,
+    num_batches: Option<u64>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let start_block = min_mmr_block.saturating_sub(1);
+    tracing::info!(
+        min_mmr_block,
+        start_block,
+        "Resuming from minimum MMR block minus 1"
+    );
+
+    match num_batches {
+        Some(num_batches) => builder
+            .build_from_block_with_batches(start_block, num_batches, true)
+            .await
+            .map_err(Into::into),
+        None => builder
+            .build_from_block(start_block, true)
+            .await
+            .map_err(Into::into),
+    }
 }
 
 async fn handle_regular_build(

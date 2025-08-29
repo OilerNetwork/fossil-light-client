@@ -274,7 +274,10 @@ impl<'a> BatchProcessor<'a> {
         // 2. Chain continuity is already validated above by checking first_block.parent_hash == previous_block_hash
         // 3. The MMR will validate the correct sequence of blocks when building the proof
 
-        let new_headers: Vec<String> = sorted_headers.iter().map(|h| h.block_hash.clone()).collect();
+        let new_headers: Vec<String> = sorted_headers
+            .iter()
+            .map(|h| h.block_hash.clone())
+            .collect();
         let grouped_headers = group_headers_by_hour(sorted_headers);
 
         debug!(
