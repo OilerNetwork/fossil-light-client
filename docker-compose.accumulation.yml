@@ -1,7 +1,7 @@
 services:
   build-mmr:
     # image: ametelnethermind/fossil-build-mmr:latest
-    image: fossil-build-mmr:latest
+    image: fossil-build-mmr:with-files
     container_name: fossil-build-mmr
 
     # EXACTLY MATCH ECS: remove entrypoint/command to use image's ENTRYPOINT
@@ -29,7 +29,7 @@ services:
       - BONSAI_API_URL=${BONSAI_API_URL:-https://api.bonsai.xyz/}
       - ETH_RPC_URL=${ETH_RPC_URL:-http://anvil:8545}
       - BONSAI_API_KEY=${BONSAI_API_KEY}
-    
+
     # Load secrets from .env.docker
     env_file:
       - .env.docker

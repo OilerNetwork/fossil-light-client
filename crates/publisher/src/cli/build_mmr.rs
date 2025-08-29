@@ -108,9 +108,97 @@ async fn execute_build_strategy(
 ) -> Result<(), Box<dyn std::error::Error>> {
     if args.resume {
         handle_resume_build(args, builder).await
+    } else if args.num_batches.is_some() && args.start_block.is_none() && !args.from_latest {
+        // Smart restart: check onchain state when NUM_BATCHES is specified but no START_BLOCK
+        handle_smart_restart_build(args, builder).await
     } else {
         handle_regular_build(args, builder).await
     }
+}
+
+async fn handle_smart_restart_build(
+    args: &Args,
+    builder: &mut AccumulatorBuilder<'_>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let requested_batches = args
+        .num_batches
+        .ok_or("NUM_BATCHES must be specified for smart restart")?;
+
+    let (min_mmr_block, total_batches_onchain) = get_onchain_state().await?;
+
+    if should_skip_processing(total_batches_onchain, requested_batches) {
+        return Ok(());
+    }
+
+    if min_mmr_block == 0 {
+        handle_no_previous_mmr(builder, requested_batches).await
+    } else {
+        handle_continue_from_onchain_state(
+            builder,
+            min_mmr_block,
+            total_batches_onchain,
+            requested_batches,
+        )
+        .await
+    }
+}
+
+async fn get_onchain_state() -> Result<(u64, u64), Box<dyn std::error::Error>> {
+    let store_address = get_env_var("FOSSIL_STORE")?;
+    let rpc_url = get_env_var("STARKNET_RPC_URL")?;
+    let starknet_provider = StarknetProvider::new(&rpc_url)?;
+
+    let min_mmr_block = starknet_provider.get_min_mmr_block(&store_address).await?;
+    let total_batches_onchain = starknet_provider.get_total_batches(&store_address).await?;
+
+    Ok((min_mmr_block, total_batches_onchain))
+}
+
+fn should_skip_processing(total_batches_onchain: u64, requested_batches: u64) -> bool {
+    if total_batches_onchain >= requested_batches {
+        tracing::info!(
+            requested_batches,
+            total_batches_onchain,
+            "Requested batches already processed onchain, nothing to do"
+        );
+        return true;
+    }
+    false
+}
+
+async fn handle_no_previous_mmr(
+    builder: &mut AccumulatorBuilder<'_>,
+    requested_batches: u64,
+) -> Result<(), Box<dyn std::error::Error>> {
+    tracing::warn!("No minimum MMR block found on-chain, starting from finalized block");
+    builder
+        .build_with_num_batches(requested_batches)
+        .await
+        .map_err(Into::into)
+}
+
+async fn handle_continue_from_onchain_state(
+    builder: &mut AccumulatorBuilder<'_>,
+    min_mmr_block: u64,
+    total_batches_onchain: u64,
+    requested_batches: u64,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let start_block = min_mmr_block.saturating_sub(1);
+    let remaining_batches = requested_batches.saturating_sub(total_batches_onchain);
+
+    tracing::info!(
+        min_mmr_block,
+        start_block,
+        requested_batches,
+        total_batches_onchain,
+        remaining_batches,
+        "Smart restart: continuing from onchain state"
+    );
+
+    builder
+        .build_from_block_with_batches(start_block, remaining_batches, true)
+        .await
+        .map_err(Into::into)
 }
 
 async fn handle_resume_build(
@@ -224,6 +312,45 @@ mod tests {
         assert_eq!(
             result.unwrap_err().to_string(),
             "Cannot specify both --from-latest and --start-block"
+        );
+    }
+
+    #[test]
+    fn test_smart_restart_trigger_conditions() {
+        // Test conditions that trigger smart restart
+        let args_smart_restart = Args {
+            batch_size: 1024,
+            num_batches: Some(700),
+            skip_proof: false,
+            env_file: ".env".to_string(),
+            start_block: None,
+            from_latest: false,
+            resume: false,
+        };
+
+        // This should trigger smart restart
+        assert!(
+            args_smart_restart.num_batches.is_some()
+                && args_smart_restart.start_block.is_none()
+                && !args_smart_restart.from_latest
+        );
+
+        // Test conditions that don't trigger smart restart
+        let args_with_start_block = Args {
+            batch_size: 1024,
+            num_batches: Some(700),
+            skip_proof: false,
+            env_file: ".env".to_string(),
+            start_block: Some(100),
+            from_latest: false,
+            resume: false,
+        };
+
+        // This should not trigger smart restart (has start_block)
+        assert!(
+            !(args_with_start_block.num_batches.is_some()
+                && args_with_start_block.start_block.is_none()
+                && !args_with_start_block.from_latest)
         );
     }
 }

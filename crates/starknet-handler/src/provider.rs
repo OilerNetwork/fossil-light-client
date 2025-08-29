@@ -262,6 +262,33 @@ impl StarknetProvider {
         .await
     }
 
+    #[instrument(skip(self), level = "debug")]
+    pub async fn get_total_batches(&self, l2_store_address: &str) -> Result<u64> {
+        debug!("Fetching total batches");
+
+        self.with_retry("get_total_batches", || async {
+            let entry_point_selector = selector!("get_total_batches");
+
+            let data = self
+                .provider
+                .call(
+                    FunctionCall {
+                        contract_address: Felt::from_hex(l2_store_address)?,
+                        entry_point_selector,
+                        calldata: vec![],
+                    },
+                    BlockId::Tag(BlockTag::Latest),
+                )
+                .await?;
+
+            let total_batches = u64::decode(&data)?;
+            debug!(total_batches, "Retrieved total batches");
+
+            Ok(total_batches)
+        })
+        .await
+    }
+
     pub async fn get_avg_fees_in_range(
         &self,
         l2_store_address: &str,
