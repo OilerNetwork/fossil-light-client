@@ -42,6 +42,10 @@ pub enum PublisherError {
     #[error("Network error: {0}")]
     /// Network communication error
     Network(String),
+
+    #[error("Corrupted data requires batch restart: {0}")]
+    /// Data corruption detected, entire batch needs to be refetched and rebuilt
+    CorruptedDataRestart(String),
 }
 
 impl PublisherError {
@@ -93,6 +97,11 @@ impl PublisherError {
     /// Create a network error
     pub fn network<T: fmt::Display>(msg: T) -> Self {
         Self::Network(msg.to_string())
+    }
+
+    /// Create a corrupted data error that requires batch restart
+    pub fn corrupted_data_restart<T: fmt::Display>(msg: T) -> Self {
+        Self::CorruptedDataRestart(msg.to_string())
     }
 }
 

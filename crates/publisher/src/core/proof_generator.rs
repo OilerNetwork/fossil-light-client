@@ -248,6 +248,18 @@ where
             match self.generate_groth16_proof_internal(input.clone()).await {
                 Ok(proof) => return Ok(proof),
                 Err(e) => {
+                    // Check if this is a corrupted data error that requires batch restart
+                    if Self::is_corrupted_data_error(&e) {
+                        tracing::error!(
+                            "Detected corrupted data error: {}, batch requires complete restart",
+                            e
+                        );
+                        return Err(PublisherError::corrupted_data_restart(format!(
+                            "Proof generation failed due to corrupted data: {}",
+                            e
+                        )));
+                    }
+
                     retries += 1;
 
                     if retries < MAX_RETRIES {
@@ -272,6 +284,15 @@ where
                 "Failed to generate Groth16 proof after {MAX_RETRIES} attempts"
             ))
         }))
+    }
+
+    /// Check if the error indicates corrupted data that requires a batch restart
+    fn is_corrupted_data_error(error: &PublisherError) -> bool {
+        let error_msg = error.to_string().to_lowercase();
+        error_msg.contains("pairing check is not == 1")
+            || error_msg.contains("pairing check failed")
+            || error_msg.contains("invalid proof")
+            || error_msg.contains("verification failed")
     }
 
     async fn generate_groth16_proof_internal(&self, input: T) -> PublisherResult<Groth16> {

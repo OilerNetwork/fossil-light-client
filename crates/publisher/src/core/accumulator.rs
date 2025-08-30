@@ -168,6 +168,20 @@ impl<'a> AccumulatorBuilder<'a> {
             {
                 Ok(result) => return Ok(result),
                 Err(e) => {
+                    // Check if this is a corrupted data error that requires complete batch restart
+                    if matches!(e, crate::error::PublisherError::CorruptedDataRestart(_)) {
+                        warn!(
+                            error = %e,
+                            batch_num,
+                            start_block,
+                            current_end,
+                            "Corrupted data detected, restarting batch ex-novo (refetching all blocks)"
+                        );
+                        // Reset retries to 0 and continue the loop to restart batch from scratch
+                        retries = 0;
+                        continue;
+                    }
+
                     last_error = Some(e);
                     retries += 1;
 

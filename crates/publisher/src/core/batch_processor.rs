@@ -238,15 +238,20 @@ impl<'a> BatchProcessor<'a> {
             "Validating {} sorted block headers using eth_rlp_verify",
             sorted_headers.len()
         );
-        
+
         // First validate individual blocks with detailed logging
         for (i, block) in sorted_headers.iter().enumerate() {
             let block_hash = &block.block_hash;
             let block_number = block.number;
-            
-            if !eth_rlp_verify::verify_block(block_number as u64, block.clone(), block_hash, chain_id) {
+
+            if !eth_rlp_verify::verify_block(
+                block_number as u64,
+                block.clone(),
+                block_hash,
+                chain_id,
+            ) {
                 error!(
-                    "Individual block validation failed for block {} at index {} (hash: {})", 
+                    "Individual block validation failed for block {} at index {} (hash: {})",
                     block_number, i, block_hash
                 );
                 return Err(PublisherError::validation(format!(
@@ -256,13 +261,13 @@ impl<'a> BatchProcessor<'a> {
             }
         }
         debug!("All individual block validations passed");
-        
+
         // Then validate chain continuity with detailed logging
         for (i, block) in sorted_headers.iter().enumerate() {
             if i > 0 {
                 let parent_hash = block.parent_hash.clone().unwrap_or_default();
                 let previous_block_hash = &sorted_headers[i - 1].block_hash;
-                
+
                 if parent_hash != *previous_block_hash {
                     error!(
                         "Chain validation failed at block {} (index {}): parent_hash {} != previous_block_hash {}",
