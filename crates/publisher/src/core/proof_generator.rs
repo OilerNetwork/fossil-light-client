@@ -21,6 +21,7 @@ use crate::{
 
 const MAX_RETRIES: u32 = 10;
 const INITIAL_RETRY_DELAY_MS: u64 = 5000;
+const MAX_RETRY_DELAY_MS: u64 = 300000; // Cap at 5 minutes
 
 #[derive(Debug)]
 /// Generates zero-knowledge proofs for MMR operations using RISC Zero
@@ -240,6 +241,7 @@ where
         Ok(receipt.journal.decode()?)
     }
 
+    #[allow(clippy::cognitive_complexity)]
     async fn generate_groth16_proof_with_retry(&self, input: T) -> PublisherResult<Groth16> {
         let mut retries = 0;
         let mut last_error = None;
@@ -262,8 +264,22 @@ where
 
                     retries += 1;
 
+                    // Check if this is a budget exhaustion error that should fail immediately after max retries
+                    if Self::is_budget_exhaustion_error(&e) && retries >= MAX_RETRIES {
+                        tracing::error!(
+                            "Cycle budget exhausted after {} attempts, failing definitively: {}",
+                            MAX_RETRIES,
+                            e
+                        );
+                        return Err(PublisherError::proof_generation(format!(
+                            "Proof generation failed after {} attempts due to cycle budget exhaustion: {}",
+                            MAX_RETRIES, e
+                        )));
+                    }
+
                     if retries < MAX_RETRIES {
-                        let delay = INITIAL_RETRY_DELAY_MS * (2_u64.pow(retries - 1));
+                        let delay = (INITIAL_RETRY_DELAY_MS * (2_u64.pow(retries - 1)))
+                            .min(MAX_RETRY_DELAY_MS);
                         tracing::warn!(
                             "Failed to generate Groth16 proof: {}, retrying in {}ms (attempt {}/{})",
                             e,
@@ -293,6 +309,14 @@ where
             || error_msg.contains("pairing check failed")
             || error_msg.contains("invalid proof")
             || error_msg.contains("verification failed")
+    }
+
+    /// Check if the error indicates budget exhaustion
+    fn is_budget_exhaustion_error(error: &PublisherError) -> bool {
+        let error_msg = error.to_string().to_lowercase();
+        error_msg.contains("cycle budget empty")
+            || error_msg.contains("budget exhausted")
+            || error_msg.contains("out of cycles")
     }
 
     async fn generate_groth16_proof_internal(&self, input: T) -> PublisherResult<Groth16> {

@@ -140,6 +140,7 @@ impl<'a> AccumulatorBuilder<'a> {
     }
 
     /// Process a batch with extensive retry logic to ensure no batches are ever skipped
+    #[allow(clippy::cognitive_complexity)]
     async fn process_batch_with_retry(
         &self,
         batch_num: u64,
@@ -150,8 +151,10 @@ impl<'a> AccumulatorBuilder<'a> {
     ) -> PublisherResult<Option<crate::utils::BatchResult>> {
         const BATCH_MAX_RETRIES: u32 = 5;
         const BATCH_INITIAL_DELAY_MS: u64 = 10000; // 10 seconds
+        const MAX_CORRUPTED_DATA_RESTARTS: u32 = 3; // Limit corrupted data restarts
 
         let mut retries = 0;
+        let mut corrupted_data_restarts = 0;
         let mut last_error = None;
 
         while retries <= BATCH_MAX_RETRIES {
@@ -170,16 +173,40 @@ impl<'a> AccumulatorBuilder<'a> {
                 Err(e) => {
                     // Check if this is a corrupted data error that requires complete batch restart
                     if matches!(e, crate::error::PublisherError::CorruptedDataRestart(_)) {
-                        warn!(
-                            error = %e,
-                            batch_num,
-                            start_block,
-                            current_end,
-                            "Corrupted data detected, restarting batch ex-novo (refetching all blocks)"
-                        );
-                        // Reset retries to 0 and continue the loop to restart batch from scratch
-                        retries = 0;
-                        continue;
+                        corrupted_data_restarts += 1;
+
+                        if corrupted_data_restarts <= MAX_CORRUPTED_DATA_RESTARTS {
+                            warn!(
+                                error = %e,
+                                batch_num,
+                                start_block,
+                                current_end,
+                                corrupted_data_restarts,
+                                max_restarts = MAX_CORRUPTED_DATA_RESTARTS,
+                                "Corrupted data detected, restarting batch ex-novo (refetching all blocks) - restart {}/{}",
+                                corrupted_data_restarts,
+                                MAX_CORRUPTED_DATA_RESTARTS
+                            );
+                            // Reset retries to 0 and continue the loop to restart batch from scratch
+                            retries = 0;
+                            continue;
+                        } else {
+                            error!(
+                                error = %e,
+                                batch_num,
+                                start_block,
+                                current_end,
+                                corrupted_data_restarts,
+                                max_restarts = MAX_CORRUPTED_DATA_RESTARTS,
+                                "Maximum corrupted data restarts exceeded ({}/{}), failing batch",
+                                corrupted_data_restarts,
+                                MAX_CORRUPTED_DATA_RESTARTS
+                            );
+                            return Err(PublisherError::validation(format!(
+                                "Batch processing failed after {} corrupted data restarts: {}",
+                                MAX_CORRUPTED_DATA_RESTARTS, e
+                            )));
+                        }
                     }
 
                     last_error = Some(e);
