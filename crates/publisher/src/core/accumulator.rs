@@ -209,6 +209,18 @@ impl<'a> AccumulatorBuilder<'a> {
                         }
                     }
 
+                    // Check if this is a definitive budget exhaustion failure that shouldn't be retried
+                    if Self::is_definitive_failure(&e) {
+                        error!(
+                            error = %e,
+                            batch_num,
+                            start_block,
+                            current_end,
+                            "Definitive failure detected, stopping retries"
+                        );
+                        return Err(e);
+                    }
+
                     last_error = Some(e);
                     retries += 1;
 
@@ -656,6 +668,13 @@ impl<'a> AccumulatorBuilder<'a> {
         );
         self.process_blocks_from_with_limit(min_mmr_block - 1, num_batches, is_build)
             .await
+    }
+
+    /// Check if the error represents a definitive failure that shouldn't be retried
+    fn is_definitive_failure(error: &PublisherError) -> bool {
+        let error_msg = error.to_string().to_lowercase();
+        error_msg.contains("proof generation failed after")
+            && error_msg.contains("attempts due to cycle budget exhaustion")
     }
 }
 
