@@ -670,9 +670,23 @@ impl<'a> AccumulatorBuilder<'a> {
             .await
     }
 
-    /// Check if the error represents a definitive failure that shouldn't be retried
+    /// Check if the error represents a failure that shouldn't be retried
     fn is_definitive_failure(error: &PublisherError) -> bool {
         let error_msg = error.to_string().to_lowercase();
+        // Budget exhaustion errors should stop immediately
+        if error_msg.contains("cycle budget empty")
+            || error_msg.contains("budget exhausted")
+            || error_msg.contains("out of cycles")
+        {
+            return true;
+        }
+        // Pairing errors should stop immediately
+        if error_msg.contains("pairing check is not == 1")
+            || error_msg.contains("pairing check failed")
+        {
+            return true;
+        }
+        // Previous definitive failure messages
         error_msg.contains("proof generation failed after")
             && error_msg.contains("attempts due to cycle budget exhaustion")
     }

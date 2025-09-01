@@ -264,16 +264,21 @@ where
 
                     retries += 1;
 
-                    // Check if this is a budget exhaustion error that should fail immediately after max retries
-                    if Self::is_budget_exhaustion_error(&e) && retries >= MAX_RETRIES {
-                        tracing::error!(
-                            "Cycle budget exhausted after {} attempts, failing definitively: {}",
-                            MAX_RETRIES,
-                            e
-                        );
+                    // Check if this is a budget exhaustion error - fail immediately on first occurrence
+                    if Self::is_budget_exhaustion_error(&e) {
+                        tracing::error!("Cycle budget exhausted, failing immediately: {}", e);
                         return Err(PublisherError::proof_generation(format!(
-                            "Proof generation failed after {} attempts due to cycle budget exhaustion: {}",
-                            MAX_RETRIES, e
+                            "Proof generation failed due to cycle budget exhaustion: {}",
+                            e
+                        )));
+                    }
+
+                    // Check if this is a pairing error - fail immediately on first occurrence
+                    if Self::is_pairing_error(&e) {
+                        tracing::error!("Pairing check failed, failing immediately: {}", e);
+                        return Err(PublisherError::proof_generation(format!(
+                            "Proof generation failed due to pairing check failure: {}",
+                            e
                         )));
                     }
 
@@ -317,6 +322,15 @@ where
         error_msg.contains("cycle budget empty")
             || error_msg.contains("budget exhausted")
             || error_msg.contains("out of cycles")
+    }
+
+    /// Check if the error indicates a pairing check failure
+    fn is_pairing_error(error: &PublisherError) -> bool {
+        let error_msg = error.to_string().to_lowercase();
+        error_msg.contains("pairing check is not == 1")
+            || error_msg.contains("pairing check failed")
+            || error_msg.contains("invalid proof")
+            || error_msg.contains("verification failed")
     }
 
     async fn generate_groth16_proof_internal(&self, input: T) -> PublisherResult<Groth16> {
