@@ -147,8 +147,6 @@ impl PublisherConfig {
 ///     .build()?;
 /// # Ok(())
 /// # }
-/// #
-/// # Ok::<(), publisher::config::ConfigError>(())
 /// ```
 #[derive(Default, Clone)]
 pub struct PublisherConfigBuilder {

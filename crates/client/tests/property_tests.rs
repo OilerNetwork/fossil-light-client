@@ -310,6 +310,7 @@ fn test_block_range_calculations() {
             "0x1234".to_string(),
             start_block, // EventProcessor will set latest_processed_block to start_block - 1
             blocks_per_run,
+            None,
         );
 
         let result = processor.calculate_block_range(latest_block);
@@ -345,7 +346,7 @@ fn test_invalid_block_ranges() {
     for (start_block, blocks_per_run, latest_block) in invalid_cases {
         let provider = StarknetProvider::new("http://localhost:5050").unwrap();
         let processor =
-            EventProcessor::new(provider, "0x1234".to_string(), start_block, blocks_per_run);
+            EventProcessor::new(provider, "0x1234".to_string(), start_block, blocks_per_run, None);
 
         let result = processor.calculate_block_range(latest_block);
         assert!(
