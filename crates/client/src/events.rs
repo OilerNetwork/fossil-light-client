@@ -25,6 +25,7 @@ pub struct EventProcessor {
     l2_store_addr: String,
     latest_processed_block: u64,
     blocks_per_run: u64,
+    starknet_monitoring_start: Option<u64>,
 }
 
 impl EventProcessor {
@@ -36,17 +37,20 @@ impl EventProcessor {
     /// * `l2_store_addr` - Address of the L2 store contract to monitor
     /// * `start_block` - The block number to start processing from
     /// * `blocks_per_run` - Maximum blocks to process in each run (0 for unlimited)
+    /// * `starknet_monitoring_start` - Starting Starknet block for event monitoring (optional)
     pub const fn new(
         provider: StarknetProvider,
         l2_store_addr: String,
         start_block: u64,
         blocks_per_run: u64,
+        starknet_monitoring_start: Option<u64>,
     ) -> Self {
         Self {
             provider,
             l2_store_addr,
             latest_processed_block: start_block.saturating_sub(1),
             blocks_per_run,
+            starknet_monitoring_start,
         }
     }
 
@@ -151,8 +155,10 @@ impl EventProcessor {
             .await
             .map_err(ClientError::from)?;
 
-        // Search the last 1000 Starknet blocks for events containing our Ethereum blocks
-        let search_from = current_starknet_block.saturating_sub(1000);
+        // Use configurable Starknet monitoring start or default to last 1000 blocks
+        let search_from = self
+            .starknet_monitoring_start
+            .unwrap_or_else(|| current_starknet_block.saturating_sub(1000));
         let search_to = current_starknet_block;
 
         debug!(
@@ -326,7 +332,8 @@ mod tests {
             provider,
             "0x1234".to_string(),
             100,
-            50, // blocks_per_run
+            50,   // blocks_per_run
+            None, // starknet_monitoring_start
         );
 
         // Test normal range calculation
@@ -341,7 +348,8 @@ mod tests {
             StarknetProvider::new("http://localhost:5050").unwrap(),
             "0x1234".to_string(),
             100,
-            0, // unlimited
+            0,    // unlimited
+            None, // starknet_monitoring_start
         );
         let result = unlimited_processor.calculate_block_range(200);
         assert!(result.is_ok());
@@ -358,6 +366,7 @@ mod tests {
             "0x1234".to_string(),
             200, // start_block higher than latest
             50,
+            None, // starknet_monitoring_start
         );
 
         let result = processor.calculate_block_range(150);

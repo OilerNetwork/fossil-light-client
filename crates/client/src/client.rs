@@ -53,6 +53,7 @@ impl LightClient {
         batch_size: u64,
         start_block: u64,
         blocks_per_run: u64,
+        starknet_monitoring_start: Option<u64>,
     ) -> Result<Self> {
         // Load configuration from environment
         let config =
@@ -80,6 +81,7 @@ impl LightClient {
             config.l2_store_addr.value().to_string(),
             latest_mmr_block + 1,
             config.blocks_per_run,
+            starknet_monitoring_start,
         );
 
         // Create MMR manager
@@ -106,13 +108,28 @@ impl LightClient {
         polling_interval: u64,
         batch_size: u64,
         blocks_per_run: u64,
+        starknet_monitoring_start: Option<u64>,
     ) -> Result<Self> {
         // Create a temporary client to get the latest block
-        let temp_client = Self::new(polling_interval, batch_size, 0, blocks_per_run).await?;
+        let temp_client = Self::new(
+            polling_interval,
+            batch_size,
+            0,
+            blocks_per_run,
+            starknet_monitoring_start,
+        )
+        .await?;
         let start_block = temp_client.get_latest_relayed_block_number().await? + 1;
 
         // Create the actual client with the correct start block
-        Self::new(polling_interval, batch_size, start_block, blocks_per_run).await
+        Self::new(
+            polling_interval,
+            batch_size,
+            start_block,
+            blocks_per_run,
+            starknet_monitoring_start,
+        )
+        .await
     }
 
     /// Gets the latest relayed block number from L1.

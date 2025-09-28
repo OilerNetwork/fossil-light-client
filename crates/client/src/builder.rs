@@ -39,6 +39,7 @@ pub struct LightClientBuilder {
     batch_size: Option<u64>,
     start_block: Option<u64>,
     blocks_per_run: Option<u64>,
+    starknet_monitoring_start: Option<u64>,
 }
 
 impl LightClientBuilder {
@@ -219,6 +220,27 @@ impl LightClientBuilder {
         self
     }
 
+    /// Sets the Starknet monitoring start block for event searching.
+    ///
+    /// If not set, the client will search the last 1000 Starknet blocks for events.
+    /// This parameter allows you to specify an earlier Starknet block to start monitoring from.
+    ///
+    /// # Arguments
+    ///
+    /// * `block` - The Starknet block number to start monitoring from
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use client::LightClientBuilder;
+    /// let builder = LightClientBuilder::new()
+    ///     .starknet_monitoring_start(1000000);
+    /// ```
+    pub const fn starknet_monitoring_start(mut self, block: u64) -> Self {
+        self.starknet_monitoring_start = Some(block);
+        self
+    }
+
     /// Builds the `LightClient` with the configured parameters.
     ///
     /// Uses default values for any parameters not explicitly set:
@@ -256,7 +278,14 @@ impl LightClientBuilder {
         let start_block = self.start_block.unwrap_or(0);
         let blocks_per_run = self.blocks_per_run.unwrap_or(100);
 
-        LightClient::new(polling_interval, batch_size, start_block, blocks_per_run).await
+        LightClient::new(
+            polling_interval,
+            batch_size,
+            start_block,
+            blocks_per_run,
+            self.starknet_monitoring_start,
+        )
+        .await
     }
 
     /// Builds the `LightClient` with automatic start block detection.
@@ -288,7 +317,13 @@ impl LightClientBuilder {
         let batch_size = self.batch_size.unwrap_or(1024);
         let blocks_per_run = self.blocks_per_run.unwrap_or(100);
 
-        LightClient::new_with_default_start(polling_interval, batch_size, blocks_per_run).await
+        LightClient::new_with_default_start(
+            polling_interval,
+            batch_size,
+            blocks_per_run,
+            self.starknet_monitoring_start,
+        )
+        .await
     }
 }
 

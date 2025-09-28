@@ -79,6 +79,10 @@ struct Args {
     /// Blocks buffer size
     #[arg(long, default_value = "50")]
     blocks_buffer_size: u64,
+
+    /// Starknet monitoring start block (for event searching, defaults to latest - 1000)
+    #[arg(long)]
+    starknet_monitoring_start: Option<u64>,
 }
 
 #[tokio::main]
@@ -101,6 +105,7 @@ async fn main() -> Result<()> {
             args.batch_size,
             start_block,
             args.blocks_per_run,
+            args.starknet_monitoring_start,
         )
         .await?
     } else {
@@ -108,6 +113,7 @@ async fn main() -> Result<()> {
             args.polling_interval,
             args.batch_size,
             args.blocks_per_run,
+            args.starknet_monitoring_start,
         )
         .await?
     };
