@@ -1,7 +1,11 @@
 #![deny(unused_crate_dependencies)]
 
-use alloy::{providers::ProviderBuilder, sol};
+use alloy::{
+    providers::{Provider, ProviderBuilder},
+    sol,
+};
 use common::get_env_var;
+use eth_rlp_types::BlockHeader;
 use eyre::{eyre, Result};
 use tokio::time::{sleep, Duration};
 
@@ -59,5 +63,87 @@ pub async fn get_finalized_block_hash() -> Result<(u64, String)> {
                 sleep(RETRY_DELAY).await;
             }
         }
+    }
+}
+
+#[allow(dead_code)]
+pub async fn get_block_by_number(block_number: u64) -> Result<alloy::rpc::types::Block> {
+    let rpc_url = get_env_var("ETH_RPC_URL")?;
+    const MAX_RETRIES: u32 = 3;
+    const RETRY_DELAY: Duration = Duration::from_secs(1);
+
+    let mut attempts = 0;
+    loop {
+        attempts += 1;
+        let result: Result<alloy::rpc::types::Block> = async {
+            let provider = ProviderBuilder::new().connect_http(rpc_url.parse()?);
+
+            let block = provider
+                .get_block_by_number(block_number.into())
+                .await?
+                .ok_or_else(|| eyre!("Block {} not found", block_number))?;
+
+            Ok(block)
+        }
+        .await;
+
+        match result {
+            Ok(block) => return Ok(block),
+            Err(e) => {
+                if attempts >= MAX_RETRIES {
+                    return Err(eyre!("get_block_by_number failed: {}", e));
+                }
+                tracing::warn!(
+                    attempts = attempts,
+                    max_retries = MAX_RETRIES,
+                    block_number = block_number,
+                    error = %e.to_string(),
+                    "RPC attempt failed, retrying"
+                );
+                sleep(RETRY_DELAY).await;
+            }
+        }
+    }
+}
+
+#[allow(dead_code)]
+pub fn alloy_block_to_block_header(block: &alloy::rpc::types::Block) -> BlockHeader {
+    BlockHeader {
+        block_hash: format!("0x{}", hex::encode(block.header.hash.as_slice())),
+        number: block.header.number as i64,
+        gas_limit: block.header.gas_limit as i64,
+        gas_used: block.header.gas_used as i64,
+        nonce: format!("0x{:016x}", u64::from_be_bytes(block.header.nonce.0)),
+        transaction_root: Some(block.header.transactions_root.to_string()),
+        receipts_root: Some(block.header.receipts_root.to_string()),
+        state_root: Some(block.header.state_root.to_string()),
+        base_fee_per_gas: block
+            .header
+            .base_fee_per_gas
+            .map(|fee| format!("0x{:x}", fee)),
+        parent_hash: Some(block.header.parent_hash.to_string()),
+        ommers_hash: Some(block.header.ommers_hash.to_string()),
+        miner: Some(block.header.beneficiary.to_string()),
+        logs_bloom: Some(format!(
+            "0x{}",
+            hex::encode(block.header.logs_bloom.as_slice())
+        )),
+        difficulty: Some(format!("0x{:x}", block.header.difficulty)),
+        totaldifficulty: None, // Not available in single block response
+        sha3_uncles: Some(block.header.ommers_hash.to_string()),
+        timestamp: Some(format!("0x{:x}", block.header.timestamp)),
+        extra_data: Some(format!("0x{}", hex::encode(&block.header.extra_data))),
+        mix_hash: Some(block.header.mix_hash.to_string()),
+        withdrawals_root: block.header.withdrawals_root.map(|root| root.to_string()),
+        blob_gas_used: block.header.blob_gas_used.map(|gas| format!("0x{:x}", gas)),
+        excess_blob_gas: block
+            .header
+            .excess_blob_gas
+            .map(|gas| format!("0x{:x}", gas)),
+        parent_beacon_block_root: block
+            .header
+            .parent_beacon_block_root
+            .map(|root| root.to_string()),
+        request_hash: block.header.requests_hash.map(|hash| hash.to_string()),
     }
 }

@@ -8,5 +8,7 @@ common = { path = "../common" }
 eyre = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
+eth-rlp-types = { workspace = true }
+hex = { workspace = true }
 
 alloy = { workspace = true, features = ["full", "node-bindings"] }
