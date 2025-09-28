@@ -8,7 +8,7 @@ use ipfs_utils::IpfsManager;
 use mmr::PeaksOptions;
 use mmr_utils::initialize_mmr;
 use starknet_handler::{provider::StarknetProvider, u256_from_hex};
-use tracing::{debug, error, warn};
+use tracing::{debug, error, info, warn};
 use uuid;
 
 use crate::{
@@ -239,10 +239,16 @@ impl<'a> BatchProcessor<'a> {
             sorted_headers.len()
         );
 
-        // First validate individual blocks with detailed logging
+        // First validate individual blocks with detailed logging and RPC fallback
+        let mut updated_headers = sorted_headers.clone();
         for (i, block) in sorted_headers.iter().enumerate() {
             let block_hash = &block.block_hash;
             let block_number = block.number;
+
+            debug!(
+                "Validating block {} (hash: {}) with timestamp: {:?}, nonce: {}, parent_hash: {:?}",
+                block_number, block_hash, block.timestamp, block.nonce, block.parent_hash
+            );
 
             if !eth_rlp_verify::verify_block(
                 block_number as u64,
@@ -250,16 +256,63 @@ impl<'a> BatchProcessor<'a> {
                 block_hash,
                 chain_id,
             ) {
-                error!(
-                    "Individual block validation failed for block {} at index {} (hash: {})",
-                    block_number, i, block_hash
+                warn!(
+                    "Block validation failed for block {} (hash: {}), attempting RPC fallback",
+                    block_number, block_hash
                 );
-                return Err(PublisherError::validation(format!(
-                    "Individual block validation failed for block {} in range {start_block} to {adjusted_end_block}",
-                    block_number
-                )));
+
+                // Try to fetch the block from RPC as fallback
+                match ethereum::get_block_by_number(block_number as u64).await {
+                    Ok(rpc_block) => {
+                        let corrected_header = ethereum::alloy_block_to_block_header(&rpc_block);
+
+                        debug!(
+                            "RPC vs DB comparison for block {}:\n  DB timestamp: {:?}\n  RPC timestamp: {:?}\n  DB nonce: {}\n  RPC nonce: {}\n  DB parent_hash: {:?}\n  RPC parent_hash: {:?}",
+                            block_number,
+                            block.timestamp,
+                            corrected_header.timestamp,
+                            block.nonce,
+                            corrected_header.nonce,
+                            block.parent_hash,
+                            corrected_header.parent_hash
+                        );
+
+                        // Verify the corrected header
+                        if eth_rlp_verify::verify_block(
+                            block_number as u64,
+                            corrected_header.clone(),
+                            &corrected_header.block_hash,
+                            chain_id,
+                        ) {
+                            info!(
+                                "RPC fallback successful for block {}, using corrected data",
+                                block_number
+                            );
+                            updated_headers[i] = corrected_header;
+                        } else {
+                            error!(
+                                "RPC fallback failed - even RPC data failed validation for block {}",
+                                block_number
+                            );
+                            return Err(PublisherError::validation(format!(
+                                "Block validation failed for block {} even with RPC fallback in range {start_block} to {adjusted_end_block}",
+                                block_number
+                            )));
+                        }
+                    }
+                    Err(e) => {
+                        error!("RPC fallback failed for block {}: {}", block_number, e);
+                        return Err(PublisherError::validation(format!(
+                            "Block validation failed for block {} and RPC fallback failed: {} in range {start_block} to {adjusted_end_block}",
+                            block_number, e
+                        )));
+                    }
+                }
             }
         }
+
+        // Use the potentially updated headers for the rest of the processing
+        let sorted_headers = updated_headers;
         debug!("All individual block validations passed");
 
         // Then validate chain continuity with detailed logging
