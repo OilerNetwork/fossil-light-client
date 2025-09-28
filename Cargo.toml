@@ -33,11 +33,9 @@ debug = 1
 lto = true
 
 [workspace.dependencies]
-# External git dependencies - these seem necessary based on the project structure
 eth-rlp-types = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", package = "eth-rlp-types", rev = "6849b2460525d4749c4955ec8470951c6043ffce" }
 eth-rlp-verify = { git = "https://github.com/NethermindEth/eth-rlp-verify.git", rev = "6849b2460525d4749c4955ec8470951c6043ffce" }
-# eth-rlp-verify = { path = "/home/ametel/source/eth-rlp-verify/crates/eth-rlp-verify" }
-# eth-rlp-types = { path = "/home/ametel/source/eth-rlp-verify/crates/eth-rlp-types" }
+
 starknet = "0.16.0"
 starknet-crypto = "0.7.4"
 mmr = { git = "https://github.com/ametel01/rust-accumulators.git", branch = "feat/sha2-hasher" }

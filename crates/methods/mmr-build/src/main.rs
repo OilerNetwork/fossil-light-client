@@ -1,5 +1,5 @@
 // main.rs
-use eth_rlp_types::BlockHeader;
+// Remove unused import
 use eth_rlp_verify::are_blocks_and_chain_valid;
 use guest_fixed_utils::{UFixedPoint123x128, StorePacking};
 use guest_mmr::core::GuestMMR;
@@ -16,15 +16,15 @@ fn main() {
     
     eprintln!("DEBUG: Input read successfully, headers count: {}", input.headers().len());
     // Flatten headers for validation
-    let flattened_headers: Vec<BlockHeader> = input
+    let flattened_headers = input
         .headers()
         .iter()
         .flat_map(|(_, headers)| headers.iter())
         .cloned()
-        .collect();
+        .collect::<Vec<_>>();
 
     assert!(
-        are_blocks_and_chain_valid(&flattened_headers, input.chain_id()),
+        are_blocks_and_chain_valid(&flattened_headers[..], input.chain_id()),
         "Invalid block headers"
     );
 

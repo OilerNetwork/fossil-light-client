@@ -2506,7 +2506,9 @@ version = "0.1.0"
 dependencies = [
  "alloy",
  "common",
+ "eth-rlp-types",
  "eyre",
+ "hex",
  "tokio",
  "tracing",
 ]
