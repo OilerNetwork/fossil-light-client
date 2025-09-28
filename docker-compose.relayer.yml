@@ -1,7 +1,9 @@
 services:
   relayer:
     # image: ametelnethermind/fossil-relayer:latest
-    image: fossil-relayer:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.relayer
     container_name: fossil-relayer
     restart: unless-stopped
     volumes:
@@ -13,10 +15,3 @@ services:
       - RELAY_TIME_MINUTES=${RELAY_TIME_MINUTES:-60}
     env_file:
       - ${ENV_FILE:-.env.docker}
-    networks:
-      - fossil-network
-
-networks:
-  fossil-network:
-    external: true
-    name: fossil-network

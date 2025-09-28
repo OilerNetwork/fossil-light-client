@@ -11,6 +11,7 @@ services:
     # Environment variables sourced from .env.docker (simulating AWS Secrets Manager)
     environment:
       - NUM_BATCHES=${NUM_BATCHES:-2}
+      - START_BLOCK=${START_BLOCK}
       - DEPLOYMENT_VERSION=${DEPLOYMENT_VERSION:-local}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - CHAIN_ID=${CHAIN_ID:-11155111}
@@ -32,16 +33,15 @@ services:
 
     # Load secrets from .env.docker
     env_file:
-      - .env.docker
+      - .env.sepolia
 
     # No volumes (ECS has no volume mounts)
     # No env_file (ECS uses AWS Secrets Manager, not files)
     # No ports (ECS task definition has no port mappings)
+#     networks:
+#       - fossil-network
 
-    networks:
-      - fossil-network
-
-networks:
-  fossil-network:
-    external: true
-    name: fossil-network
+# networks:
+#   fossil-network:
+#     external: true
+#     name: fossil-network

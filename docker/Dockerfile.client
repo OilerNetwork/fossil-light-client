@@ -20,5 +20,28 @@ RUN mkdir -p /app/target/release/build/methods/out
 # Set environment variables
 ENV RUST_LOG=info
 
-# Define the entrypoint - this will be overridden when we copy the actual binary
-CMD ["/bin/bash", "-c", "echo 'Binary not found. Did you run the build script?' && exit 1"]
+# Create wrapper script for ECS compatibility
+RUN printf '%s\n' \
+    '#!/bin/bash' \
+    '' \
+    '# If no arguments are provided, use smart defaults' \
+    'if [ $# -eq 0 ]; then' \
+    '    # Check if ENV_FILE exists and is readable' \
+    '    if [ -n "${ENV_FILE:-}" ] && [ -f "${ENV_FILE}" ]; then' \
+    '        exec /usr/local/bin/client --env-file "${ENV_FILE}" ${POLLING_INTERVAL:+--polling-interval $POLLING_INTERVAL} ${START_BLOCK:+--start-block $START_BLOCK} ${BATCH_SIZE:+--batch-size $BATCH_SIZE} ${STARKNET_MONITORING_START:+--starknet-monitoring-start $STARKNET_MONITORING_START}' \
+    '    elif [ -f "/app/.env.docker" ]; then' \
+    '        exec /usr/local/bin/client --env-file /app/.env.docker ${POLLING_INTERVAL:+--polling-interval $POLLING_INTERVAL} ${START_BLOCK:+--start-block $START_BLOCK} ${BATCH_SIZE:+--batch-size $BATCH_SIZE} ${STARKNET_MONITORING_START:+--starknet-monitoring-start $STARKNET_MONITORING_START}' \
+    '    else' \
+    '        # ECS mode - no env file, rely on environment variables, use /dev/null to avoid default .env lookup' \
+    '        exec /usr/local/bin/client --env-file /dev/null ${POLLING_INTERVAL:+--polling-interval $POLLING_INTERVAL} ${START_BLOCK:+--start-block $START_BLOCK} ${BATCH_SIZE:+--batch-size $BATCH_SIZE} ${STARKNET_MONITORING_START:+--starknet-monitoring-start $STARKNET_MONITORING_START}' \
+    '    fi' \
+    'else' \
+    '    # Arguments provided, pass them directly to client' \
+    '    exec /usr/local/bin/client "$@"' \
+    'fi' \
+    > /usr/local/bin/client-wrapper.sh
+
+RUN chmod +x /usr/local/bin/client-wrapper.sh
+
+# Use ENTRYPOINT so it runs even with empty entrypoint/command arrays in ECS
+ENTRYPOINT ["/usr/local/bin/client-wrapper.sh"]

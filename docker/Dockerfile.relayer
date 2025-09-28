@@ -21,7 +21,7 @@ ENV OPENSSL_INCLUDE_DIR=/usr/include/openssl
 # Copy Cargo.toml and Cargo.lock
 COPY Cargo.toml Cargo.lock ./
 
-# Copy all workspace crates and the size-of-patch directory
+# Copy all workspace crates and size-of-patch directory (required by workspace)
 COPY crates ./crates
 COPY size-of-patch ./size-of-patch
 
