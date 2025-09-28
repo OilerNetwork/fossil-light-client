@@ -18,7 +18,7 @@ pub struct DbConnection {
 
 // Use Arc to allow thread-safe cloning
 impl DbConnection {
-    const MAX_RETRIES: u32 = 5;
+    const MAX_RETRIES: u32 = 10;
     const INITIAL_RETRY_DELAY: Duration = Duration::from_secs(2);
     const MAX_RETRY_DELAY: Duration = Duration::from_secs(30);
 
@@ -386,10 +386,30 @@ fn temp_to_block_header(temp: TempBlockHeader) -> Result<BlockHeader, PublisherE
         totaldifficulty: temp.totaldifficulty,
         sha3_uncles: temp.sha3_uncles, // Option<String> (if exists)
 
-        // Convert timestamp from decimal to hex string format
+        // Convert timestamp from decimal to hex string format for eth-rlp-verify compatibility
         timestamp: temp.timestamp.map(|ts| {
-            // Parse the decimal string to u64, then format as hex
-            ts.parse::<u64>().map(|t| format!("0x{t:x}")).unwrap_or(ts)
+            // If it's already a hex string, keep it; otherwise convert from decimal to hex
+            let converted = if ts.starts_with("0x") {
+                tracing::debug!(
+                    "Timestamp already in hex format for block {}: {}",
+                    temp.number,
+                    ts
+                );
+                ts
+            } else {
+                let converted = ts
+                    .parse::<u64>()
+                    .map(|t| format!("0x{:x}", t))
+                    .unwrap_or_else(|_| ts.clone());
+                tracing::debug!(
+                    "Converted timestamp for block {} from decimal '{}' to hex '{}'",
+                    temp.number,
+                    ts,
+                    converted
+                );
+                converted
+            };
+            converted
         }),
         extra_data: temp.extra_data,
         mix_hash: temp.mix_hash,
@@ -397,7 +417,11 @@ fn temp_to_block_header(temp: TempBlockHeader) -> Result<BlockHeader, PublisherE
         blob_gas_used: temp.blob_gas_used,
         excess_blob_gas: temp.excess_blob_gas,
         parent_beacon_block_root: temp.parent_beacon_block_root,
-        request_hash: temp.requests_hash,
+        request_hash: temp.requests_hash.or_else(|| {
+            // EIP-7685: Default to empty requests hash when NULL
+            // This is the keccak hash of an empty RLP list
+            Some("0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855".to_string())
+        }),
     })
 }
 
