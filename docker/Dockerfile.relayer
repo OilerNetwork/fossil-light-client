@@ -43,5 +43,28 @@ COPY --from=builder /app/target/release/relayer /usr/local/bin/relayer
 # Make the binary executable
 RUN chmod +x /usr/local/bin/relayer
 
-# Define the entrypoint
-ENTRYPOINT ["/usr/local/bin/relayer"]
+# Create wrapper script for ECS compatibility
+RUN printf '%s\n' \
+    '#!/bin/bash' \
+    '' \
+    '# If no arguments are provided, use smart defaults' \
+    'if [ $# -eq 0 ]; then' \
+    '    # Check if ENV_FILE exists and is readable' \
+    '    if [ -n "${ENV_FILE:-}" ] && [ -f "${ENV_FILE}" ]; then' \
+    '        exec /usr/local/bin/relayer --env-file "${ENV_FILE}" ${RELAY_TIME_MINUTES:+--relay-time-minutes $RELAY_TIME_MINUTES} ${JSON_LOGS:+--json-logs} ${LOG_LEVEL:+--log-level $LOG_LEVEL} ${METRICS_ADDR:+--metrics-addr $METRICS_ADDR} ${NO_METRICS:+--no-metrics}' \
+    '    elif [ -f "/app/.env.docker" ]; then' \
+    '        exec /usr/local/bin/relayer --env-file /app/.env.docker ${RELAY_TIME_MINUTES:+--relay-time-minutes $RELAY_TIME_MINUTES} ${JSON_LOGS:+--json-logs} ${LOG_LEVEL:+--log-level $LOG_LEVEL} ${METRICS_ADDR:+--metrics-addr $METRICS_ADDR} ${NO_METRICS:+--no-metrics}' \
+    '    else' \
+    '        # ECS mode - no env file, rely on environment variables, use /dev/null to avoid default .env lookup' \
+    '        exec /usr/local/bin/relayer --env-file /dev/null ${RELAY_TIME_MINUTES:+--relay-time-minutes $RELAY_TIME_MINUTES} ${JSON_LOGS:+--json-logs} ${LOG_LEVEL:+--log-level $LOG_LEVEL} ${METRICS_ADDR:+--metrics-addr $METRICS_ADDR} ${NO_METRICS:+--no-metrics}' \
+    '    fi' \
+    'else' \
+    '    # Arguments provided, pass them directly to relayer' \
+    '    exec /usr/local/bin/relayer "$@"' \
+    'fi' \
+    > /usr/local/bin/relayer-wrapper.sh
+
+RUN chmod +x /usr/local/bin/relayer-wrapper.sh
+
+# Use ENTRYPOINT so it runs even with empty entrypoint/command arrays in ECS
+ENTRYPOINT ["/usr/local/bin/relayer-wrapper.sh"]
