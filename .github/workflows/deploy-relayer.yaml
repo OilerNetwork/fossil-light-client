@@ -1,5 +1,8 @@
-name: Deploy Fossil light client to ECS
+name: Deploy Fossil light relayer to ECS
 on:
+  push:
+    branches:
+      - deploy-client
   # Called by main workflow
   workflow_call:
   # Allow manual trigger for testing
@@ -8,11 +11,11 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: fossil-images-repository
-  ECS_SERVICE: fossil-light-client-ecs
+  ECS_SERVICE: fossil-relayer-ecs
   ECS_CLUSTER: fossil-ecs-cluster
-  CONTAINER_NAME: fossil-light-client
-  TASK_NAME: fossil-light-client-ecs
-  DOCKER_IMAGE: ametelnethermind/fossil-client:latest
+  CONTAINER_NAME: fossil-relayer
+  TASK_NAME: fossil-relayer-ecs
+  DOCKER_IMAGE: ametelnethermind/fossil-relayer:latest
 
 permissions:
   id-token: write
