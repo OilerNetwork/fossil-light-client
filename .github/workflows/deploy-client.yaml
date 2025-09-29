@@ -15,7 +15,7 @@ env:
   ECS_CLUSTER: fossil-ecs-cluster
   CONTAINER_NAME: fossil-light-client
   TASK_NAME: fossil-light-client-ecs
-  DOCKER_IMAGE: ametelnethermind/fossil-light-client:latest
+  DOCKER_IMAGE: ametelnethermind/fossil-client:latest
 
 permissions:
   id-token: write
