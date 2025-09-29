@@ -59,6 +59,16 @@ async fn main() -> eyre::Result<()> {
     // Initialize environment with specified file
     dotenv::from_path(&args.env_file)?;
 
+    // Use RELAY_TIME_MINUTES from environment if no CLI argument was provided
+    let relay_time_minutes = if args.relay_time_minutes == 0 {
+        std::env::var("RELAY_TIME_MINUTES")
+            .ok()
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(0)
+    } else {
+        args.relay_time_minutes
+    };
+
     // Initialize structured logging with relayer's observability
     let logging_config = LoggingConfig::new()
         .with_json_format(args.json_logs)
@@ -99,15 +109,15 @@ async fn main() -> eyre::Result<()> {
     let health_checker = relayer.get_health_checker();
 
     info!(
-        single_run = (args.relay_time_minutes == 0),
-        interval_minutes = args.relay_time_minutes,
+        single_run = (relay_time_minutes == 0),
+        interval_minutes = relay_time_minutes,
         json_logs = args.json_logs,
         log_level = %args.log_level,
         metrics_enabled = !args.no_metrics,
         "Relayer initialized with observability features"
     );
 
-    if args.relay_time_minutes == 0 {
+    if relay_time_minutes == 0 {
         // Single run mode
         info!("Running in single execution mode");
         relayer
@@ -119,10 +129,10 @@ async fn main() -> eyre::Result<()> {
         // Continuous mode with specified interval
         info!(
             "Running in continuous mode with {} minute interval",
-            args.relay_time_minutes
+            relay_time_minutes
         );
 
-        let interval = Duration::from_secs(args.relay_time_minutes * 60);
+        let interval = Duration::from_secs(relay_time_minutes * 60);
 
         loop {
             let start_time = std::time::Instant::now();
