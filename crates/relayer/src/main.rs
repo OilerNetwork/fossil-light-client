@@ -56,8 +56,11 @@ struct Args {
 async fn main() -> eyre::Result<()> {
     let args = Args::parse();
 
-    // Initialize environment with specified file
-    dotenv::from_path(&args.env_file)?;
+    // Initialize environment with specified file (optional, for local development)
+    if dotenv::from_path(&args.env_file).is_err() {
+        // Silently continue - in containerized environments like ECS,
+        // environment variables are already set by the container runtime
+    }
 
     // Use RELAY_TIME_MINUTES from environment if no CLI argument was provided
     let relay_time_minutes = if args.relay_time_minutes == 0 {
