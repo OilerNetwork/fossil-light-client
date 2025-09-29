@@ -1,8 +1,8 @@
 name: Deploy Fossil light relayer to ECS
 on:
-  push:
-    branches:
-      - deploy-client
+#   push:
+#     branches:
+#       - deploy-client
   # Called by main workflow
   workflow_call:
   # Allow manual trigger for testing
@@ -53,7 +53,7 @@ jobs:
           docker pull ${{ env.DOCKER_IMAGE }}
           
           # Create ECR image tag
-          IMAGE_TAG=fossil-build-mmr-${{ github.sha }}
+          IMAGE_TAG=fossil-relayer-${{ github.sha }}
           ECR_IMAGE_URI=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           
           # Tag the Docker Hub image for ECR
