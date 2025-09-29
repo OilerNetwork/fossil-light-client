@@ -17,12 +17,14 @@ RUN mkdir -p /app/target/release/build/methods/out
 # The binary and method ELFs will be copied during the build script
 # using docker cp commands after the container is created
 
-# Set environment variables
-ENV RUST_LOG=info
-
 # Create wrapper script for ECS compatibility
 RUN printf '%s\n' \
     '#!/bin/bash' \
+    '' \
+    '# Set IPFS environment variables' \
+    'export IPFS_ADD_URL=https://ipfs.fossil.nethermind.dev/api/v0/add' \
+    'export IPFS_FETCH_BASE_URL=https://ipfs.fossil.nethermind.dev/ipfs/' \
+    'export IPFS_TOKEN=XvW7728X+u+fe1iPPR6yJYGyOUBEhAP3jCLK7AjI/TE=' \
     '' \
     '# If no arguments are provided, use smart defaults' \
     'if [ $# -eq 0 ]; then' \
