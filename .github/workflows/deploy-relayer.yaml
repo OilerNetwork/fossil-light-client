@@ -1,4 +1,4 @@
-name: Deploy Fossil light relayer to ECS
+name: Deploy Fossil relayer to ECS
 on:
   # Called by main workflow
   workflow_call:
