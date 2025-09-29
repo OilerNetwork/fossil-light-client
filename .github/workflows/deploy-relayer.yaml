@@ -1,8 +1,8 @@
 name: Deploy Fossil light relayer to ECS
 on:
-#   push:
-#     branches:
-#       - deploy-client
+  push:
+    branches:
+      - deploy-client
   # Called by main workflow
   workflow_call:
   # Allow manual trigger for testing
