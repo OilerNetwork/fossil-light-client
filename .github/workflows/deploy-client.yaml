@@ -1,5 +1,8 @@
 name: Deploy Fossil light client to ECS
 on:
+  push:
+    branches:
+      - deploy-client
   # Called by main workflow
   workflow_call:
   # Allow manual trigger for testing
