@@ -467,13 +467,12 @@ impl<'a> AccumulatorBuilder<'a> {
             self.verify_proof(proof.calldata(), batch_result.ipfs_hash(), is_build)
                 .await?;
         } else {
-            error!(
-                batch_result = ?batch_result,
-                "No proof available for verification - batch processing failed"
+            // No proof means batch was already complete on-chain, skip verification
+            info!(
+                "Batch already complete on-chain (blocks {}-{}), skipping verification",
+                batch_result.start_block(),
+                batch_result.end_block()
             );
-            return Err(PublisherError::validation(format!(
-                "No proof available for verification for batch: {batch_result:?}"
-            )));
         }
         Ok(())
     }

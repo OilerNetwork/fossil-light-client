@@ -84,7 +84,7 @@ impl<'a> BatchProcessor<'a> {
         }
 
         let batch_index = start_block / self.batch_size;
-        debug!("Processing batch index: {batch_index}");
+        info!("Processing batch index: {batch_index}");
         let (batch_start, batch_end) = self.calculate_batch_bounds(batch_index)?;
 
         if start_block < batch_start {
@@ -144,7 +144,10 @@ impl<'a> BatchProcessor<'a> {
                                 let leaves_count = m.leaves_count.get().await?;
 
                                 if leaves_count as u64 >= self.batch_size {
-                                    debug!("Batch {batch_index} is already complete");
+                                    info!(
+                                        "Batch {} already complete: blocks {}-{} (skipping)",
+                                        batch_index, batch_start, batch_end
+                                    );
 
                                     // Create BatchResult and return early
                                     let mmr_state_for_result = starknet_handler::MmrState::new(
@@ -409,7 +412,7 @@ impl<'a> BatchProcessor<'a> {
 
         // Generate proof
         let (guest_output, proof) = {
-            debug!("Generating proof for blocks {start_block}-{end_block}");
+            info!("Generating proof for blocks {start_block}-{end_block}");
 
             // Generate the proof with better error handling
             let result = match self
@@ -482,6 +485,12 @@ impl<'a> BatchProcessor<'a> {
             proof,
             ipfs_hash,
         ));
+
+        // Log batch completion with key information
+        info!(
+            "Batch {} completed: blocks {}-{} processed successfully",
+            batch_index, start_block, adjusted_end_block
+        );
 
         // The file will be automatically cleaned up when _cleanup_guard goes out of scope
         Ok(batch_result)
