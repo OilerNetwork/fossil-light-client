@@ -169,6 +169,61 @@ Ethereum Block → Fossil Postures DB → RISC0 VM (validate + compute)
 - **Fee Aggregation**: Hourly intervals (3600 seconds)
 - **Storage**: On-chain (commitments only), Off-chain (full MMR state in IPFS)
 
-## 9. Summary
+## 9. Current Limitations and Future Considerations
+
+> **⚠️ IMPORTANT FOR FUTURE DEVELOPERS**: The following limitations require attention and planning for long-term system sustainability.
+
+### 9.1 Bonsai Prover Deprecation
+
+Fossil currently relies on the **Bonsai remote prover**, a managed proving service operated by the RISC0 team. However, the RISC0 team has announced plans to **deprecate Bonsai**, and they recommend migrating to **Boundless**, a decentralized and trustless proving marketplace.
+
+**Impact**: This transition is non-trivial, as it introduces architectural and operational implications:
+
+- **Integration Requirements**: Boundless integration requires modifications to Fossil's proof submission and verification workflows
+- **Performance Changes**: Proof batching, verification latency, and cost structures will change compared to the managed Bonsai environment
+- **Security Considerations**: Security guarantees remain equivalent but require additional protocol-level coordination
+
+### 9.2 Evaluation of Alternative Proving Systems
+
+Given the computational complexity of Pitchlake's pricing models and the size of Fossil's aggregated datasets, **RISC0 may not be the most efficient long-term proving system**.
+
+**Recommendations for future development teams**:
+
+1. **Migrate to Boundless** if maintaining zkVM compatibility with RISC0 is a priority
+   - Ensures continuity with current RISC0-based implementation
+   - Provides decentralized proving infrastructure
+
+2. **Evaluate SP1 (Succinct)** or similar high-performance zkVMs as potential replacements for RISC0
+   - **SP1 Advantages**:
+     - Lower proof generation latency
+     - Improved scalability for large, data-heavy computations
+     - Potential to significantly reduce compute costs
+   - **Migration Considerations**:
+     - Requires adapting Fossil's proof format
+     - Requires updating verification contracts on Starknet
+     - Development effort vs. performance gains trade-off analysis needed
+
+### 9.3 Action Items for Future Contributors
+
+Future contributors should:
+
+1. **Monitor RISC0 Deprecation Timeline**: Track Bonsai deprecation schedule and plan migration accordingly
+2. **Benchmark Alternative Provers**: Conduct performance analysis comparing:
+   - Boundless (RISC0-compatible)
+   - SP1 (Succinct)
+   - Other emerging zkVM solutions
+3. **Cost Analysis**: Evaluate proof generation costs across different proving backends
+4. **Migration Planning**: Develop a phased migration strategy that minimizes system downtime
+5. **Verification Contract Updates**: Plan for smart contract upgrades to support new proof formats if migrating away from RISC0
+
+**Decision Framework**: Carefully assess the trade-offs between maintaining RISC0 compatibility versus migrating to a more performant proving backend based on:
+- Computational efficiency requirements
+- Cost constraints
+- Development resources available
+- Timeline for Bonsai deprecation
+
+## 10. Summary
 
 Fossil establishes a verifiable, decentralized data bridge between Ethereum and Starknet, transforming raw L1 gas fee data into trustless, on-chain accessible state. Its modular architecture—comprising the MMR Builder, Light Client, and integration with the Pitchlake Coprocessor—provides a scalable foundation for zk-powered computation markets.
+
+**Note**: Future teams should prioritize addressing the proving system migration outlined in Section 9 to ensure long-term system sustainability and optimal performance.

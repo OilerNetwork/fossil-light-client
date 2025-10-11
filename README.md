@@ -66,6 +66,33 @@ Fossil is a trustless data infrastructure designed to store Ethereum Layer 1 (L1
 - Requests are processed through a proving service that executes computations in RISC0 VM and generates ZK proofs
 - Verified proofs are submitted to Starknet, and journal data is extracted and transmitted to the Pitchlake Vault contract
 
+## ⚠️ Important: Current Limitations & Future Considerations
+
+> **FOR FUTURE DEVELOPERS**: Please review these critical considerations before continuing development.
+
+### Bonsai Prover Deprecation
+
+Fossil currently relies on **Bonsai** (RISC0's managed proving service), which is **planned for deprecation**. The RISC0 team recommends migrating to **Boundless**, a decentralized proving marketplace.
+
+**Key Implications:**
+- Migration requires modifications to proof submission and verification workflows
+- Proof batching, latency, and cost structures will change
+- Security guarantees remain equivalent but need protocol-level coordination
+
+### Alternative Proving Systems
+
+Given Pitchlake's computational complexity and Fossil's dataset size, **RISC0 may not be the most efficient long-term solution**.
+
+**Recommendations:**
+1. **Boundless Migration** - If maintaining RISC0 compatibility is priority
+2. **Evaluate SP1 (Succinct)** - Offers lower latency and better scalability for large computations
+   - Requires proof format and verification contract updates
+   - Could significantly reduce compute costs
+
+**Action Required**: Future teams should benchmark alternative provers (Boundless, SP1, etc.) and plan migration strategy based on performance, cost, and timeline constraints.
+
+📖 **See [Technical Specification - Section 9](./docs/technical-specification.md#9-current-limitations-and-future-considerations) for detailed analysis and migration guidance.**
+
 ## 📚 Detailed Documentation
 
 ### Deployment Options
