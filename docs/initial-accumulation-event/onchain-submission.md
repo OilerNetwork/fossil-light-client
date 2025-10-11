@@ -1,7 +1,4 @@
---- 
-id: onchain-submission
-title: On-Chain Submission
----
+# On-Chain Submission
 
 The Fossil Snark Verifier (FSV) deserializes the proof and verifies its validity through pairing checks.
 
@@ -58,7 +55,7 @@ The MMR state stored on-chain is composed of the following elements, all extract
 
 - **First Block Parent Hash**: Used to verify the batches link onchain.
 
-- **IPFS Address**: The IPFS hash for the LiteSQL `.db` file containing the full off-chain MMR state, including all intermediate and leaf hashes.
+- **IPFS Address**: The IPFS hash for the SQLite `.db` file containing the full off-chain MMR state, including all intermediate and leaf hashes.
 
 By extracting and verifying these elements directly from the proof journal and including the IPFS address in the MMR state, the system ensures tamper-proof and trustless updates.
 

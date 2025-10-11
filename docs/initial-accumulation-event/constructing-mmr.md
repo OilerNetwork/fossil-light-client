@@ -1,11 +1,6 @@
----
-id: constructing-mmr
-title: Constructing the Merkle Mountain Range
----
+# Constructing the Merkle Mountain Range
 
-![Constructing the MMR](/img/04.png)
-
-The MMR is constructed as a perfect binary tree, where each appended block hash is added as a leaf, it can be seen either as list of perfectly balance binary trees or a single binary tree that would have been truncated from the top right.
+The MMR is constructed as a perfect binary tree, where each appended block hash is added as a leaf. It can be seen either as a list of perfectly balanced binary trees or a single binary tree that would have been truncated from the top right.
 
 A Merkle Mountain Range (MMR) is strictly append-only: elements are added from the left to the right, adding a parent as soon as 2 children exist, filling up the range accordingly.
 

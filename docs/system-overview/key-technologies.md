@@ -1,7 +1,4 @@
----
-id: key-technologies
-title: Key Technologies
----
+# Key Technologies
 
 - **RISC0 zkVM**: A zero-knowledge virtual machine used to generate cryptographic proofs of computation integrity without exposing private inputs.
 

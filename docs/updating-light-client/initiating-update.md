@@ -1,18 +1,15 @@
----
-id: initiating-update
-title: Initiating the Update Process
----
+# Initiating the Update Process
 
-The Client Updater (CU) monitors the Fossil Store (FS) contract for `LatestBlockhashFromL1Stored` events, which indicate new finalized block hashes have been relayed from Ethereum L1.
+The Light Client monitors the Fossil Store (FS) contract for `LatestBlockhashFromL1Stored` events, which indicate new finalized block hashes have been relayed from Ethereum L1.
 
 ## Event Processing
 
 1. **Event Detection**:
-   - The CU polls for new events between its last processed block and the latest Starknet block
+   - The Light Client polls for new events between its last processed block and the latest Starknet block
    - Events are filtered using the FS contract address and the `LatestBlockhashFromL1Stored` event selector
 
 2. **State Retrieval**:
-   - The CU queries two key pieces of information from the FS contract:
+   - The Light Client queries two key pieces of information from the FS contract:
      - Latest relayed block from L1 using `get_latest_blockhash_from_l1()`
      - Latest MMR block using `get_latest_mmr_block()`
    - These values determine the range of blocks requiring an update
@@ -39,7 +36,7 @@ This batch structure allows for efficient state tracking and verification of con
 For each batch, the complete MMR state is stored in a SQLite database file (`.db`) on IPFS:
 
 1. **IPFS Hash Retrieval**:
-   - The CU fetches the IPFS hash from the FS contract's MMR batch data
+   - The Light Client fetches the IPFS hash from the FS contract's MMR batch data
    - Basic validation ensures the hash starts with "Qm"
 
 2. **Database Download**:

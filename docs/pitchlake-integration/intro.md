@@ -1,7 +1,4 @@
----
-id: pitchlake-integration
-title: Pitchlake Coprocessor Integration
----
+# Pitchlake Coprocessor Integration
 
 > **Note:** The Pitchlake Coprocessor is maintained in a separate repository. This section provides a brief overview of how it integrates with Fossil.
 

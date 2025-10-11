@@ -1,7 +1,4 @@
----
-id: grouping-headers
-title: Block Header Grouping
----
+# Block Header Grouping
 
 Block headers are grouped by hour to calculate average gas fees efficiently. This process ensures that fee data is organized in consistent time intervals.
 

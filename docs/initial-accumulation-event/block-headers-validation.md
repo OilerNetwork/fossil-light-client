@@ -1,9 +1,4 @@
----
-id: block-headers-validation
-title: Block Headers Validation
----
-
-![Block Header Validation](/img/03.png)
+# Block Headers Validation
 
 Validation ensures each block header is both internally consistent and part of a valid chain:
 

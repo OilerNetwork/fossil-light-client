@@ -1,7 +1,4 @@
----
-id: zkvm-calculation
-title: ZK Proof of Fee Calculation
----
+# ZK Proof of Fee Calculation
 
 The average gas fees are calculated inside a RISC Zero zkVM guest program, ensuring the integrity and correctness of the calculations.
 

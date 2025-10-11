@@ -1,9 +1,6 @@
----
-id: intro
-title: Updating the Light Client
----
+# Updating the Light Client
 
-As new blocks are produced by Ethereum, their hashes must be added to the Fossil Light Client (FLC). The client maintains two key block numbers:
+As new blocks are produced by Ethereum, their hashes must be added to the Fossil Light Client. The client maintains two key block numbers:
 
 - The latest processed events block
 - The latest processed MMR block
@@ -24,6 +21,6 @@ The update process follows these steps:
    - Generates and verifies proofs on-chain
    - Updates the MMR state in the Starknet store
 
-This forward-moving process ensures the FLC remains synchronized with Ethereum's canonical chain, processing new blocks as they become available and are finalized on L1.
+This forward-moving process ensures the Light Client remains synchronized with Ethereum's canonical chain, processing new blocks as they become available and are finalized on L1.
 
 The client runs continuously, with a configurable polling interval, to maintain up-to-date state between Ethereum and Starknet.

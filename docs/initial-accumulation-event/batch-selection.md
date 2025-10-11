@@ -1,7 +1,4 @@
----
-id: batch-selection
-title: Batch Selection
----
+# Batch Selection
 
 To optimize MMR append and proof operations, the size of each MMR is limited to 1024 blocks.
 

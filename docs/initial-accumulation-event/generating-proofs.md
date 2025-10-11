@@ -1,8 +1,4 @@
----
-id: generating-proofs
-title: Generating the Proofs
----
-![Generating Proofs](/img/05.png)
+# Generating the Proofs
 
 Integrity verification and MMR append operations are executed inside a RISC0 zkVM, generating cryptographic guarantees for correctness without requiring trust in off-chain computations.
 

@@ -1,7 +1,4 @@
----
-id: storage-and-retrieval
-title: Fee Storage and Retrieval
----
+# Fee Storage and Retrieval
 
 The Fossil Store contract maintains a mapping of hourly gas fee data that can be efficiently queried.
 

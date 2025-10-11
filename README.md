@@ -66,13 +66,13 @@ Fossil is a trustless data infrastructure designed to store Ethereum Layer 1 (L1
 - Requests are processed through a proving service that executes computations in RISC0 VM and generates ZK proofs
 - Verified proofs are submitted to Starknet, and journal data is extracted and transmitted to the Pitchlake Vault contract
 
-## ⚠️ Important: Current Limitations & Future Considerations
+## ⚠️ Critical: Current Limitations & Future Considerations
 
-> **FOR FUTURE DEVELOPERS**: Please review these critical considerations before continuing development.
+> **FOR FUTURE DEVELOPERS**: Review these critical considerations before continuing development.
 
 ### Bonsai Prover Deprecation
 
-Fossil currently relies on **Bonsai** (RISC0's managed proving service), which is **planned for deprecation**. The RISC0 team recommends migrating to **Boundless**, a decentralized proving marketplace.
+Fossil currently relies on **Bonsai** (RISC0's managed proving service), which is **planned for deprecation**. RISC0 recommends migrating to **Boundless**, a decentralized proving marketplace.
 
 **Key Implications:**
 - Migration requires modifications to proof submission and verification workflows
@@ -93,61 +93,16 @@ Given Pitchlake's computational complexity and Fossil's dataset size, **RISC0 ma
 
 📖 **See [Technical Specification - Section 9](./docs/technical-specification.md#9-current-limitations-and-future-considerations) for detailed analysis and migration guidance.**
 
-## 📚 Detailed Documentation
+## 📚 Documentation
+
+For comprehensive technical documentation, architecture details, and system specifications, see the [Documentation Index](./docs/intro.md).
 
 ### Deployment Options
 
-This documentation outlines two deployment approaches:
+This README outlines two deployment approaches:
 
 1. 🐋 **Docker-Based Deployment**: Recommended for most users, handles all dependencies automatically
 2. 🔧 **Manual Compilation**: For development and debugging, runs light client binaries from source
-
-### Documentation Setup
-
-To run the documentation locally:
-
-1. Install Yarn:
-   - **For macOS:**
-
-     ```bash
-     # Using Homebrew
-     brew install yarn
-     # Using npm
-     npm install --global yarn
-     ```
-
-   - **For Linux:**
-
-     ```bash
-     # Using npm
-     npm install --global yarn
-     # Using Debian/Ubuntu
-     curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
-     echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
-     sudo apt update
-     sudo apt install yarn
-     ```
-
-   - **For Windows:**
-
-     ```bash
-     # Using npm
-     npm install --global yarn
-     # Using Chocolatey
-     choco install yarn
-     # Using Scoop
-     scoop install yarn
-     ```
-
-2. Start the documentation server:
-
-   ```bash
-   cd docs/
-   yarn
-   yarn start
-   ```
-
-This will start a local server and open the documentation in your default browser. The documentation will automatically reload when you make changes to the source files.
 
 ## 🐋 Docker-Based Deployment
 

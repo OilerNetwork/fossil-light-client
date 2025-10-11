@@ -1,7 +1,4 @@
----
-id: relaying-block-hashes
-title: Relaying Finalized Block Hashes
----
+# Relaying Finalized Block Hashes
 
 Every several hours, a finalized block hash is sent from L1 to L2 on Starknet via the Fossil Relayer.
 

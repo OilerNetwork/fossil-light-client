@@ -1,7 +1,4 @@
----
-id: technical-specification
-title: Fossil Technical Specification
----
+# Fossil Technical Specification
 
 ## 1. Overview
 
@@ -171,13 +168,13 @@ Ethereum Block → Fossil Postures DB → RISC0 VM (validate + compute)
 
 ## 9. Current Limitations and Future Considerations
 
-> **⚠️ IMPORTANT FOR FUTURE DEVELOPERS**: The following limitations require attention and planning for long-term system sustainability.
+> **⚠️ CRITICAL FOR FUTURE DEVELOPERS**: The following limitations require immediate attention and planning for long-term system sustainability.
 
 ### 9.1 Bonsai Prover Deprecation
 
-Fossil currently relies on the **Bonsai remote prover**, a managed proving service operated by the RISC0 team. However, the RISC0 team has announced plans to **deprecate Bonsai**, and they recommend migrating to **Boundless**, a decentralized and trustless proving marketplace.
+Fossil currently relies on **Bonsai**, a managed proving service operated by the RISC0 team. However, RISC0 has announced plans to **deprecate Bonsai** and recommends migrating to **Boundless**, a decentralized proving marketplace.
 
-**Impact**: This transition is non-trivial, as it introduces architectural and operational implications:
+**Impact**: This transition introduces significant architectural and operational implications:
 
 - **Integration Requirements**: Boundless integration requires modifications to Fossil's proof submission and verification workflows
 - **Performance Changes**: Proof batching, verification latency, and cost structures will change compared to the managed Bonsai environment
@@ -216,11 +213,11 @@ Future contributors should:
 4. **Migration Planning**: Develop a phased migration strategy that minimizes system downtime
 5. **Verification Contract Updates**: Plan for smart contract upgrades to support new proof formats if migrating away from RISC0
 
-**Decision Framework**: Carefully assess the trade-offs between maintaining RISC0 compatibility versus migrating to a more performant proving backend based on:
+**Decision Framework**: Future teams should carefully assess trade-offs between maintaining RISC0 compatibility and migrating to a more performant proving backend based on:
 - Computational efficiency requirements
 - Cost constraints
-- Development resources available
-- Timeline for Bonsai deprecation
+- Available development resources
+- Bonsai deprecation timeline
 
 ## 10. Summary
 

@@ -1,7 +1,4 @@
----
-id: intro
-title: Gas Fee Calculation Overview
----
+# Gas Fee Calculation Overview
 
 The Fossil Light Client includes a system for calculating and storing average gas fees from Ethereum blocks. This data is processed in hourly intervals and stored on Starknet for efficient retrieval.
 
