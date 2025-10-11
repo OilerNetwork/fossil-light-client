@@ -4,6 +4,12 @@
 
 Fossil is a trustless data infrastructure designed to store Ethereum Layer 1 (L1) base gas fee data on Starknet, enabling verified off-chain computation for the Pitchlake options market. It leverages the RISC0 zkVM to perform deterministic data extraction, validation, and aggregation, producing zero-knowledge proofs verifiable on-chain.
 
+### System Architecture Diagram
+
+![Fossil System Architecture](./images/fossil-architecture.png)
+
+*Complete Fossil system architecture showing the data flow from Ethereum L1 through the Light Client, MMR Builder, RISC0 zkVM, Starknet L2 contracts, and Pitchlake integration.*
+
 ## 2. Architecture Components
 
 ### 2.1 Core Infrastructure

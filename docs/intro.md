@@ -10,6 +10,12 @@ All Ethereum block hashes are verified for integrity and stored in on-chain Merk
 
 This documentation provides a comprehensive technical overview of the system architecture, implementation details, and operational procedures for developers maintaining and extending the Fossil ecosystem.
 
+## System Architecture Overview
+
+![Fossil System Architecture](./images/fossil-architecture.png)
+
+**Fossil System Architecture**: This diagram illustrates the complete Fossil data and computation pipeline. Finalized Ethereum block headers are indexed and validated through the Fossil Light Client and MMR Builder using the RISC0 zkVM. Validated fee data and Merkle Mountain Range (MMR) roots are stored on Starknet in the Fossil Store contract, with large state data persisted on IPFS. The Light Client continuously synchronizes new finalized blocks through an L1→L2 relayer, ensuring continuous updates. The Pitchlake Coprocessor—comprising the Fossil API, Proving Service, and Message Handler—consumes this fee data to perform verifiable computations (e.g., options pricing) in RISC0. Verified results are published to the Pitchlake Vault contract for protocol-level use.
+
 ## 📖 Documentation Structure
 
 ### Core Documentation

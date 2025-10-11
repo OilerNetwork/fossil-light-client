@@ -1,5 +1,9 @@
 # Components and Data Flow
 
+![Fossil System Architecture](../images/fossil-architecture.png)
+
+*Fossil system architecture illustrating component interactions and data flow across Ethereum L1, Starknet L2, IPFS, and the Pitchlake integration.*
+
 ## System Components
 
 - **L1 Message Sender (L1MS)**: An Ethereum L1 smart contract that sends finalized block hashes to Starknet via L1-to-L2 messaging.
