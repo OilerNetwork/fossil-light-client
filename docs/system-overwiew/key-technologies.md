@@ -11,4 +11,6 @@ title: Key Technologies
 
 - **Starknet**: A Layer-2 scaling solution for Ethereum that enables scalable and trust-minimized computation and storage.
 
-- **PostgreSQL**: A relational database system used for storing and retrieving Ethereum block header data.
+- **Fossil Postures Database**: A PostgreSQL-based relational database populated by an indexer that tracks all finalized Ethereum blocks. It stores block header data that Fossil retrieves for processing and validation.
+
+- **AWS SQS** (Pitchlake Integration): Used by the Pitchlake Coprocessor (separate repository) for asynchronous request queuing and processing.

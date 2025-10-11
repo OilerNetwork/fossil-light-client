@@ -11,7 +11,7 @@ title: Components and Data Flow
 
 - **Fossil Store (FS)**: A Starknet smart contract that stores the latest finalized block hash and the state of each MMR. It emits events that the Client Updater listens to for triggering updates.
 
-- **Fossil Relayer (FR)**: A Rust binary responsible for calling the `sendFinalizedBlockHashToL2` function in L1MS to relay finalized block hashes to Starknet at predetermined intervals (TBD).
+- **Fossil Relayer (FR)**: A Rust binary responsible for calling the `sendFinalizedBlockHashToL2` function in L1MS to relay finalized block hashes to Starknet every 6 hours (configurable).
 
 - **Client Updater (CU)**: A Rust binary that listens for events from FS and appends new finalized Ethereum block hashes to the MMRs.
 

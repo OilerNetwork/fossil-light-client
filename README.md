@@ -26,6 +26,46 @@
 - 🚀 **Scalable Architecture**: Process Ethereum blocks in batches with MMR accumulation
 - 🛠️ **Flexible Deployment**: Run via Docker or compile manually for development
 
+## 🎯 System Overview
+
+### What is Fossil?
+
+Fossil is a trustless data infrastructure designed to store Ethereum Layer 1 (L1) base gas fee data on Starknet, enabling verified off-chain computation for the Pitchlake options market. It leverages the RISC0 zkVM to perform deterministic data extraction, validation, and aggregation, producing zero-knowledge proofs verifiable on-chain.
+
+### How it Works
+
+**Data Ingestion and Validation:**
+- Fossil retrieves finalized Ethereum block headers from the Fossil Postures Database, which is populated by an indexer tracking all finalized Ethereum blocks
+- Block headers are processed in batches of 1024 inside the RISC0 VM to ensure trustlessness
+- Within the VM, each block header is rehashed to confirm its computed hash matches the block hash
+- Parent-child relations between headers are validated to ensure sequential integrity
+- Once verified, the base fee per gas is extracted from each header
+- Hourly average base fees are computed across the verified blocks
+
+**Data Storage:**
+- A Merkle Mountain Range (MMR) is constructed using the block hashes as leaves
+- The prover commits to the proof journal: hourly average base fees, MMR root hash, and total number of MMR leaves
+- The full MMR state is exported to a SQLite database, uploaded to IPFS, and referenced by its CID
+- Only the proof journal and IPFS CID are stored on-chain in the Fossil Store contract
+
+**System Processes:**
+
+1. **MMR Builder** (Backward Reconstruction)
+   - Reconstructs historical Ethereum data backward from a known finalized block
+   - Starting from the latest finalized block hash and number, iteratively builds MMR batches backward until the genesis block
+
+2. **Light Client** (Forward Synchronization)
+   - Continuously updates Fossil's data forward as new finalized blocks are produced
+   - Works alongside an off-chain relayer that sends finalized block numbers and hashes from Ethereum L1 to Starknet L2 every 6 hours (configurable) through L1 → L2 messaging contracts
+   - On Starknet, the L1MessageProxy contract receives and forwards block data to Fossil Store, emitting an update event
+   - The light client retrieves the latest batch metadata, updates the MMR from the last known block to the new finalized block
+   - If a batch is incomplete, reconstructs state using on-chain MMR data and the corresponding IPFS snapshot before continuing
+
+**Pitchlake Integration:**
+- The Pitchlake Coprocessor (separate repository) leverages Fossil's validated fee data for on-chain computations
+- Requests are processed through a proving service that executes computations in RISC0 VM and generates ZK proofs
+- Verified proofs are submitted to Starknet, and journal data is extracted and transmitted to the Pitchlake Vault contract
+
 ## 📚 Detailed Documentation
 
 ### Deployment Options
